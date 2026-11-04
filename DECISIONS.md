@@ -59,3 +59,7 @@ running passes on it needs exclusive access, so a value held across either does 
 to the context and survive. Two pieces cover passes that keep lists: erasing several values at once, and a tracked
 handle that survives changes and says whether its value is still there, built on LLVM's `WeakVH`. Claude proposed it;
 the owner chose it: "enforce". (Owner, 2026-11-04)
+
+**D12. Our own bindings.** Lyftar generates its own raw bindings to LLVM's C API with `bindgen`, rather than depending
+on `llvm-sys`, so a new LLVM never waits on another crate's release. Lyftar owns its linking and build setup. Claude
+suggested `llvm-sys`; the owner chose otherwise: "our own". (Owner, 2026-11-04)
