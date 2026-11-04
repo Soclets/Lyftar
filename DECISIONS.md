@@ -36,3 +36,7 @@ spelling is not settled here. (Owner, 2026-11-04)
 **D7. `Integer<Bits<64>>`.** A specific integer is spelled `Integer<Bits<64>>`, so its value is
 `Value<Integer<Bits<64>>>`. This settles the spelling D6 left open. Claude proposed it; the owner chose it: "yes".
 (Owner, 2026-11-04)
+
+**D8. Every number says its unit.** Every number in Lyftar's API says its unit, such as `size_in_bits`,
+`store_size_in_bytes` and `alignment_in_bytes`. Claude proposed it; the owner chose it: "yes to both". (Owner,
+2026-11-04)
