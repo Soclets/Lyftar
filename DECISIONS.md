@@ -32,3 +32,7 @@ this; the owner chose it: "yes". The spelling of the type names is not settled h
 
 **D6. An integer's width says its unit.** The unit is bits, and the name shows it: "Where's the unit? Bits". The
 spelling is not settled here. (Owner, 2026-11-04)
+
+**D7. `Integer<Bits<64>>`.** A specific integer is spelled `Integer<Bits<64>>`, so its value is
+`Value<Integer<Bits<64>>>`. This settles the spelling D6 left open. Claude proposed it; the owner chose it: "yes".
+(Owner, 2026-11-04)
