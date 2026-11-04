@@ -63,3 +63,9 @@ the owner chose it: "enforce". (Owner, 2026-11-04)
 **D12. Our own bindings.** Lyftar generates its own raw bindings to LLVM's C API with `bindgen`, rather than depending
 on `llvm-sys`, so a new LLVM never waits on another crate's release. Lyftar owns its linking and build setup. Claude
 suggested `llvm-sys`; the owner chose otherwise: "our own". (Owner, 2026-11-04)
+
+**D13. The bindings are committed.** The generated bindings live in the repository and a command regenerates them when
+LLVM moves, so users need neither `libclang` nor `bindgen`, and each upgrade shows as a diff of the C API. If one file
+cannot fit every platform, each platform gets its own, with CI checking they are current. `build.rs` checks that the
+LLVM it finds is the supported version and stops with a clear error if not. Claude proposed it; the owner chose it:
+"opt 1". (Owner, 2026-11-04)
