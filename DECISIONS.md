@@ -74,3 +74,7 @@ LLVM it finds is the supported version and stops with a clear error if not. Clau
 `libclang` nor `bindgen`. Every other platform generates its bindings during the build, and needs `libclang` there.
 Claude suggested macOS and Linux with committed bindings and leaving Windows for later; the owner chose: "Mac, and the
 others do opt 2". (Owner, 2026-11-04)
+
+**D15. Raw access in `unsafe`.** Each Lyftar type has `unsafe fn as_raw()` and `unsafe fn from_raw()`, and the raw
+bindings are public as `lyftar::raw`, with no feature flag in front of them. Raw code can break what D11 guarantees,
+and the `unsafe` marks where. Claude proposed it; the owner chose it: "opt 1". (Owner, 2026-11-04)
