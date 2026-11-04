@@ -78,3 +78,7 @@ others do opt 2". (Owner, 2026-11-04)
 **D15. Raw access in `unsafe`.** Each Lyftar type has `unsafe fn as_raw()` and `unsafe fn from_raw()`, and the raw
 bindings are public as `lyftar::raw`, with no feature flag in front of them. Raw code can break what D11 guarantees,
 and the `unsafe` marks where. Claude proposed it; the owner chose it: "opt 1". (Owner, 2026-11-04)
+
+**D16. One crate.** Lyftar is one crate, `lyftar`, and the C++ shim always compiles. Its modules follow how LLVM divides
+its C API, such as `lyftar::debug_info`, `lyftar::passes` and `lyftar::jit`. The owner asked what very specific crates
+would make; Claude mapped them and suggested one crate; the owner chose it: "How about one?" (Owner, 2026-11-04)
