@@ -53,3 +53,9 @@ binary?" Claude proposed the rest. (Owner, 2026-11-04)
 its own lifetime. Using a value with another context, or taking one out of the closure, does not compile; plain data
 such as object file bytes can be returned. A long-lived JIT runs inside the closure or takes a fresh context per
 compile. Claude proposed it; the owner chose it: "opt 2". (Owner, 2026-11-04)
+
+**D11. The compiler enforces deletion.** A value that belongs to a module borrows it, and deleting from the module or
+running passes on it needs exclusive access, so a value held across either does not compile. Types and constants belong
+to the context and survive. Two pieces cover passes that keep lists: erasing several values at once, and a tracked
+handle that survives changes and says whether its value is still there, built on LLVM's `WeakVH`. Claude proposed it;
+the owner chose it: "enforce". (Owner, 2026-11-04)
