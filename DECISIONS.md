@@ -48,3 +48,8 @@ binary formats say the standard, the base and the width: `half` is `Float<Ieee75
 and `Float<PowerPcDoubleDouble>` for `ppc_fp128`. `Ieee754` is the standard's name and counts as a word under D5. The
 owner asked for the standard and then the base: "Shouldn't it say the standard too? IEEE 754, right?" and "Bro, where's
 binary?" Claude proposed the rest. (Owner, 2026-11-04)
+
+**D10. A context lives in a closure.** LLVM work happens inside `with_context(|context| ...)`, which gives each context
+its own lifetime. Using a value with another context, or taking one out of the closure, does not compile; plain data
+such as object file bytes can be returned. A long-lived JIT runs inside the closure or takes a fresh context per
+compile. Claude proposed it; the owner chose it: "opt 2". (Owner, 2026-11-04)
