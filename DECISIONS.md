@@ -25,3 +25,7 @@ code is checked at `cargo build`, and a type that comes from the program being c
 when the line runs and panicking as in D3. A checked cast moves a value from dynamic to specific, and a pass can ask
 about a type and get an `Option`. The owner asked for the best design with the writing pain ignored; Claude proposed
 this; the owner chose it: "yes". The spelling of the type names is not settled here. (Owner, 2026-11-04)
+
+**D5. Full words, no exceptions.** Names in Lyftar's API are full words: `Integer`, `Pointer`, `Dynamic`,
+`integer_add`, `zero_extend`, and `get_element_pointer` rather than `gep`. Claude proposed the rule and asked whether
+`gep` should be an exception; the owner chose: "yes, and no". (Owner, 2026-11-04)
