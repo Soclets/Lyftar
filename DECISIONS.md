@@ -40,3 +40,11 @@ spelling is not settled here. (Owner, 2026-11-04)
 **D8. Every number says its unit.** Every number in Lyftar's API says its unit, such as `size_in_bits`,
 `store_size_in_bytes` and `alignment_in_bytes`. Claude proposed it; the owner chose it: "yes to both". (Owner,
 2026-11-04)
+
+**D9. Floats say their format.** Every floating-point type is a `Float<F>`, where `F` says the format. IEEE 754's
+binary formats say the standard, the base and the width: `half` is `Float<Ieee754Binary<Bits<16>>>`, `float` is
+`Float<Ieee754Binary<Bits<32>>>`, `double` is `Float<Ieee754Binary<Bits<64>>>`, and `fp128` is
+`Float<Ieee754Binary<Bits<128>>>`. The others are `Float<BrainFloat>` for `bfloat`, `Float<X87Extended>` for `x86_fp80`
+and `Float<PowerPcDoubleDouble>` for `ppc_fp128`. `Ieee754` is the standard's name and counts as a word under D5. The
+owner asked for the standard and then the base: "Shouldn't it say the standard too? IEEE 754, right?" and "Bro, where's
+binary?" Claude proposed the rest. (Owner, 2026-11-04)
