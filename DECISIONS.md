@@ -69,3 +69,8 @@ LLVM moves, so users need neither `libclang` nor `bindgen`, and each upgrade sho
 cannot fit every platform, each platform gets its own, with CI checking they are current. `build.rs` checks that the
 LLVM it finds is the supported version and stops with a clear error if not. Claude proposed it; the owner chose it:
 "opt 1". (Owner, 2026-11-04)
+
+**D14. Mac commits, the others generate.** This narrows D13. macOS uses the committed bindings, so it needs neither
+`libclang` nor `bindgen`. Every other platform generates its bindings during the build, and needs `libclang` there.
+Claude suggested macOS and Linux with committed bindings and leaving Windows for later; the owner chose: "Mac, and the
+others do opt 2". (Owner, 2026-11-04)
