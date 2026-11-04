@@ -29,3 +29,6 @@ this; the owner chose it: "yes". The spelling of the type names is not settled h
 **D5. Full words, no exceptions.** Names in Lyftar's API are full words: `Integer`, `Pointer`, `Dynamic`,
 `integer_add`, `zero_extend`, and `get_element_pointer` rather than `gep`. Claude proposed the rule and asked whether
 `gep` should be an exception; the owner chose: "yes, and no". (Owner, 2026-11-04)
+
+**D6. An integer's width says its unit.** The unit is bits, and the name shows it: "Where's the unit? Bits". The
+spelling is not settled here. (Owner, 2026-11-04)
