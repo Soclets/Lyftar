@@ -86,3 +86,10 @@ would make; Claude mapped them and suggested one crate; the owner chose it: "How
 **D17. Licenses as in Radium.** Code is under `Apache-2.0 WITH LLVM-exception`, the same terms as LLVM's headers, and
 written docs are under CC BY 4.0. Claude proposed it, following Radium's D65; the owner chose it: "same". (Owner,
 2026-11-04)
+
+**D18. Versions are the publish date and time.** A version is `date.time.0`, such as `20261104.1430.0` for 14:30 UTC on
+4 November 2026, with no leading zero on the time, as Cargo requires. The number does not say which LLVM; `build.rs`
+checks that (D13). Cargo treats each new date as breaking, so a dependency is edited by hand for each day's release, and
+two releases on one day count as compatible. Claude suggested putting `2300` first to keep automatic updates; the owner
+chose otherwise: "The one that can break too. I mean, it's for me anyways". Reading this as the date-first scheme is
+Claude's. (Owner, 2026-11-04)
