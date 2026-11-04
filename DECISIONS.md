@@ -82,3 +82,7 @@ and the `unsafe` marks where. Claude proposed it; the owner chose it: "opt 1". (
 **D16. One crate.** Lyftar is one crate, `lyftar`, and the C++ shim always compiles. Its modules follow how LLVM divides
 its C API, such as `lyftar::debug_info`, `lyftar::passes` and `lyftar::jit`. The owner asked what very specific crates
 would make; Claude mapped them and suggested one crate; the owner chose it: "How about one?" (Owner, 2026-11-04)
+
+**D17. Licenses as in Radium.** Code is under `Apache-2.0 WITH LLVM-exception`, the same terms as LLVM's headers, and
+written docs are under CC BY 4.0. Claude proposed it, following Radium's D65; the owner chose it: "same". (Owner,
+2026-11-04)
