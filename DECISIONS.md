@@ -19,3 +19,9 @@ widths, panics at the call and names the problem; there is no checked variant. I
 compiler, since the IR may be half rewritten. This covers bugs in the compiler only: what can really fail at run time,
 such as reading a bitcode file, still returns an error. Claude proposed it; the owner chose it: "Tbh, do we really want
 a bug to keep running?" (Owner, 2026-11-04)
+
+**D4. One generic `Value<T>`.** A value is a `Value<T>`, as specific as the code knows: a type written into the Rust
+code is checked at `cargo build`, and a type that comes from the program being compiled is a dynamic `Value`, checked
+when the line runs and panicking as in D3. A checked cast moves a value from dynamic to specific, and a pass can ask
+about a type and get an `Option`. The owner asked for the best design with the writing pain ignored; Claude proposed
+this; the owner chose it: "yes". The spelling of the type names is not settled here. (Owner, 2026-11-04)
