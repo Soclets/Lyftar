@@ -11,7 +11,7 @@ include!("tools/bindings/generate.rs");
 
 fn main() -> Result<(), String> {
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=shim/shim.cpp");
+    println!("cargo:rerun-if-changed=shim");
     println!("cargo:rerun-if-changed=tools/bindings/generate.rs");
     println!("cargo:rerun-if-env-changed=LYFTAR_LLVM_CONFIG");
     println!("cargo:rerun-if-env-changed=LYFTAR_SANITIZE");
@@ -45,7 +45,12 @@ fn main() -> Result<(), String> {
 // trace: D25
 fn compile_shim(llvm_config: &Path) -> Result<(), String> {
     let mut shim = cc::Build::new();
-    shim.cpp(true).file("shim/shim.cpp").warnings(true).extra_warnings(true).warnings_into_errors(true);
+    shim.cpp(true)
+        .file("shim/shim.cpp")
+        .file("shim/passes.cpp")
+        .warnings(true)
+        .extra_warnings(true)
+        .warnings_into_errors(true);
     // A plugin built with another compiler against Homebrew's libc++ LLVM crashed `opt` (D25), so on macOS the shim is
     // always built with the Clang beside the LLVM it links.
     if cfg!(target_os = "macos") {

@@ -4,6 +4,8 @@
 //
 // Unless a contract says otherwise, every pointer is live, non-null and borrowed for the call.
 
+#include "shim.h"
+
 #include "llvm-c/Core.h"
 #include "llvm-c/Linker.h"
 #include "llvm-c/Target.h"
@@ -42,16 +44,9 @@
 #include <string>
 
 using namespace llvm;
+using lyftar::require;
 
 namespace {
-
-// A broken contract is a bug in Lyftar itself. The shim is built with -fno-exceptions, so it stops here.
-// trace: D25
-void require(bool condition, const char *message) {
-  if (!condition) {
-    report_fatal_error(message, false);
-  }
-}
 
 // What a function gives back when every item in a list is good.
 constexpr uint32_t AllGood = UINT32_MAX;

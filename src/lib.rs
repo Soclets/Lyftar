@@ -28,8 +28,10 @@ pub mod linker;
 pub mod memory_buffer;
 pub mod metadata;
 pub mod module;
+pub mod passes;
 pub mod raw;
-mod shim;
+#[doc(hidden)]
+pub mod shim;
 pub mod target;
 mod text;
 pub mod types;

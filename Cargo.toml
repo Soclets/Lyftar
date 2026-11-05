@@ -21,3 +21,8 @@ bindgen = { version = "0.72", default-features = false, features = ["runtime"] }
 
 [workspace]
 exclude = ["tools/bindings"]
+
+# kayo's two passes in Rust, as one plugin for `opt` and `clang`.
+[[example]]
+name = "kayo_passes_plugin"
+crate-type = ["cdylib"]

@@ -49,7 +49,7 @@ impl Drop for Module<'_> {
 /// happened to the module since, because that could have deleted what it points at.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ValueToErase {
-    raw: raw::LLVMValueRef,
+    pub(crate) raw: raw::LLVMValueRef,
     generation: u64,
 }
 
@@ -302,6 +302,10 @@ impl<'context> Module<'context> {
         self.bump_generation();
         // SAFETY: exclusive access means nothing holds a value that this could delete.
         unsafe { raw::LLVMStripModuleDebugInfo(self.raw) != 0 }
+    }
+
+    pub(crate) fn entry_is_current(&self, entry: ValueToErase) -> bool {
+        checks::entry_is_current(entry.generation, self.generation)
     }
 
     // trace: D11
