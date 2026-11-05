@@ -1,0 +1,7 @@
+# D26: at most 3 cores for builds and tests.
+[build]
+jobs = 3
+
+[env]
+RUST_TEST_THREADS = "3"
+NUM_JOBS = "3"

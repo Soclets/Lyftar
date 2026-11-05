@@ -1,0 +1,23 @@
+[package]
+name = "lyftar"
+version = "0.1.0"
+edition = "2024"
+description = "Build LLVM IR and write LLVM passes in safe Rust, for the latest stable LLVM"
+license = "Apache-2.0 WITH LLVM-exception"
+repository = "https://github.com/Soclets/Lyftar"
+build = "build.rs"
+exclude = ["tools/bindings/target"]
+
+[lints.rust]
+# Verus sets this cfg when it reads the proven checks (D22); plain rustc never does.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_keep_ghost)'] }
+
+[build-dependencies]
+cc = "1"
+
+# D14: macOS uses the committed bindings; every other platform generates them.
+[target.'cfg(not(target_os = "macos"))'.build-dependencies]
+bindgen = { version = "0.72", default-features = false, features = ["runtime"] }
+
+[workspace]
+exclude = ["tools/bindings"]

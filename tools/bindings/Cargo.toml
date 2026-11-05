@@ -1,0 +1,10 @@
+[package]
+name = "lyftar-bindings"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+bindgen = { version = "0.72", default-features = false, features = ["runtime"] }
+
+[workspace]
