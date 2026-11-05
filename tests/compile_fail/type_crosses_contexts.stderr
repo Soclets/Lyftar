@@ -1,0 +1,28 @@
+error[E0521]: borrowed data escapes outside of closure
+  --> tests/compile_fail/type_crosses_contexts.rs:17:21
+   |
+15 |     with_context(|first| {
+   |                   ----- `first` declared here, outside of the closure body
+16 |         with_context(|second| {
+   |                       ------ `second` is a reference that is only valid in the closure body
+17 |             let _ = first.function_type(second.void_type(), &[], false);
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `second` escapes the closure body here
+   |
+   = note: requirement occurs because of the type `lyftar::Context<'_>`, which makes the generic argument `'_` invariant
+   = note: the struct `lyftar::Context<'context>` is invariant over the parameter `'context`
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+
+error[E0521]: borrowed data escapes outside of closure
+  --> tests/compile_fail/type_crosses_contexts.rs:17:41
+   |
+15 |     with_context(|first| {
+   |                   -----
+   |                   |
+   |                   `first` is a reference that is only valid in the closure body
+   |                   has type `lyftar::Context<'1>`
+16 |         with_context(|second| {
+17 |             let _ = first.function_type(second.void_type(), &[], false);
+   |                                         ^^^^^^^^^^^^^^^^^^
+   |                                         |
+   |                                         `first` escapes the closure body here
+   |                                         argument requires that `'1` must outlive `'static`

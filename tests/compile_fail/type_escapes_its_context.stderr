@@ -1,0 +1,12 @@
+error: lifetime may not live long enough
+  --> tests/compile_fail/type_escapes_its_context.rs:15:43
+   |
+15 |     let _escaped = with_context(|context| context.get_type::<I64>());
+   |                                  -------- ^^^^^^^^^^^^^^^^^^^^^^^^^ returning this value requires that `'1` must outlive `'2`
+   |                                  |      |
+   |                                  |      return type of closure is lyftar::Type<'2, lyftar::Integer<lyftar::Bits<64>>>
+   |                                  has type `lyftar::Context<'1>`
+   |
+   = note: requirement occurs because of the type `lyftar::Type<'_, lyftar::Integer<lyftar::Bits<64>>>`, which makes the generic argument `'_` invariant
+   = note: the struct `lyftar::Type<'context, T>` is invariant over the parameter `'context`
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance

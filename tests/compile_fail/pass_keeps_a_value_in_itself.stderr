@@ -1,0 +1,47 @@
+error: lifetime may not live long enough
+  --> tests/compile_fail/pass_keeps_a_value_in_itself.rs:19:24
+   |
+17 | impl<'stored> ModulePass for P<'stored> {
+   |      ------- lifetime `'stored` defined here
+18 |     fn run<'context>(&mut self, module: &mut Module<'context>, _analyses: &Analyses<'_>) -> PreservedAnalyses {
+   |            -------- lifetime `'context` defined here
+19 |         let function = module.get_function("f");
+   |                        ^^^^^^^^^^^^^^^^^^^^^^^^ argument requires that `'stored` must outlive `'context`
+   |
+   = help: consider adding the following bound: `'stored: 'context`
+   = note: requirement occurs because of the type `lyftar::Module<'_>`, which makes the generic argument `'_` invariant
+   = note: the struct `lyftar::Module<'context>` is invariant over the parameter `'context`
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+
+error: lifetime may not live long enough
+  --> tests/compile_fail/pass_keeps_a_value_in_itself.rs:20:9
+   |
+17 | impl<'stored> ModulePass for P<'stored> {
+   |      ------- lifetime `'stored` defined here
+18 |     fn run<'context>(&mut self, module: &mut Module<'context>, _analyses: &Analyses<'_>) -> PreservedAnalyses {
+   |            -------- lifetime `'context` defined here
+19 |         let function = module.get_function("f");
+20 |         self.kept = function;
+   |         ^^^^^^^^^^^^^^^^^^^^ assignment requires that `'context` must outlive `'stored`
+   |
+   = help: consider adding the following bound: `'context: 'stored`
+   = note: requirement occurs because of the type `lyftar::Value<'_, '_, lyftar::Function>`, which makes the generic argument `'_` invariant
+   = note: the struct `lyftar::Value<'context, 'module, T>` is invariant over the parameter `'context`
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+
+error: lifetime may not live long enough
+  --> tests/compile_fail/pass_keeps_a_value_in_itself.rs:20:9
+   |
+17 | impl<'stored> ModulePass for P<'stored> {
+   |      ------- lifetime `'stored` defined here
+18 |     fn run<'context>(&mut self, module: &mut Module<'context>, _analyses: &Analyses<'_>) -> PreservedAnalyses {
+   |                                         - let's call the lifetime of this reference `'1`
+19 |         let function = module.get_function("f");
+20 |         self.kept = function;
+   |         ^^^^^^^^^^^^^^^^^^^^ assignment requires that `'1` must outlive `'stored`
+   |
+   = note: requirement occurs because of the type `lyftar::Value<'_, '_, lyftar::Function>`, which makes the generic argument `'_` invariant
+   = note: the struct `lyftar::Value<'context, 'module, T>` is invariant over the parameter `'context`
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+
+help: `'stored` and `'context` must be the same: replace one with the other

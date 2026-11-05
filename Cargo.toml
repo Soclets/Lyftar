@@ -15,6 +15,9 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_keep_ghost)'] }
 [build-dependencies]
 cc = "1"
 
+[dev-dependencies]
+trybuild = "1"
+
 # D14: macOS uses the committed bindings; every other platform generates them.
 [target.'cfg(not(target_os = "macos"))'.build-dependencies]
 bindgen = { version = "0.72", default-features = false, features = ["runtime"] }

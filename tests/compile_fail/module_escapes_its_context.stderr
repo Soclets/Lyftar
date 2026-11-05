@@ -1,0 +1,12 @@
+error: lifetime may not live long enough
+  --> tests/compile_fail/module_escapes_its_context.rs:15:43
+   |
+15 |     let _escaped = with_context(|context| context.create_module("m"));
+   |                                  -------- ^^^^^^^^^^^^^^^^^^^^^^^^^^ returning this value requires that `'1` must outlive `'2`
+   |                                  |      |
+   |                                  |      return type of closure is Module<'2>
+   |                                  has type `lyftar::Context<'1>`
+   |
+   = note: requirement occurs because of the type `Module<'_>`, which makes the generic argument `'_` invariant
+   = note: the struct `Module<'context>` is invariant over the parameter `'context`
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance

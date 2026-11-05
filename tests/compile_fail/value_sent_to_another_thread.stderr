@@ -1,0 +1,29 @@
+error[E0277]: `*mut LLVMOpaqueValue` cannot be sent between threads safely
+  --> tests/compile_fail/value_sent_to_another_thread.rs:17:50
+   |
+17 |         std::thread::scope(|scope| { scope.spawn(move || constant.is_null()); });
+   |                                            ----- -------^^^^^^^^^^^^^^^^^^^
+   |                                            |     |
+   |                                            |     `*mut LLVMOpaqueValue` cannot be sent between threads safely
+   |                                            |     within this `{closure@$DIR/tests/compile_fail/value_sent_to_another_thread.rs:17:50: 17:57}`
+   |                                            required by a bound introduced by this call
+   |
+   = help: within `{closure@$DIR/tests/compile_fail/value_sent_to_another_thread.rs:17:50: 17:57}`, the trait `Send` is not implemented for `*mut LLVMOpaqueValue`
+note: required because it appears within the type `lyftar::Value<'_, '_, lyftar::Integer<lyftar::Bits<64>>>`
+  --> src/values.rs
+   |
+   | pub struct Value<'context, 'module, T = Dynamic> {
+   |            ^^^^^
+note: required because it's used within this closure
+  --> tests/compile_fail/value_sent_to_another_thread.rs:17:50
+   |
+17 |         std::thread::scope(|scope| { scope.spawn(move || constant.is_null()); });
+   |                                                  ^^^^^^^
+note: required by a bound in `Scope::<'scope, 'env>::spawn`
+  --> $RUST/std/src/thread/scoped.rs
+   |
+   |     pub fn spawn<F, T>(&'scope self, f: F) -> ScopedJoinHandle<'scope, T>
+   |            ----- required by a bound in this associated function
+   |     where
+   |         F: FnOnce() -> T + Send + 'scope,
+   |                            ^^^^ required by this bound in `Scope::<'scope, 'env>::spawn`

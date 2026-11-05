@@ -1,0 +1,11 @@
+error[E0502]: cannot borrow `module` as mutable because it is also borrowed as immutable
+  --> tests/compile_fail/value_held_across_inlining.rs:29:17
+   |
+19 |         let function = module.add_function("f", function_type);
+   |                        ------ immutable borrow occurs here
+...
+29 |         let _ = module.inline_call(choice);
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+30 |         let _ = sum.print_to_string();
+31 |     });
+   |     - immutable borrow might be used here, when `builder` is dropped and runs the `Drop` code for type `lyftar::Builder`

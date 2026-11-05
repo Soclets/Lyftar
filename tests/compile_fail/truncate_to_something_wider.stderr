@@ -1,0 +1,26 @@
+error[E0080]: evaluation panicked: truncate: the target must be narrower than the value
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `lyftar::Builder::<'_, '_>::truncate::<lyftar::Integer<lyftar::Bits<32>>, lyftar::Integer<lyftar::Bits<64>>>::{constant#0}` failed here
+  |
+ ::: src/builder.rs
+  |
+  |                 assert!(destination < source, "truncate: the target must be narrower than the value");
+  |                 ------------------------------------------------------------------------------------- in this macro invocation
+
+note: erroneous constant encountered
+ --> src/builder.rs
+  |
+  | /         const {
+  | |             if let (Some(source), Some(destination)) = (S::WIDTH_IN_BITS, D::WIDTH_IN_BITS) {
+  | |                 assert!(destination < source, "truncate: the target must be narrower than the value");
+  | |             }
+  | |         };
+  | |_________^
+
+note: the above error was encountered while instantiating `fn lyftar::Builder::<'_, '_>::truncate::<lyftar::Integer<lyftar::Bits<32>>, lyftar::Integer<lyftar::Bits<64>>>`
+  --> tests/compile_fail/truncate_to_something_wider.rs:23:17
+   |
+23 |         let _ = builder.truncate(i32_type.constant_integer(1, false), i64_type, "");
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

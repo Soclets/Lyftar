@@ -1,0 +1,10 @@
+error[E0502]: cannot borrow `*function` as mutable because it is also borrowed as immutable
+  --> tests/compile_fail/value_held_across_erase_in_a_function_pass.rs:21:9
+   |
+17 |         let value = function.function();
+   |                     -------- immutable borrow occurs here
+...
+21 |         function.erase(&chosen);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+22 |         let _ = first.print_to_string();
+   |                 ----- immutable borrow later used here

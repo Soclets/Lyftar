@@ -1,0 +1,28 @@
+error[E0521]: borrowed data escapes outside of closure
+  --> tests/compile_fail/module_gets_a_type_from_another_context.rs:18:21
+   |
+16 |         let module = first.create_module("m");
+   |             ------ `module` declared here, outside of the closure body
+17 |         with_context(|second| {
+   |                       ------ `second` is a reference that is only valid in the closure body
+18 |             let _ = module.add_function("f", second.function_type(second.void_type(), &[], false));
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `second` escapes the closure body here
+   |
+   = note: requirement occurs because of the type `Module<'_>`, which makes the generic argument `'_` invariant
+   = note: the struct `Module<'context>` is invariant over the parameter `'context`
+   = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
+
+error[E0521]: borrowed data escapes outside of closure
+  --> tests/compile_fail/module_gets_a_type_from_another_context.rs:18:46
+   |
+15 |     with_context(|first| {
+   |                   -----
+   |                   |
+   |                   `first` is a reference that is only valid in the closure body
+   |                   has type `lyftar::Context<'1>`
+...
+18 |             let _ = module.add_function("f", second.function_type(second.void_type(), &[], false));
+   |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |                                              |
+   |                                              `first` escapes the closure body here
+   |                                              argument requires that `'1` must outlive `'static`

@@ -1,0 +1,22 @@
+error[E0277]: the trait bound `lyftar::Integer<lyftar::Bits<64>>: PointerOperand` is not satisfied
+  --> tests/compile_fail/integer_given_as_pointer.rs:23:40
+   |
+23 |         let _ = builder.load(i64_type, i64_type.constant_integer(1, false), "");
+   |                         ----           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `PointerOperand` is not implemented for `lyftar::Integer<lyftar::Bits<64>>`
+   |                         |
+   |                         required by a bound introduced by this call
+   |
+   = help: the following other types implement trait `PointerOperand`:
+             GlobalObject
+             GlobalValue
+             StackAllocationInstruction
+             lyftar::Dynamic
+             lyftar::Function
+             lyftar::Pointer
+             lyftar::values::GlobalAlias
+             lyftar::values::GlobalVariable
+note: required by a bound in `lyftar::Builder::<'context, 'module>::load`
+  --> src/builder.rs
+   |
+   |     pub fn load<T: TypeMarker, P: PointerOperand>(
+   |                                   ^^^^^^^^^^^^^^ required by this bound in `Builder::<'context, 'module>::load`
