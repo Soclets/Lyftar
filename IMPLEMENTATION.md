@@ -31,6 +31,7 @@ changes, `DECISIONS.md` gets a new entry and this file is updated to match. Noth
 10. **Commits.** `kind.folder.narrowing: sentence (owner: "their words"; D1)`. Kinds: `decision`, `design`, `feature`, `fix`,
     `test`, `house`. Each commit ends with its session's trailer, such as
     `Co-Authored-By: design claude <noreply@anthropic.com>`.
+    Each commit is pushed, after `git pull --rebase`, to the public `Soclets/Lyftar`. (D28)
 11. **Cores.** Each session uses at most 3 at once, for builds, tests and anything it starts. (D26)
 12. **Prompting.** Before prompting a subagent or a new session, a session reads the current prompting guide for that AI, in
     full and itself, and again after every compaction. Messaging another session isn't prompting, and isn't written like
@@ -63,4 +64,4 @@ A check fails on a tag that names no decision, and lists the decisions nothing t
 
 ## Not decided yet
 
-- The build session's name, whether it works in its own clone, and when anything is pushed.
+- The build session's name, and whether it works in its own clone.

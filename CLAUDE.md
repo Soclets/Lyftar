@@ -6,6 +6,7 @@ or pre-made answers. `DECISIONS.md` records what was chosen.
 ## Git
 
 - Branch: `main`. Author: `Tankun Sriket <tankunsriket63741ecff056.invalid>` (repo-local config, already set).
+- Commit and push automatically, running `git pull --rebase` first. The repository is public, at `Soclets/Lyftar` (D28).
 - Every commit ends with the trailer `Co-Authored-By: design claude <noreply@anthropic.com>`.
 - Commit subjects are `kind.folder.narrowing: sentence`, as in Soclets/CyborgPL. Kinds: `decision`, `design`,
   `feature`, `fix`, `test`, `house`. The second word is the folder, or the topic for `decision`, `design` and `house`.

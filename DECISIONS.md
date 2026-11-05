@@ -140,3 +140,7 @@ that was the rule for every session; the owner chose: "yea, each". (Owner, 2026-
 AddressSanitizer and UBSan run as a separate test run, not in everyday `cargo test`. ThreadSanitizer is left out, since a
 context lives on one thread. Getting the sanitizers working is untested; if it goes badly, it comes back to the owner rather
 than being dropped. Claude proposed it, from Radium's C++ rule; the owner chose it: "yea". (Owner, 2026-11-05)
+
+**D28. Public at Soclets/Lyftar, pushed automatically.** Lyftar lives in a public repository, `Soclets/Lyftar`. Sessions push
+after each commit, running `git pull --rebase` first. Claude suggested a private repository with automatic pushing, as Cyborg
+does; the owner chose: "yea, public". (Owner, 2026-11-05)
