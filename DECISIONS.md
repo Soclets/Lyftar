@@ -151,3 +151,7 @@ Cyborg's setup; the owner chose it: "yup". (Owner, 2026-11-05)
 
 **D30. `Byte<Bits<8>>`.** LLVM 23's byte type, which holds raw memory in a value and can be any width, is spelled
 `Byte<Bits<N>>`, following D7. Lyftar impl asked; Claude proposed it; the owner chose it: "yea". (Owner, 2026-11-05)
+
+**D31. Pointer address spaces.** `Pointer` means address space 0, and is the same type as `Pointer<AddressSpace<0>>`. Any
+other space is `Pointer<AddressSpace<N>>`, and a pointer whose space isn't known is `Dynamic`. Lyftar impl asked; Claude
+proposed it; the owner chose it: "yea". (Owner, 2026-11-05)
