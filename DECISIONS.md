@@ -211,3 +211,9 @@ token. Lyftar impl found the problem and preferred a run-time panic; Claude prop
 Rust pass can't leave broken IR for the next C++ pass to crash on. This adds to the check before a pipeline, passes and emission
 that Lyftar impl already made. The benchmark measures the cost (D24), and if it hurts, it comes back to the owner. Lyftar impl
 asked; Claude proposed it; the owner chose it: "yea". (Owner, 2026-11-05)
+
+**D41. Which constants need the token.** `ConstantPtrAuth` and anything built from other values, such as `constant_array`,
+`constant_struct` and `constant_vector`, need the token from D39, even when LLVM returns plain data. Raw data such as
+`constant_data_array` and `constant_string`, bytes, `token none`, `target none` and inline assembly do not. If one of these turns
+out to be deletable, moving it is a bug fix under rule 17. Lyftar impl proposed the list; Claude agreed; the owner chose it:
+"yea". (Owner, 2026-11-05)
