@@ -2,9 +2,10 @@
 
 use std::marker::PhantomData;
 
+use crate::enums::DiagnosticSeverity;
 use crate::module::Module;
 use crate::raw;
-use crate::text::c_string;
+use crate::text::{c_string, from_owned_message};
 use crate::types::Invariant;
 
 /// An LLVM context: it owns the types and constants, and everything from it carries its `'context` lifetime.
@@ -40,6 +41,31 @@ pub fn with_context<R>(body: impl for<'context> FnOnce(Context<'context>) -> R) 
     body(Context { raw, marker: PhantomData })
 }
 
+/// A diagnostic LLVM reports through a context.
+#[derive(Clone, Debug)]
+pub struct Diagnostic {
+    /// How serious it is.
+    pub severity: DiagnosticSeverity,
+    /// What it says.
+    pub description: String,
+}
+
+unsafe extern "C" fn call_diagnostic_handler<F: FnMut(Diagnostic)>(
+    information: raw::LLVMDiagnosticInfoRef,
+    handler: *mut std::ffi::c_void,
+) {
+    // SAFETY: LLVM passes back the pointer given with this function, which `set_diagnostic_handler` leaked, and the
+    // information is live for this call.
+    let (handler, severity, description) = unsafe {
+        (
+            &mut *handler.cast::<F>(),
+            DiagnosticSeverity::from_raw(raw::LLVMGetDiagInfoSeverity(information)),
+            from_owned_message(raw::LLVMGetDiagInfoDescription(information)),
+        )
+    };
+    crate::abort_on_panic(|| handler(Diagnostic { severity, description }));
+}
+
 impl<'context> Context<'context> {
     /// Wraps a raw context.
     ///
@@ -71,5 +97,31 @@ impl<'context> Context<'context> {
         let raw = unsafe { raw::LLVMModuleCreateWithNameInContext(name.as_ptr(), self.raw) };
         // SAFETY: the module was just created, in this context, and is owned by the wrapper from here on.
         unsafe { Module::from_raw(raw) }
+    }
+
+    /// Whether this context drops the names of values, which saves memory and time.
+    #[must_use]
+    pub fn discards_value_names(self) -> bool {
+        // SAFETY: the context is live for `'context`.
+        unsafe { raw::LLVMContextShouldDiscardValueNames(self.raw) != 0 }
+    }
+
+    /// Sets whether this context drops the names of values, which saves memory and time.
+    pub fn set_discard_value_names(self, discard: bool) {
+        // SAFETY: the context is live for `'context`.
+        unsafe { raw::LLVMContextSetDiscardValueNames(self.raw, i32::from(discard)) };
+    }
+
+    /// Sets what happens to a diagnostic LLVM reports through this context. A panic inside the handler aborts, since it
+    /// is running inside LLVM (D3).
+    ///
+    /// The handler lives until the context goes, so setting one again leaks the old one.
+    pub fn set_diagnostic_handler<F: FnMut(Diagnostic) + 'context>(self, handler: F) {
+        let handler = Box::into_raw(Box::new(handler));
+        // SAFETY: the function matches LLVM's signature, and `handler` stays valid for as long as the context does, since
+        // it is leaked. The context is what calls it, and the closure's `'context` outlives the context's own use of it.
+        unsafe {
+            raw::LLVMContextSetDiagnosticHandler(self.raw, Some(call_diagnostic_handler::<F>), handler.cast());
+        }
     }
 }

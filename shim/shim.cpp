@@ -1,19 +1,39 @@
 // What the generated bindings cannot reach (D16). Each function's contract says who owns each pointer, how long it
 // lives and which values are allowed; each function checks it at the top, and Rust wraps each one once, in a safe
 // function that checks it too (rule 9, D25).
+//
+// Unless a contract says otherwise, every pointer is live, non-null and borrowed for the call.
 
 #include "llvm-c/Core.h"
 #include "llvm-c/Target.h"
 #include "llvm-c/Types.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InlineAsm.h"
+#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
+#include "llvm/IR/Operator.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/ValueHandle.h"
+#include "llvm/Support/CBindingWrapping.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 
 using namespace llvm;
 
@@ -27,6 +47,9 @@ void require(bool condition, const char *message) {
   }
 }
 
+// What a function gives back when every item in a list is good.
+constexpr uint32_t AllGood = UINT32_MAX;
+
 } // namespace
 
 // Contract: `LLVMInitializeNative*` are inline functions in LLVM's C header, so they are compiled here. Takes nothing
@@ -37,37 +60,33 @@ extern "C" int lyftar_initialize_native_target() {
                           LLVMInitializeNativeAsmParser() != 0);
 }
 
-// Contract: `value` and `module` are live and non-null and borrowed for the call. Returns whether `value` can be used
-// in `module`: an instruction, argument, block or global must be in it, and a constant must only reach globals in it.
-// A constant with no operands belongs to the context, so it can be used anywhere.
-// trace: D11
-extern "C" bool lyftar_value_belongs_to_module(LLVMValueRef value,
-                                               LLVMModuleRef module) {
-  require(value != nullptr && module != nullptr,
-          "lyftar_value_belongs_to_module: null argument");
-  const Value *start = unwrap(value);
-  const Module *wanted = unwrap(module);
-  if (const auto *instruction = dyn_cast<Instruction>(start)) {
-    return instruction->getModule() == wanted;
+namespace {
+
+// The module `value` is tied to: its own module for an instruction, argument, block or global, null for something that
+// belongs to the context alone. A constant expression or aggregate belongs wherever the globals it reaches do. If it
+// reaches globals of two modules, `*mixed` is set.
+const Module *moduleOf(const Value *value, bool *mixed) {
+  if (const auto *instruction = dyn_cast<Instruction>(value)) {
+    return instruction->getModule();
   }
-  if (const auto *argument = dyn_cast<Argument>(start)) {
-    return argument->getParent()->getParent() == wanted;
+  if (const auto *argument = dyn_cast<Argument>(value)) {
+    return argument->getParent()->getParent();
   }
-  if (const auto *block = dyn_cast<BasicBlock>(start)) {
-    return block->getModule() == wanted;
+  if (const auto *block = dyn_cast<BasicBlock>(value)) {
+    return block->getModule();
   }
-  if (isa<ConstantData>(start)) {
-    return true;
+  if (isa<ConstantData>(value)) {
+    return nullptr;
   }
-  if (const auto *global = dyn_cast<GlobalValue>(start)) {
-    return global->getParent() == wanted;
+  if (const auto *global = dyn_cast<GlobalValue>(value)) {
+    return global->getParent();
   }
-  const auto *constant = dyn_cast<Constant>(start);
+  const auto *constant = dyn_cast<Constant>(value);
   if (constant == nullptr) {
     // Inline assembly and metadata wrapped as a value belong to the context.
-    return true;
+    return nullptr;
   }
-  // A constant expression or aggregate belongs wherever the globals it reaches do.
+  const Module *found = nullptr;
   SmallVector<const Constant *, 8> work{constant};
   SmallPtrSet<const Constant *, 8> seen;
   while (!work.empty()) {
@@ -76,9 +95,11 @@ extern "C" bool lyftar_value_belongs_to_module(LLVMValueRef value,
       continue;
     }
     if (const auto *global = dyn_cast<GlobalValue>(current)) {
-      if (global->getParent() != wanted) {
-        return false;
+      const Module *module = global->getParent();
+      if (found != nullptr && found != module) {
+        *mixed = true;
       }
+      found = module;
       continue;
     }
     for (const Use &operand : current->operands()) {
@@ -87,17 +108,824 @@ extern "C" bool lyftar_value_belongs_to_module(LLVMValueRef value,
       }
     }
   }
-  return true;
+  return found;
 }
 
-// Contract: `builder` is live, non-null, placed in a block, and borrowed for the call. Returns whether an instruction
-// can still go in there: false when placed at the end of a block that already ends in a terminator.
+} // namespace
+
+// Contract: returns whether `value` can be used in `module`: an instruction, argument, block or global must be in it,
+// and a constant must only reach globals in it. A constant with no operands belongs to the context, so it can be used
+// anywhere.
+// trace: D11
+extern "C" bool lyftar_value_belongs_to_module(LLVMValueRef value,
+                                               LLVMModuleRef module) {
+  require(value != nullptr && module != nullptr,
+          "lyftar_value_belongs_to_module: null argument");
+  bool mixed = false;
+  const Module *found = moduleOf(unwrap(value), &mixed);
+  return !mixed && (found == nullptr || found == unwrap(module));
+}
+
+// Contract: returns whether `other` can be used alongside `user`: if both are tied to a module, it is the same one.
+// trace: D11
+extern "C" bool lyftar_values_share_module(LLVMValueRef user,
+                                           LLVMValueRef other) {
+  require(user != nullptr && other != nullptr,
+          "lyftar_values_share_module: null argument");
+  bool mixed = false;
+  const Module *first = moduleOf(unwrap(user), &mixed);
+  const Module *second = moduleOf(unwrap(other), &mixed);
+  return !mixed && (first == nullptr || second == nullptr || first == second);
+}
+
+// Contract: returns whether `value` is a block terminator.
+extern "C" bool lyftar_value_is_terminator(LLVMValueRef value) {
+  require(value != nullptr, "lyftar_value_is_terminator: null value");
+  const auto *instruction = dyn_cast<Instruction>(unwrap(value));
+  return instruction != nullptr && instruction->isTerminator();
+}
+
+// Contract: returns whether LLVM can replace `value`'s uses with `replacement`: not with itself, and only for what
+// keeps a use list, since LLVM's constants of plain data don't have one. The two types were compared by the caller.
+extern "C" bool lyftar_value_can_replace_uses(LLVMValueRef value,
+                                              LLVMValueRef replacement) {
+  require(value != nullptr && replacement != nullptr,
+          "lyftar_value_can_replace_uses: null argument");
+  const Value *old_value = unwrap(value);
+  const Value *new_value = unwrap(replacement);
+  if (old_value == new_value || !old_value->hasUseList()) {
+    return false;
+  }
+  bool mixed = false;
+  const Module *first = moduleOf(old_value, &mixed);
+  const Module *second = moduleOf(new_value, &mixed);
+  return !mixed && (first == nullptr || second == nullptr || first == second);
+}
+
+// Contract: returns whether `value` is something `lyftar_erase_values` can erase, other than a block.
+// trace: D11
+extern "C" bool lyftar_value_is_erasable(LLVMValueRef value) {
+  require(value != nullptr, "lyftar_value_is_erasable: null value");
+  const Value *checked = unwrap(value);
+  return isa<Instruction>(checked) || isa<GlobalValue>(checked);
+}
+
+// Contract: returns whether `value` belongs only to the context, so it never goes away with a module.
+extern "C" bool lyftar_value_is_context_constant(LLVMValueRef value) {
+  require(value != nullptr, "lyftar_value_is_context_constant: null value");
+  bool mixed = false;
+  return !isa<Instruction>(unwrap(value)) && !isa<Argument>(unwrap(value)) &&
+         !isa<BasicBlock>(unwrap(value)) &&
+         moduleOf(unwrap(value), &mixed) == nullptr;
+}
+
+namespace {
+
+// Everything that goes away with these values: the instructions in a block or function, and its blocks and arguments.
+void collectGoing(ArrayRef<LLVMValueRef> values,
+                  SmallPtrSetImpl<const Value *> *going) {
+  for (LLVMValueRef raw_value : values) {
+    const Value *value = unwrap(raw_value);
+    going->insert(value);
+    if (const auto *block = dyn_cast<BasicBlock>(value)) {
+      for (const Instruction &instruction : *block) {
+        going->insert(&instruction);
+      }
+    } else if (const auto *function = dyn_cast<Function>(value)) {
+      for (const Argument &argument : function->args()) {
+        going->insert(&argument);
+      }
+      for (const BasicBlock &block_in_function : *function) {
+        going->insert(&block_in_function);
+        for (const Instruction &instruction : block_in_function) {
+          going->insert(&instruction);
+        }
+      }
+    }
+  }
+}
+
+} // namespace
+
+// Contract: `values` has `count` distinct live values, each an instruction, block or global. Returns the first value
+// that goes away and is still used by something that stays, or null. A constant user counts only if it stays in use:
+// `removeDeadConstantUsers` clears the ones no one uses, and it runs first in `lyftar_erase_values`. A block address
+// doesn't block a block, because LLVM rewrites it when the block goes.
+// trace: D11
+extern "C" LLVMValueRef lyftar_erase_find_blocker(const LLVMValueRef *values,
+                                                  size_t count) {
+  require(values != nullptr || count == 0,
+          "lyftar_erase_find_blocker: null list");
+  ArrayRef<LLVMValueRef> list(values, count);
+  SmallPtrSet<const Value *, 32> going;
+  collectGoing(list, &going);
+  for (const Value *value : going) {
+    for (const User *user : value->users()) {
+      if (going.contains(user) || isa<BlockAddress>(user)) {
+        continue;
+      }
+      if (const auto *constant = dyn_cast<Constant>(user)) {
+        if (constant->isConstantUsed()) {
+          return wrap(value);
+        }
+        continue;
+      }
+      return wrap(value);
+    }
+  }
+  return nullptr;
+}
+
+// Contract: `values` has `count` distinct live values for which `lyftar_erase_find_blocker` gave null, and the caller
+// holds exclusive access to their module. Erases them all. A block's erasure drops it from the phis of its function, so
+// no phi keeps a pointer to a block that's gone.
+// trace: D11
+extern "C" void lyftar_erase_values(const LLVMValueRef *values, size_t count) {
+  require(values != nullptr || count == 0, "lyftar_erase_values: null list");
+  ArrayRef<LLVMValueRef> list(values, count);
+  SmallVector<Instruction *, 16> instructions;
+  SmallVector<BasicBlock *, 8> blocks;
+  SmallVector<GlobalValue *, 8> globals;
+  for (LLVMValueRef raw_value : list) {
+    Value *value = unwrap(raw_value);
+    if (auto *instruction = dyn_cast<Instruction>(value)) {
+      instructions.push_back(instruction);
+    } else if (auto *block = dyn_cast<BasicBlock>(value)) {
+      blocks.push_back(block);
+    } else {
+      auto *global = dyn_cast<GlobalValue>(value);
+      require(global != nullptr, "lyftar_erase_values: not erasable");
+      globals.push_back(global);
+    }
+  }
+  // Drop every reference first, so that items in the list can use each other in any order.
+  for (Instruction *instruction : instructions) {
+    instruction->dropAllReferences();
+  }
+  for (BasicBlock *block : blocks) {
+    block->dropAllReferences();
+  }
+  for (GlobalValue *global : globals) {
+    if (auto *function = dyn_cast<Function>(global)) {
+      function->deleteBody();
+    }
+    global->removeDeadConstantUsers();
+  }
+  for (Instruction *instruction : instructions) {
+    instruction->eraseFromParent();
+  }
+  for (BasicBlock *block : blocks) {
+    Function *parent = block->getParent();
+    for (BasicBlock &other : *parent) {
+      if (&other == block) {
+        continue;
+      }
+      for (PHINode &phi : other.phis()) {
+        for (int index = phi.getBasicBlockIndex(block); index >= 0;
+             index = phi.getBasicBlockIndex(block)) {
+          phi.removeIncomingValue(static_cast<unsigned>(index), false);
+        }
+      }
+    }
+    block->eraseFromParent();
+  }
+  for (GlobalValue *global : globals) {
+    global->eraseFromParent();
+  }
+}
+
+namespace {
+
+struct WeakHandle {
+  WeakVH handle;
+};
+
+} // namespace
+
+// Contract: `value` is live. Gives back a new handle the caller owns, to free with `lyftar_weak_handle_dispose`.
+// trace: D11
+extern "C" void *lyftar_weak_handle_create(LLVMValueRef value) {
+  require(value != nullptr, "lyftar_weak_handle_create: null value");
+  auto handle = std::make_unique<WeakHandle>();
+  handle->handle = unwrap(value);
+  return handle.release();
+}
+
+// Contract: `handle` came from `lyftar_weak_handle_create` and wasn't disposed. Gives back the value, or null if it has
+// been deleted. A replace of its uses doesn't change what it points at, which is what `WeakVH` means.
+// trace: D11
+extern "C" LLVMValueRef lyftar_weak_handle_get(const void *handle) {
+  require(handle != nullptr, "lyftar_weak_handle_get: null handle");
+  return wrap(static_cast<Value *>(static_cast<const WeakHandle *>(handle)->handle));
+}
+
+// Contract: `handle` came from `lyftar_weak_handle_create` and wasn't disposed; it isn't used afterwards.
+// trace: D11
+extern "C" void lyftar_weak_handle_dispose(void *handle) {
+  require(handle != nullptr, "lyftar_weak_handle_dispose: null handle");
+  std::unique_ptr<WeakHandle> owned(static_cast<WeakHandle *>(handle));
+}
+
+// Contract: `builder` is placed in a block. Returns whether an instruction can still go there: false when placed at the
+// end of a block that already ends in a terminator.
 // trace: D3
 extern "C" bool lyftar_builder_is_open(LLVMBuilderRef builder) {
   require(builder != nullptr, "lyftar_builder_is_open: null builder");
   const IRBuilder<> *placed = unwrap(builder);
   const BasicBlock *block = placed->GetInsertBlock();
   require(block != nullptr, "lyftar_builder_is_open: builder has no position");
-  return placed->GetInsertPoint() != block->end() ||
-         !block->hasTerminator();
+  return placed->GetInsertPoint() != block->end() || !block->hasTerminator();
+}
+
+// Contract: `builder` is placed in a block. Returns whether a terminator can go there: only at the end of a block that
+// doesn't have one yet.
+// trace: D3
+extern "C" bool lyftar_builder_is_at_open_end(LLVMBuilderRef builder) {
+  require(builder != nullptr, "lyftar_builder_is_at_open_end: null builder");
+  const IRBuilder<> *placed = unwrap(builder);
+  const BasicBlock *block = placed->GetInsertBlock();
+  require(block != nullptr,
+          "lyftar_builder_is_at_open_end: builder has no position");
+  return placed->GetInsertPoint() == block->end() && !block->hasTerminator();
+}
+
+// Contract: `builder` is placed in a block. Returns whether a phi can go there: only in among the block's first phis.
+// trace: D3
+extern "C" bool lyftar_builder_can_insert_phi(LLVMBuilderRef builder) {
+  require(builder != nullptr, "lyftar_builder_can_insert_phi: null builder");
+  const IRBuilder<> *placed = unwrap(builder);
+  const BasicBlock *block = placed->GetInsertBlock();
+  require(block != nullptr,
+          "lyftar_builder_can_insert_phi: builder has no position");
+  auto position = placed->GetInsertPoint();
+  if (position == block->begin()) {
+    return true;
+  }
+  return isa<PHINode>(*std::prev(position));
+}
+
+// Contract: `builder` is live and `block` is in a function. Places the builder at the block's first place an ordinary
+// instruction can go.
+extern "C" void
+lyftar_builder_position_at_first_insertion_point(LLVMBuilderRef builder,
+                                                 LLVMBasicBlockRef block) {
+  require(builder != nullptr && block != nullptr,
+          "lyftar_builder_position_at_first_insertion_point: null argument");
+  BasicBlock *placed_in = unwrap(block);
+  unwrap(builder)->SetInsertPoint(placed_in, placed_in->getFirstInsertionPt());
+}
+
+// Contract: `builder` is placed in a block, `instruction` is in a block of the same module. Moves it to where the
+// builder is. If the builder is placed right at the instruction, nothing moves.
+extern "C" void lyftar_builder_move_here(LLVMBuilderRef builder,
+                                         LLVMValueRef instruction) {
+  require(builder != nullptr && instruction != nullptr,
+          "lyftar_builder_move_here: null argument");
+  IRBuilder<> *placed = unwrap(builder);
+  auto *moved = unwrap<Instruction>(instruction);
+  auto position = placed->GetInsertPoint();
+  BasicBlock *block = placed->GetInsertBlock();
+  require(block != nullptr, "lyftar_builder_move_here: builder has no position");
+  if (position == moved->getIterator()) {
+    return;
+  }
+  moved->moveBefore(*block, position);
+}
+
+// Contract: returns whether `element` can be an array's element.
+extern "C" bool lyftar_is_valid_array_element(LLVMTypeRef element) {
+  require(element != nullptr, "lyftar_is_valid_array_element: null type");
+  return ArrayType::isValidElementType(unwrap(element));
+}
+
+// Contract: returns whether `element` can be a vector's element.
+extern "C" bool lyftar_is_valid_vector_element(LLVMTypeRef element) {
+  require(element != nullptr, "lyftar_is_valid_vector_element: null type");
+  return VectorType::isValidElementType(unwrap(element));
+}
+
+// Contract: returns whether `element` can be a struct's element.
+extern "C" bool lyftar_is_valid_struct_element(LLVMTypeRef element) {
+  require(element != nullptr, "lyftar_is_valid_struct_element: null type");
+  return StructType::isValidElementType(unwrap(element));
+}
+
+// Contract: `parameters` has `count` types. Returns the index of the first parameter a function can't have, `count` if
+// the return type is what's wrong, or UINT32_MAX if all are good.
+extern "C" uint32_t
+lyftar_first_invalid_function_type_part(LLVMTypeRef return_type,
+                                        const LLVMTypeRef *parameters,
+                                        uint32_t count) {
+  require(return_type != nullptr && (parameters != nullptr || count == 0),
+          "lyftar_first_invalid_function_type_part: null argument");
+  for (uint32_t index = 0; index < count; ++index) {
+    if (!FunctionType::isValidArgumentType(unwrap(parameters[index]))) {
+      return index;
+    }
+  }
+  return FunctionType::isValidReturnType(unwrap(return_type)) ? AllGood : count;
+}
+
+// Contract: returns whether `checked` has a zero value LLVM can make without aborting.
+extern "C" bool lyftar_type_has_null_value(LLVMTypeRef checked) {
+  require(checked != nullptr, "lyftar_type_has_null_value: null type");
+  const Type *type = unwrap(checked);
+  if (const auto *target = dyn_cast<TargetExtType>(type)) {
+    return target->hasProperty(TargetExtType::HasZeroInit);
+  }
+  return !type->isVoidTy() && !type->isFunctionTy() && !type->isLabelTy() &&
+         !type->isMetadataTy() && !type->isX86_AMXTy();
+}
+
+// Contract: returns whether a global can hold a value of type `checked`.
+extern "C" bool lyftar_type_is_valid_global(LLVMTypeRef checked) {
+  require(checked != nullptr, "lyftar_type_is_valid_global: null type");
+  const Type *type = unwrap(checked);
+  return !type->isFunctionTy() && !type->isVoidTy() && !type->isLabelTy() &&
+         !type->isMetadataTy() && !type->isTokenTy();
+}
+
+// Contract: returns whether a value of type `checked` can be loaded or stored.
+extern "C" bool lyftar_type_is_loadable(LLVMTypeRef checked) {
+  require(checked != nullptr, "lyftar_type_is_loadable: null type");
+  const Type *type = unwrap(checked);
+  return type->isSized() && type->isFirstClassType() && !type->isTokenTy() &&
+         !type->isLabelTy() && !type->isMetadataTy();
+}
+
+// Contract: returns whether an instruction can give a value of type `checked`.
+extern "C" bool lyftar_type_is_first_class(LLVMTypeRef checked) {
+  require(checked != nullptr, "lyftar_type_is_first_class: null type");
+  const Type *type = unwrap(checked);
+  return type->isFirstClassType() && !type->isTokenTy() && !type->isLabelTy() &&
+         !type->isMetadataTy();
+}
+
+// Contract: `float_type` is a floating-point type. Returns how many 64-bit words hold one of its values.
+extern "C" size_t lyftar_float_size_in_words(LLVMTypeRef float_type) {
+  require(float_type != nullptr && unwrap(float_type)->isFloatingPointTy(),
+          "lyftar_float_size_in_words: not a floating-point type");
+  return (static_cast<size_t>(unwrap(float_type)->getPrimitiveSizeInBits()) +
+          63) /
+         64;
+}
+
+// Contract: returns the size in bits of `element` if a constant array of plain data can hold it, and 0 otherwise.
+extern "C" uint64_t lyftar_data_element_size_in_bits(LLVMTypeRef element) {
+  require(element != nullptr, "lyftar_data_element_size_in_bits: null type");
+  Type *type = unwrap(element);
+  if (!ConstantDataSequential::isElementTypeCompatible(type)) {
+    return 0;
+  }
+  return type->getPrimitiveSizeInBits();
+}
+
+// Contract: returns how many elements an aggregate of type `aggregate` has, or 0 if it isn't an aggregate.
+extern "C" uint64_t lyftar_aggregate_element_count(LLVMTypeRef aggregate) {
+  require(aggregate != nullptr, "lyftar_aggregate_element_count: null type");
+  const Type *type = unwrap(aggregate);
+  if (const auto *structure = dyn_cast<StructType>(type)) {
+    return structure->getNumElements();
+  }
+  if (const auto *array = dyn_cast<ArrayType>(type)) {
+    return array->getNumElements();
+  }
+  return 0;
+}
+
+// Contract: returns whether `aggregate`'s element at `index` exists and has the type `element`.
+extern "C" bool lyftar_aggregate_element_is(LLVMTypeRef aggregate,
+                                            uint32_t index,
+                                            LLVMTypeRef element) {
+  require(aggregate != nullptr && element != nullptr,
+          "lyftar_aggregate_element_is: null argument");
+  ArrayRef<unsigned> indices(index);
+  return ExtractValueInst::getIndexedType(unwrap(aggregate), indices) ==
+         unwrap(element);
+}
+
+// Contract: `values` has `count` values. Returns whether they make up `aggregate`, a struct or array.
+extern "C" bool lyftar_aggregate_matches(LLVMTypeRef aggregate,
+                                         const LLVMValueRef *values,
+                                         uint32_t count) {
+  require(aggregate != nullptr && (values != nullptr || count == 0),
+          "lyftar_aggregate_matches: null argument");
+  Type *type = unwrap(aggregate);
+  if (const auto *structure = dyn_cast<StructType>(type)) {
+    if (structure->getNumElements() != count) {
+      return false;
+    }
+  } else if (const auto *array = dyn_cast<ArrayType>(type)) {
+    if (array->getNumElements() != count) {
+      return false;
+    }
+  } else {
+    return false;
+  }
+  for (uint32_t index = 0; index < count; ++index) {
+    if (GetElementPtrInst::getTypeAtIndex(type, index) !=
+        unwrap(values[index])->getType()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Contract: `constraints` has `length` bytes. Returns whether `function_type` is a function type those inline assembly
+// constraints fit.
+extern "C" bool
+lyftar_inline_assembly_constraints_are_valid(LLVMTypeRef function_type,
+                                             const char *constraints,
+                                             size_t length) {
+  require(function_type != nullptr && (constraints != nullptr || length == 0),
+          "lyftar_inline_assembly_constraints_are_valid: null argument");
+  auto *type = dyn_cast<FunctionType>(unwrap(function_type));
+  if (type == nullptr) {
+    return false;
+  }
+  Error result = InlineAsm::verify(type, StringRef(constraints, length));
+  if (result) {
+    consumeError(std::move(result));
+    return false;
+  }
+  return true;
+}
+
+// Contract: `constant` is a constant integer. Returns whether its value zero-extended fits in 64 bits.
+extern "C" bool lyftar_constant_integer_fits_unsigned(LLVMValueRef constant) {
+  require(constant != nullptr && isa<ConstantInt>(unwrap(constant)),
+          "lyftar_constant_integer_fits_unsigned: not a constant integer");
+  return cast<ConstantInt>(unwrap(constant))->getValue().getActiveBits() <= 64;
+}
+
+// Contract: `constant` is a constant integer. Returns whether its value sign-extended fits in 64 bits.
+extern "C" bool lyftar_constant_integer_fits_signed(LLVMValueRef constant) {
+  require(constant != nullptr && isa<ConstantInt>(unwrap(constant)),
+          "lyftar_constant_integer_fits_signed: not a constant integer");
+  return cast<ConstantInt>(unwrap(constant))->getValue().getSignificantBits() <=
+         64;
+}
+
+// Contract: `constant` is a constant array or vector of plain data. Returns how many elements it has.
+extern "C" uint32_t lyftar_constant_data_element_count(LLVMValueRef constant) {
+  require(constant != nullptr && isa<ConstantDataSequential>(unwrap(constant)),
+          "lyftar_constant_data_element_count: not plain constant data");
+  return cast<ConstantDataSequential>(unwrap(constant))->getNumElements();
+}
+
+// Contract: `lower` and `upper` each have enough 64-bit words for `width_in_bits`, which isn't zero. Returns whether
+// `ConstantRange` can hold them: equal ends must be all zeros or all ones.
+extern "C" bool lyftar_constant_range_is_valid(uint32_t width_in_bits,
+                                               const uint64_t *lower,
+                                               const uint64_t *upper) {
+  require(width_in_bits != 0 && lower != nullptr && upper != nullptr,
+          "lyftar_constant_range_is_valid: bad argument");
+  const uint32_t words = (width_in_bits + 63) / 64;
+  APInt lower_value(width_in_bits, ArrayRef<uint64_t>(lower, words));
+  APInt upper_value(width_in_bits, ArrayRef<uint64_t>(upper, words));
+  return lower_value != upper_value || lower_value.isMaxValue() ||
+         lower_value.isMinValue();
+}
+
+// Contract: returns whether a cast of `opcode` from `value` to `target` obeys LLVM's rules. Any opcode is allowed, and
+// one that isn't a cast gives false.
+extern "C" bool lyftar_cast_is_valid(LLVMOpcode opcode, LLVMValueRef value,
+                                     LLVMTypeRef target) {
+  require(value != nullptr && target != nullptr,
+          "lyftar_cast_is_valid: null argument");
+  Instruction::CastOps cast_opcode = Instruction::BitCast;
+  switch (opcode) {
+  case LLVMTrunc:
+    cast_opcode = Instruction::Trunc;
+    break;
+  case LLVMZExt:
+    cast_opcode = Instruction::ZExt;
+    break;
+  case LLVMSExt:
+    cast_opcode = Instruction::SExt;
+    break;
+  case LLVMFPToUI:
+    cast_opcode = Instruction::FPToUI;
+    break;
+  case LLVMFPToSI:
+    cast_opcode = Instruction::FPToSI;
+    break;
+  case LLVMUIToFP:
+    cast_opcode = Instruction::UIToFP;
+    break;
+  case LLVMSIToFP:
+    cast_opcode = Instruction::SIToFP;
+    break;
+  case LLVMFPTrunc:
+    cast_opcode = Instruction::FPTrunc;
+    break;
+  case LLVMFPExt:
+    cast_opcode = Instruction::FPExt;
+    break;
+  case LLVMPtrToInt:
+    cast_opcode = Instruction::PtrToInt;
+    break;
+  case LLVMPtrToAddr:
+    cast_opcode = Instruction::PtrToAddr;
+    break;
+  case LLVMIntToPtr:
+    cast_opcode = Instruction::IntToPtr;
+    break;
+  case LLVMBitCast:
+    cast_opcode = Instruction::BitCast;
+    break;
+  case LLVMAddrSpaceCast:
+    cast_opcode = Instruction::AddrSpaceCast;
+    break;
+  default:
+    return false;
+  }
+  return CastInst::castIsValid(cast_opcode, unwrap(value)->getType(),
+                               unwrap(target));
+}
+
+// Contract: returns whether `opcode` is a two-operand operation that takes `left` and `right`.
+extern "C" bool lyftar_binary_operation_is_valid(LLVMOpcode opcode,
+                                                 LLVMValueRef left,
+                                                 LLVMValueRef right) {
+  require(left != nullptr && right != nullptr,
+          "lyftar_binary_operation_is_valid: null argument");
+  const Type *type = unwrap(left)->getType();
+  if (type != unwrap(right)->getType()) {
+    return false;
+  }
+  switch (opcode) {
+  case LLVMAdd:
+  case LLVMSub:
+  case LLVMMul:
+  case LLVMUDiv:
+  case LLVMSDiv:
+  case LLVMURem:
+  case LLVMSRem:
+  case LLVMShl:
+  case LLVMLShr:
+  case LLVMAShr:
+  case LLVMAnd:
+  case LLVMOr:
+  case LLVMXor:
+    return type->isIntOrIntVectorTy();
+  case LLVMFAdd:
+  case LLVMFSub:
+  case LLVMFMul:
+  case LLVMFDiv:
+  case LLVMFRem:
+    return type->isFPOrFPVectorTy();
+  default:
+    return false;
+  }
+}
+
+// Contract: `indices` has `count` values. Returns whether they index `source_type` as `getelementptr` needs: each an
+// integer or vector of integers, walking through sized types, with each struct field a constant in bounds, and any
+// vectors the same size. A vector index is only allowed if `allow_vector` says so.
+extern "C" bool lyftar_get_element_pointer_is_valid(LLVMTypeRef source_type,
+                                                    const LLVMValueRef *indices,
+                                                    uint32_t count,
+                                                    bool allow_vector) {
+  require(source_type != nullptr && (indices != nullptr || count == 0),
+          "lyftar_get_element_pointer_is_valid: null argument");
+  Type *type = unwrap(source_type);
+  if (!type->isSized()) {
+    return false;
+  }
+  SmallVector<Value *, 8> list;
+  ElementCount vector_size = ElementCount::getFixed(0);
+  for (uint32_t index = 0; index < count; ++index) {
+    Value *item = unwrap(indices[index]);
+    if (!item->getType()->isIntOrIntVectorTy()) {
+      return false;
+    }
+    if (const auto *vector = dyn_cast<VectorType>(item->getType())) {
+      if (!allow_vector) {
+        return false;
+      }
+      if (!vector_size.isZero() && vector_size != vector->getElementCount()) {
+        return false;
+      }
+      vector_size = vector->getElementCount();
+    }
+    list.push_back(item);
+  }
+  return GetElementPtrInst::getIndexedType(type, list) != nullptr;
+}
+
+// Contract: returns whether `extractelement` takes these.
+extern "C" bool lyftar_extract_element_is_valid(LLVMValueRef vector,
+                                                LLVMValueRef index) {
+  require(vector != nullptr && index != nullptr,
+          "lyftar_extract_element_is_valid: null argument");
+  return ExtractElementInst::isValidOperands(unwrap(vector), unwrap(index));
+}
+
+// Contract: returns whether `insertelement` takes these.
+extern "C" bool lyftar_insert_element_is_valid(LLVMValueRef vector,
+                                               LLVMValueRef element,
+                                               LLVMValueRef index) {
+  require(vector != nullptr && element != nullptr && index != nullptr,
+          "lyftar_insert_element_is_valid: null argument");
+  return InsertElementInst::isValidOperands(unwrap(vector), unwrap(element),
+                                            unwrap(index));
+}
+
+// Contract: returns whether `shufflevector` takes these.
+extern "C" bool lyftar_shuffle_vector_is_valid(LLVMValueRef left,
+                                               LLVMValueRef right,
+                                               LLVMValueRef mask) {
+  require(left != nullptr && right != nullptr && mask != nullptr,
+          "lyftar_shuffle_vector_is_valid: null argument");
+  return ShuffleVectorInst::isValidOperands(unwrap(left), unwrap(right),
+                                            unwrap(mask));
+}
+
+// Contract: returns whether `select` takes these.
+extern "C" bool lyftar_select_is_valid(LLVMValueRef condition,
+                                       LLVMValueRef then_value,
+                                       LLVMValueRef else_value) {
+  require(condition != nullptr && then_value != nullptr &&
+              else_value != nullptr,
+          "lyftar_select_is_valid: null argument");
+  return SelectInst::areInvalidOperands(unwrap(condition), unwrap(then_value),
+                                        unwrap(else_value)) == nullptr;
+}
+
+// Contract: `function_type` is a function type and `arguments` has `count` values. Returns UINT32_MAX if they fit,
+// UINT32_MAX - 1 if there are the wrong number of them, and otherwise the index of the first with the wrong type.
+// trace: D3
+extern "C" uint32_t lyftar_call_first_bad_argument(LLVMTypeRef function_type,
+                                                   const LLVMValueRef *arguments,
+                                                   uint32_t count) {
+  require(function_type != nullptr && (arguments != nullptr || count == 0),
+          "lyftar_call_first_bad_argument: null argument");
+  const auto *type = dyn_cast<FunctionType>(unwrap(function_type));
+  require(type != nullptr, "lyftar_call_first_bad_argument: not a function type");
+  const uint32_t parameters = type->getNumParams();
+  if (count < parameters || (count > parameters && !type->isVarArg())) {
+    return AllGood - 1;
+  }
+  for (uint32_t index = 0; index < parameters; ++index) {
+    if (type->getParamType(index) != unwrap(arguments[index])->getType()) {
+      return index;
+    }
+  }
+  return AllGood;
+}
+
+// Contract: returns whether `atomicrmw` of `operation` takes a value of type `value_type`.
+extern "C" bool lyftar_atomic_read_modify_write_is_valid(LLVMAtomicRMWBinOp operation,
+                                                         LLVMTypeRef value_type) {
+  require(value_type != nullptr,
+          "lyftar_atomic_read_modify_write_is_valid: null type");
+  Type *type = unwrap(value_type);
+  switch (operation) {
+  case LLVMAtomicRMWBinOpXchg:
+    return type->isIntegerTy() || type->isFloatingPointTy() ||
+           type->isPointerTy();
+  case LLVMAtomicRMWBinOpFAdd:
+  case LLVMAtomicRMWBinOpFSub:
+  case LLVMAtomicRMWBinOpFMax:
+  case LLVMAtomicRMWBinOpFMin:
+  case LLVMAtomicRMWBinOpFMaximum:
+  case LLVMAtomicRMWBinOpFMinimum:
+  case LLVMAtomicRMWBinOpFMaximumNum:
+  case LLVMAtomicRMWBinOpFMinimumNum:
+    return type->isFloatingPointTy();
+  default:
+    return type->isIntegerTy();
+  }
+}
+
+// Contract: gives back the `none` token of `context`, which the context owns.
+extern "C" LLVMValueRef lyftar_token_none(LLVMContextRef context) {
+  require(context != nullptr, "lyftar_token_none: null context");
+  return wrap(ConstantTokenNone::get(*unwrap(context)));
+}
+
+// Contract: `call` is a call of some kind, and `function` is a function of the type the call is made through. Points the
+// call at it.
+extern "C" void lyftar_call_set_called_function(LLVMValueRef call,
+                                                LLVMValueRef function) {
+  require(call != nullptr && isa<CallBase>(unwrap(call)) &&
+              function != nullptr && isa<Function>(unwrap(function)),
+          "lyftar_call_set_called_function: bad argument");
+  cast<CallBase>(unwrap(call))->setCalledFunction(cast<Function>(unwrap(function)));
+}
+
+// Contract: `call` is a call of some kind, with an argument at `index`. Returns whether LLVM knows the call doesn't keep
+// that pointer.
+extern "C" bool lyftar_call_does_not_capture(LLVMValueRef call, uint32_t index) {
+  require(call != nullptr && isa<CallBase>(unwrap(call)),
+          "lyftar_call_does_not_capture: not a call");
+  const auto *base = cast<CallBase>(unwrap(call));
+  require(index < base->arg_size(),
+          "lyftar_call_does_not_capture: index out of bounds");
+  return base->doesNotCapture(index);
+}
+
+// Contract: `call` is a call of an intrinsic. Returns whether it is `llvm.lifetime.start` or `llvm.lifetime.end`.
+extern "C" bool lyftar_intrinsic_is_lifetime_start_or_end(LLVMValueRef call) {
+  require(call != nullptr && isa<IntrinsicInst>(unwrap(call)),
+          "lyftar_intrinsic_is_lifetime_start_or_end: not an intrinsic call");
+  return cast<IntrinsicInst>(unwrap(call))->isLifetimeStartOrEnd();
+}
+
+// Contract: `overloads` has `count` types. Returns whether the intrinsic `id` can be declared with them: LLVM aborts
+// otherwise.
+extern "C" bool lyftar_intrinsic_overloads_match(uint32_t id,
+                                                 const LLVMTypeRef *overloads,
+                                                 size_t count) {
+  require(overloads != nullptr || count == 0,
+          "lyftar_intrinsic_overloads_match: null list");
+  if (id == 0 || id >= Intrinsic::num_intrinsics) {
+    return false;
+  }
+  SmallVector<Type *, 4> types;
+  for (size_t index = 0; index < count; ++index) {
+    types.push_back(unwrap(overloads[index]));
+  }
+  SmallVector<Intrinsic::IITDescriptor, 8> descriptors;
+  Intrinsic::getIntrinsicInfoTableEntries(static_cast<Intrinsic::ID>(id),
+                                          descriptors);
+  ArrayRef<Intrinsic::IITDescriptor> table = descriptors;
+  if (count == 0) {
+    return !Intrinsic::isOverloaded(static_cast<Intrinsic::ID>(id));
+  }
+  if (!Intrinsic::isOverloaded(static_cast<Intrinsic::ID>(id))) {
+    return false;
+  }
+  // Each overload slot is counted, so a wrong count is known without building anything.
+  unsigned slots = 0;
+  for (const Intrinsic::IITDescriptor &descriptor : table) {
+    if (descriptor.Kind == Intrinsic::IITDescriptor::Overloaded) {
+      slots = std::max(slots, descriptor.getOverloadIndex() + 1);
+    }
+  }
+  return slots == count;
+}
+
+// Contract: `allocation` is an `alloca` in a function in a module, and `size_in_bytes` points to room for one number.
+// Writes its size and returns true when the size is known here.
+extern "C" bool lyftar_allocation_size_in_bytes(LLVMValueRef allocation,
+                                                uint64_t *size_in_bytes) {
+  require(allocation != nullptr && isa<AllocaInst>(unwrap(allocation)) &&
+              size_in_bytes != nullptr,
+          "lyftar_allocation_size_in_bytes: bad argument");
+  const auto *instruction = cast<AllocaInst>(unwrap(allocation));
+  auto size = instruction->getAllocationSize(
+      instruction->getModule()->getDataLayout());
+  if (!size || size->isScalable()) {
+    return false;
+  }
+  *size_in_bytes = size->getFixedValue();
+  return true;
+}
+
+// Contract: `function` is a function. Returns how many instructions it has.
+extern "C" uint32_t lyftar_function_instruction_count(LLVMValueRef function) {
+  require(function != nullptr && isa<Function>(unwrap(function)),
+          "lyftar_function_instruction_count: not a function");
+  return cast<Function>(unwrap(function))->getInstructionCount();
+}
+
+// Contract: `text` is a C string. Returns whether LLVM can parse it as a data layout, since `setDataLayout` aborts on one
+// it can't.
+extern "C" bool lyftar_data_layout_is_valid(const char *text) {
+  require(text != nullptr, "lyftar_data_layout_is_valid: null text");
+  Expected<DataLayout> parsed = DataLayout::parse(text);
+  if (!parsed) {
+    consumeError(parsed.takeError());
+    return false;
+  }
+  return true;
+}
+
+// Contract: returns whether the attribute kind `kind` can be made as an enum attribute holding `value`: an integer kind
+// holds any number, and a plain enum kind holds only zero.
+extern "C" bool lyftar_attribute_kind_takes_integer_or_nothing(uint32_t kind,
+                                                               uint64_t value) {
+  if (kind == 0 || kind >= Attribute::EndAttrKinds) {
+    return false;
+  }
+  const auto attribute_kind = static_cast<Attribute::AttrKind>(kind);
+  if (Attribute::isIntAttrKind(attribute_kind)) {
+    return true;
+  }
+  return Attribute::isEnumAttrKind(attribute_kind) && value == 0;
+}
+
+// Contract: returns whether the attribute kind `kind` holds a type.
+extern "C" bool lyftar_attribute_kind_takes_type(uint32_t kind) {
+  return kind != 0 && kind < Attribute::EndAttrKinds &&
+         Attribute::isTypeAttrKind(static_cast<Attribute::AttrKind>(kind));
+}
+
+// Contract: returns whether the attribute kind `kind` holds a constant range.
+extern "C" bool lyftar_attribute_kind_takes_constant_range(uint32_t kind) {
+  return kind != 0 && kind < Attribute::EndAttrKinds &&
+         Attribute::isConstantRangeAttrKind(
+             static_cast<Attribute::AttrKind>(kind));
 }

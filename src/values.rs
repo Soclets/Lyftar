@@ -1,12 +1,20 @@
 //! LLVM values (D4, D11).
+//!
+//! A [`Value`] says as much as the code knows: `Value<'context, 'module, Integer<Bits<64>>>` is checked at `cargo build`,
+//! `Value<'context, 'module>` when the line runs, and a marker such as [`LoadInstruction`] says what kind of LLVM value it
+//! is, which `value.as_kind::<LoadInstruction>()` asks about (D4).
 
 use std::marker::PhantomData;
 
 use crate::bad_call::bad_call;
 use crate::block::Block;
+use crate::checks;
+use crate::context::Context;
+use crate::enums::ValueCategory;
 use crate::raw;
-use crate::text::{c_string, from_owned_message};
-use crate::types::{Dynamic, Invariant, Pointer, Sealed, Type, TypeKind};
+use crate::shim;
+use crate::text::{from_owned_message, from_pointer_and_length};
+use crate::types::{Dynamic, Invariant, Pointer, Sealed, Type, TypeMarker};
 
 /// A value: as specific as the code knows (D4), belonging to its context (invariant, D10) and borrowing its module
 /// (covariant, D11), so that holding one across a delete or a pass run doesn't compile and constants, which belong to
@@ -23,15 +31,27 @@ impl<T> Clone for Value<'_, '_, T> {
     }
 }
 impl<T> Copy for Value<'_, '_, T> {}
-
-/// A function. It is a value (D4), and its LLVM type is a pointer.
-#[derive(Clone, Copy, Debug)]
-pub struct Function;
+impl<T, U> PartialEq<Value<'_, '_, U>> for Value<'_, '_, T> {
+    fn eq(&self, other: &Value<'_, '_, U>) -> bool {
+        self.raw == other.raw
+    }
+}
+impl<T> Eq for Value<'_, '_, T> {}
+impl<T> std::hash::Hash for Value<'_, '_, T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.raw.hash(state);
+    }
+}
+impl<T> std::fmt::Debug for Value<'_, '_, T> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.print_to_string())
+    }
+}
 
 /// What Rust knows about a value (D4).
-pub trait ValueKind: Sealed + 'static {
+pub trait ValueMarker: Sealed + 'static {
     /// What is known about this value's LLVM type.
-    type LlvmType: TypeKind;
+    type LlvmType: TypeMarker;
 
     /// Whether `raw` is such a value.
     ///
@@ -41,12 +61,339 @@ pub trait ValueKind: Sealed + 'static {
     unsafe fn accepts_value(raw: raw::LLVMValueRef) -> bool;
 }
 
-impl<T: TypeKind> ValueKind for T {
+impl<T: TypeMarker> ValueMarker for T {
     type LlvmType = T;
 
     unsafe fn accepts_value(raw: raw::LLVMValueRef) -> bool {
         // SAFETY: the caller promises a live value, and a live value has a live type.
         unsafe { T::accepts_type(raw::LLVMTypeOf(raw)) }
+    }
+}
+
+/// A value that uses others, so it has operands.
+pub trait UserMarker: ValueMarker {}
+/// A constant.
+pub trait ConstantMarker: UserMarker {}
+/// A global value: a function, a global variable, an alias or an indirect function.
+pub trait GlobalValueMarker: ConstantMarker {}
+/// A global object: a function, a global variable or an indirect function.
+pub trait GlobalObjectMarker: GlobalValueMarker {}
+/// An instruction.
+pub trait InstructionMarker: UserMarker {}
+/// An instruction that calls something: a call, an invoke or a call branch.
+pub trait CallBaseMarker: InstructionMarker {}
+/// Something with an alignment: a load, store, stack allocation, atomic operation or global object.
+pub trait AlignedMarker: ValueMarker {}
+/// A load or store, or an atomic operation that can be marked volatile.
+pub trait VolatileMarker: InstructionMarker {}
+/// An instruction with a syncronization scope.
+pub trait AtomicMarker: InstructionMarker {}
+/// A terminator.
+pub trait TerminatorMarker: InstructionMarker {}
+
+/// Declares the markers for LLVM's value classes, one per `LLVMIsA*` (D4), each spelled out (D5).
+macro_rules! value_markers {
+    ($($(#[$meta:meta])* $name:ident = $is_a:ident as $llvm_type:ty : [$($marker:ident),*];)*) => {
+        $(
+            $(#[$meta])*
+            #[derive(Clone, Copy, Debug)]
+            pub struct $name;
+            impl Sealed for $name {}
+            impl ValueMarker for $name {
+                type LlvmType = $llvm_type;
+                unsafe fn accepts_value(raw: raw::LLVMValueRef) -> bool {
+                    // SAFETY: the caller promises a live value.
+                    unsafe { !raw::$is_a(raw).is_null() }
+                }
+            }
+            $(impl $marker for $name {})*
+        )*
+    };
+}
+
+value_markers! {
+    /// A function's argument.
+    Argument = LLVMIsAArgument as Dynamic: [];
+    /// A basic block, as a value. See [`Block`] for working with one.
+    BasicBlock = LLVMIsABasicBlock as Dynamic: [];
+    /// Inline assembly.
+    InlineAssembly = LLVMIsAInlineAsm as Pointer: [];
+    /// Any value that uses others.
+    User = LLVMIsAUser as Dynamic: [UserMarker];
+    /// Any constant.
+    Constant = LLVMIsAConstant as Dynamic: [UserMarker, ConstantMarker];
+    /// A block's address.
+    BlockAddress = LLVMIsABlockAddress as Pointer: [UserMarker, ConstantMarker];
+    /// A zero aggregate.
+    ConstantAggregateZero = LLVMIsAConstantAggregateZero as Dynamic: [UserMarker, ConstantMarker];
+    /// A constant array.
+    ConstantArray = LLVMIsAConstantArray as Dynamic: [UserMarker, ConstantMarker];
+    /// A constant array or vector stored as plain data.
+    ConstantDataSequential = LLVMIsAConstantDataSequential as Dynamic: [UserMarker, ConstantMarker];
+    /// A constant array stored as plain data.
+    ConstantDataArray = LLVMIsAConstantDataArray as Dynamic: [UserMarker, ConstantMarker];
+    /// A constant vector stored as plain data.
+    ConstantDataVector = LLVMIsAConstantDataVector as Dynamic: [UserMarker, ConstantMarker];
+    /// A constant expression.
+    ConstantExpression = LLVMIsAConstantExpr as Dynamic: [UserMarker, ConstantMarker];
+    /// A constant float.
+    ConstantFloat = LLVMIsAConstantFP as Dynamic: [UserMarker, ConstantMarker];
+    /// A constant integer.
+    ConstantInteger = LLVMIsAConstantInt as Dynamic: [UserMarker, ConstantMarker];
+    /// A constant byte.
+    ConstantByte = LLVMIsAConstantByte as Dynamic: [UserMarker, ConstantMarker];
+    /// A constant null pointer.
+    ConstantPointerNull = LLVMIsAConstantPointerNull as Pointer: [UserMarker, ConstantMarker];
+    /// A constant struct.
+    ConstantStruct = LLVMIsAConstantStruct as Dynamic: [UserMarker, ConstantMarker];
+    /// The constant `none` token.
+    ConstantTokenNone = LLVMIsAConstantTokenNone as Dynamic: [UserMarker, ConstantMarker];
+    /// A constant vector.
+    ConstantVector = LLVMIsAConstantVector as Dynamic: [UserMarker, ConstantMarker];
+    /// A constant authenticated pointer.
+    ConstantPointerAuthentication = LLVMIsAConstantPtrAuth as Pointer: [UserMarker, ConstantMarker];
+    /// Any global value.
+    GlobalValue = LLVMIsAGlobalValue as Pointer: [UserMarker, ConstantMarker, GlobalValueMarker];
+    /// A global alias.
+    GlobalAlias = LLVMIsAGlobalAlias as Pointer: [UserMarker, ConstantMarker, GlobalValueMarker];
+    /// Any global object.
+    GlobalObject = LLVMIsAGlobalObject as Pointer:
+        [UserMarker, ConstantMarker, GlobalValueMarker, GlobalObjectMarker, AlignedMarker];
+    /// A function. It is a value (D4), and its LLVM type is a pointer.
+    Function = LLVMIsAFunction as Pointer:
+        [UserMarker, ConstantMarker, GlobalValueMarker, GlobalObjectMarker, AlignedMarker];
+    /// A global variable.
+    GlobalVariable = LLVMIsAGlobalVariable as Pointer:
+        [UserMarker, ConstantMarker, GlobalValueMarker, GlobalObjectMarker, AlignedMarker];
+    /// A global indirect function.
+    GlobalIndirectFunction = LLVMIsAGlobalIFunc as Pointer:
+        [UserMarker, ConstantMarker, GlobalValueMarker, GlobalObjectMarker, AlignedMarker];
+    /// `undef`.
+    UndefinedValue = LLVMIsAUndefValue as Dynamic: [UserMarker, ConstantMarker];
+    /// `poison`.
+    PoisonValue = LLVMIsAPoisonValue as Dynamic: [UserMarker, ConstantMarker];
+    /// Any instruction.
+    Instruction = LLVMIsAInstruction as Dynamic: [UserMarker, InstructionMarker];
+    /// An operator with one operand, such as `fneg`.
+    UnaryOperator = LLVMIsAUnaryOperator as Dynamic: [UserMarker, InstructionMarker];
+    /// An operator with two operands, such as `add`.
+    BinaryOperator = LLVMIsABinaryOperator as Dynamic: [UserMarker, InstructionMarker];
+    /// A `call`.
+    CallInstruction = LLVMIsACallInst as Dynamic: [UserMarker, InstructionMarker, CallBaseMarker];
+    /// A call of an intrinsic.
+    IntrinsicInstruction = LLVMIsAIntrinsicInst as Dynamic: [UserMarker, InstructionMarker, CallBaseMarker];
+    /// A call of a debug intrinsic.
+    DebugInfoIntrinsic = LLVMIsADbgInfoIntrinsic as Dynamic: [UserMarker, InstructionMarker, CallBaseMarker];
+    /// A call of a debug variable intrinsic.
+    DebugVariableIntrinsic = LLVMIsADbgVariableIntrinsic as Dynamic: [UserMarker, InstructionMarker, CallBaseMarker];
+    /// A call of `llvm.dbg.declare`.
+    DebugDeclareInstruction = LLVMIsADbgDeclareInst as Dynamic: [UserMarker, InstructionMarker, CallBaseMarker];
+    /// A call of `llvm.dbg.label`.
+    DebugLabelInstruction = LLVMIsADbgLabelInst as Dynamic: [UserMarker, InstructionMarker, CallBaseMarker];
+    /// A call of `llvm.memcpy`, `llvm.memmove` or `llvm.memset`.
+    MemoryIntrinsic = LLVMIsAMemIntrinsic as Dynamic: [UserMarker, InstructionMarker, CallBaseMarker];
+    /// A call of `llvm.memcpy`.
+    MemoryCopyInstruction = LLVMIsAMemCpyInst as Dynamic: [UserMarker, InstructionMarker, CallBaseMarker];
+    /// A call of `llvm.memmove`.
+    MemoryMoveInstruction = LLVMIsAMemMoveInst as Dynamic: [UserMarker, InstructionMarker, CallBaseMarker];
+    /// A call of `llvm.memset`.
+    MemorySetInstruction = LLVMIsAMemSetInst as Dynamic: [UserMarker, InstructionMarker, CallBaseMarker];
+    /// An `icmp` or an `fcmp`.
+    CompareInstruction = LLVMIsACmpInst as Dynamic: [UserMarker, InstructionMarker];
+    /// An `fcmp`.
+    FloatCompareInstruction = LLVMIsAFCmpInst as Dynamic: [UserMarker, InstructionMarker];
+    /// An `icmp`.
+    IntegerCompareInstruction = LLVMIsAICmpInst as Dynamic: [UserMarker, InstructionMarker];
+    /// An `extractelement`.
+    ExtractElementInstruction = LLVMIsAExtractElementInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `getelementptr`.
+    GetElementPointerInstruction = LLVMIsAGetElementPtrInst as Dynamic: [UserMarker, InstructionMarker];
+    /// An `insertelement`.
+    InsertElementInstruction = LLVMIsAInsertElementInst as Dynamic: [UserMarker, InstructionMarker];
+    /// An `insertvalue`.
+    InsertValueInstruction = LLVMIsAInsertValueInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `landingpad`.
+    LandingPadInstruction = LLVMIsALandingPadInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `select`.
+    SelectInstruction = LLVMIsASelectInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `shufflevector`.
+    ShuffleVectorInstruction = LLVMIsAShuffleVectorInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `store`.
+    StoreInstruction = LLVMIsAStoreInst as Dynamic: [UserMarker, InstructionMarker, AlignedMarker, VolatileMarker];
+    /// A `br` with no condition.
+    UnconditionalBranchInstruction = LLVMIsAUncondBrInst as Dynamic: [UserMarker, InstructionMarker, TerminatorMarker];
+    /// A `br` with a condition.
+    ConditionalBranchInstruction = LLVMIsACondBrInst as Dynamic: [UserMarker, InstructionMarker, TerminatorMarker];
+    /// An `indirectbr`.
+    IndirectBranchInstruction = LLVMIsAIndirectBrInst as Dynamic: [UserMarker, InstructionMarker, TerminatorMarker];
+    /// An `invoke`.
+    InvokeInstruction = LLVMIsAInvokeInst as Dynamic: [UserMarker, InstructionMarker, CallBaseMarker, TerminatorMarker];
+    /// A `ret`.
+    ReturnInstruction = LLVMIsAReturnInst as Dynamic: [UserMarker, InstructionMarker, TerminatorMarker];
+    /// A `switch`.
+    SwitchInstruction = LLVMIsASwitchInst as Dynamic: [UserMarker, InstructionMarker, TerminatorMarker];
+    /// An `unreachable`.
+    UnreachableInstruction = LLVMIsAUnreachableInst as Dynamic: [UserMarker, InstructionMarker, TerminatorMarker];
+    /// A `resume`.
+    ResumeInstruction = LLVMIsAResumeInst as Dynamic: [UserMarker, InstructionMarker, TerminatorMarker];
+    /// A `cleanupret`.
+    CleanupReturnInstruction = LLVMIsACleanupReturnInst as Dynamic: [UserMarker, InstructionMarker, TerminatorMarker];
+    /// A `catchret`.
+    CatchReturnInstruction = LLVMIsACatchReturnInst as Dynamic: [UserMarker, InstructionMarker, TerminatorMarker];
+    /// A `catchswitch`.
+    CatchSwitchInstruction = LLVMIsACatchSwitchInst as Dynamic: [UserMarker, InstructionMarker, TerminatorMarker];
+    /// A `callbr`.
+    CallBranchInstruction = LLVMIsACallBrInst as Dynamic:
+        [UserMarker, InstructionMarker, CallBaseMarker, TerminatorMarker];
+    /// A `catchpad` or `cleanuppad`.
+    FuncletPadInstruction = LLVMIsAFuncletPadInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `catchpad`.
+    CatchPadInstruction = LLVMIsACatchPadInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `cleanuppad`.
+    CleanupPadInstruction = LLVMIsACleanupPadInst as Dynamic: [UserMarker, InstructionMarker];
+    /// An instruction with one operand.
+    UnaryInstruction = LLVMIsAUnaryInstruction as Dynamic: [UserMarker, InstructionMarker];
+    /// An `alloca`.
+    StackAllocationInstruction = LLVMIsAAllocaInst as Pointer: [UserMarker, InstructionMarker, AlignedMarker];
+    /// A cast.
+    CastInstruction = LLVMIsACastInst as Dynamic: [UserMarker, InstructionMarker];
+    /// An `addrspacecast`.
+    AddressSpaceCastInstruction = LLVMIsAAddrSpaceCastInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `bitcast`.
+    BitCastInstruction = LLVMIsABitCastInst as Dynamic: [UserMarker, InstructionMarker];
+    /// An `fpext`.
+    FloatExtendInstruction = LLVMIsAFPExtInst as Dynamic: [UserMarker, InstructionMarker];
+    /// An `fptosi`.
+    FloatToSignedIntegerInstruction = LLVMIsAFPToSIInst as Dynamic: [UserMarker, InstructionMarker];
+    /// An `fptoui`.
+    FloatToUnsignedIntegerInstruction = LLVMIsAFPToUIInst as Dynamic: [UserMarker, InstructionMarker];
+    /// An `fptrunc`.
+    FloatTruncateInstruction = LLVMIsAFPTruncInst as Dynamic: [UserMarker, InstructionMarker];
+    /// An `inttoptr`.
+    IntegerToPointerInstruction = LLVMIsAIntToPtrInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `ptrtoint`.
+    PointerToIntegerInstruction = LLVMIsAPtrToIntInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `sext`.
+    SignExtendInstruction = LLVMIsASExtInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `sitofp`.
+    SignedIntegerToFloatInstruction = LLVMIsASIToFPInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `trunc`.
+    TruncateInstruction = LLVMIsATruncInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `uitofp`.
+    UnsignedIntegerToFloatInstruction = LLVMIsAUIToFPInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `zext`.
+    ZeroExtendInstruction = LLVMIsAZExtInst as Dynamic: [UserMarker, InstructionMarker];
+    /// An `extractvalue`.
+    ExtractValueInstruction = LLVMIsAExtractValueInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `load`.
+    LoadInstruction = LLVMIsALoadInst as Dynamic: [UserMarker, InstructionMarker, AlignedMarker, VolatileMarker];
+    /// A `va_arg`.
+    VariableArgumentInstruction = LLVMIsAVAArgInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `freeze`.
+    FreezeInstruction = LLVMIsAFreezeInst as Dynamic: [UserMarker, InstructionMarker];
+    /// A `cmpxchg`.
+    AtomicCompareExchangeInstruction = LLVMIsAAtomicCmpXchgInst as Dynamic:
+        [UserMarker, InstructionMarker, AlignedMarker, VolatileMarker, AtomicMarker];
+    /// An `atomicrmw`.
+    AtomicReadModifyWriteInstruction = LLVMIsAAtomicRMWInst as Dynamic:
+        [UserMarker, InstructionMarker, AlignedMarker, VolatileMarker, AtomicMarker];
+    /// A `fence`.
+    FenceInstruction = LLVMIsAFenceInst as Dynamic: [UserMarker, InstructionMarker, AtomicMarker];
+}
+
+/// Any instruction that calls something (LLVM's `CallBase`): a call, an invoke or a call branch.
+#[derive(Clone, Copy, Debug)]
+pub struct CallBase;
+impl Sealed for CallBase {}
+impl ValueMarker for CallBase {
+    type LlvmType = Dynamic;
+    unsafe fn accepts_value(raw: raw::LLVMValueRef) -> bool {
+        // SAFETY: the caller promises a live value.
+        unsafe {
+            !raw::LLVMIsACallInst(raw).is_null()
+                || !raw::LLVMIsAInvokeInst(raw).is_null()
+                || !raw::LLVMIsACallBrInst(raw).is_null()
+        }
+    }
+}
+impl UserMarker for CallBase {}
+impl InstructionMarker for CallBase {}
+impl CallBaseMarker for CallBase {}
+
+/// Any block terminator.
+#[derive(Clone, Copy, Debug)]
+pub struct Terminator;
+impl Sealed for Terminator {}
+impl ValueMarker for Terminator {
+    type LlvmType = Dynamic;
+    unsafe fn accepts_value(raw: raw::LLVMValueRef) -> bool {
+        // SAFETY: the caller promises a live value; the shim only reads it.
+        unsafe { shim::lyftar_value_is_terminator(raw) }
+    }
+}
+impl UserMarker for Terminator {}
+impl InstructionMarker for Terminator {}
+impl TerminatorMarker for Terminator {}
+
+/// A use of a value: one operand of one user.
+#[derive(Clone, Copy)]
+pub struct Use<'context, 'module> {
+    raw: raw::LLVMUseRef,
+    marker: PhantomData<(Invariant<'context>, &'module ())>,
+}
+
+impl<'context, 'module> Use<'context, 'module> {
+    /// Wraps a raw use.
+    ///
+    /// # Safety
+    /// `raw` must be a live use that stays live for `'module`.
+    #[must_use]
+    pub unsafe fn from_raw(raw: raw::LLVMUseRef) -> Self {
+        Use { raw, marker: PhantomData }
+    }
+
+    /// The raw use.
+    ///
+    /// # Safety
+    /// Raw calls can break what the safe API promises (D15).
+    #[must_use]
+    pub unsafe fn as_raw(self) -> raw::LLVMUseRef {
+        self.raw
+    }
+
+    /// The value that uses it.
+    #[must_use]
+    pub fn user(self) -> Value<'context, 'module, User> {
+        // SAFETY: the use is live for `'module`, and so is its user.
+        unsafe { Value::from_raw(raw::LLVMGetUser(self.raw)) }
+    }
+
+    /// The value being used.
+    #[must_use]
+    pub fn used_value(self) -> Value<'context, 'module> {
+        // SAFETY: the use is live for `'module`, and so is what it uses.
+        unsafe { Value::from_raw(raw::LLVMGetUsedValue(self.raw)) }
+    }
+}
+
+/// The uses of a value, from [`Value::uses`].
+pub struct Uses<'context, 'module> {
+    next: raw::LLVMUseRef,
+    marker: PhantomData<(Invariant<'context>, &'module ())>,
+}
+
+impl<'context, 'module> Iterator for Uses<'context, 'module> {
+    type Item = Use<'context, 'module>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.next.is_null() {
+            return None;
+        }
+        let current = self.next;
+        // SAFETY: `current` is live, since nothing can delete it while `'module` lasts.
+        self.next = unsafe { raw::LLVMGetNextUse(current) };
+        // SAFETY: the same use.
+        Some(unsafe { Use::from_raw(current) })
     }
 }
 
@@ -81,9 +428,104 @@ impl<'context, 'module, T> Value<'context, 'module, T> {
         // SAFETY: the value is live for `'module`.
         from_owned_message(unsafe { raw::LLVMPrintValueToString(self.raw) })
     }
+
+    /// This value's name, empty if it has none.
+    #[must_use]
+    pub fn name(self) -> String {
+        let mut length = 0;
+        // SAFETY: the value is live for `'module`, and the name is copied right away.
+        let name = unsafe { raw::LLVMGetValueName2(self.raw, &raw mut length) };
+        from_pointer_and_length(name, length)
+    }
+
+    /// Sets this value's name. A constant that isn't a global has no name to set.
+    pub fn set_name(self, name: &str) {
+        // SAFETY: the value is live; LLVM reads `name.len()` bytes; a void instruction can't be named, so it is skipped.
+        unsafe {
+            if raw::LLVMGetTypeKind(raw::LLVMTypeOf(self.raw)) != raw::LLVMTypeKind::LLVMVoidTypeKind {
+                raw::LLVMSetValueName2(self.raw, name.as_ptr().cast(), name.len());
+            }
+        }
+    }
+
+    /// What kind of LLVM value this is.
+    #[must_use]
+    pub fn category(self) -> ValueCategory {
+        // SAFETY: the value is live for `'module`.
+        ValueCategory::from_raw(unsafe { raw::LLVMGetValueKind(self.raw) })
+    }
+
+    /// The context this value belongs to.
+    #[must_use]
+    pub fn context(self) -> Context<'context> {
+        // SAFETY: the value's context is live for `'context`.
+        unsafe { Context::from_raw(raw::LLVMGetValueContext(self.raw)) }
+    }
+
+    /// Whether this value is a constant.
+    #[must_use]
+    pub fn is_constant(self) -> bool {
+        // SAFETY: the value is live for `'module`.
+        unsafe { raw::LLVMIsConstant(self.raw) != 0 }
+    }
+
+    /// Whether this value is `undef`.
+    #[must_use]
+    pub fn is_undefined(self) -> bool {
+        // SAFETY: the value is live for `'module`.
+        unsafe { raw::LLVMIsUndef(self.raw) != 0 }
+    }
+
+    /// Whether this value is `poison`.
+    #[must_use]
+    pub fn is_poison(self) -> bool {
+        // SAFETY: the value is live for `'module`.
+        unsafe { raw::LLVMIsPoison(self.raw) != 0 }
+    }
+
+    /// Whether this value is a constant zero.
+    #[must_use]
+    pub fn is_null(self) -> bool {
+        // SAFETY: the value is live for `'module`; LLVM answers false for anything that isn't a constant.
+        unsafe { raw::LLVMIsNull(self.raw) != 0 }
+    }
+
+    /// The uses of this value, none for a constant with no use list.
+    #[must_use]
+    pub fn uses(self) -> Uses<'context, 'module> {
+        // SAFETY: the value is live for `'module`.
+        Uses { next: unsafe { raw::LLVMGetFirstUse(self.raw) }, marker: PhantomData }
+    }
+
+    /// Replaces every use of this value with `replacement`.
+    ///
+    /// # Panics
+    /// If the two types differ, or this value is a constant, whose uses LLVM doesn't track here (D3).
+    #[track_caller]
+    pub fn replace_all_uses_with<U>(self, replacement: Value<'context, 'module, U>) {
+        // SAFETY: both are live for `'module`.
+        let (own_type, other_type) = unsafe { (raw::LLVMTypeOf(self.raw), raw::LLVMTypeOf(replacement.raw)) };
+        if !checks::same_identity(own_type as usize, other_type as usize) {
+            bad_call(format_args!(
+                "replace_all_uses_with: {} and {} have different types",
+                self.print_to_string(),
+                replacement.print_to_string()
+            ));
+        }
+        // SAFETY: both are live.
+        if unsafe { !shim::lyftar_value_can_replace_uses(self.raw, replacement.raw) } {
+            bad_call(format_args!(
+                "replace_all_uses_with: can't replace the uses of {} with {}",
+                self.print_to_string(),
+                replacement.print_to_string()
+            ));
+        }
+        // SAFETY: just checked what LLVM asserts.
+        unsafe { raw::LLVMReplaceAllUsesWith(self.raw, replacement.raw) };
+    }
 }
 
-impl<'context, 'module, T: ValueKind> Value<'context, 'module, T> {
+impl<'context, 'module, T: ValueMarker> Value<'context, 'module, T> {
     /// This value's type.
     #[must_use]
     pub fn get_type(self) -> Type<'context, T::LlvmType> {
@@ -93,7 +535,7 @@ impl<'context, 'module, T: ValueKind> Value<'context, 'module, T> {
 
     /// This value as a `U`, if it is one (D4).
     #[must_use]
-    pub fn as_kind<U: ValueKind>(self) -> Option<Value<'context, 'module, U>> {
+    pub fn as_kind<U: ValueMarker>(self) -> Option<Value<'context, 'module, U>> {
         // SAFETY: the value is live for `'module`.
         unsafe { U::accepts_value(self.raw) }.then_some(Value { raw: self.raw, marker: PhantomData })
     }
@@ -105,7 +547,7 @@ impl<'context, 'module, T: ValueKind> Value<'context, 'module, T> {
     /// If it isn't one (D3).
     #[must_use]
     #[track_caller]
-    pub fn checked_cast<U: ValueKind>(self) -> Value<'context, 'module, U> {
+    pub fn checked_cast<U: ValueMarker>(self) -> Value<'context, 'module, U> {
         match self.as_kind::<U>() {
             Some(value) => value,
             None => bad_call(format_args!(
@@ -117,45 +559,106 @@ impl<'context, 'module, T: ValueKind> Value<'context, 'module, T> {
     }
 }
 
-impl Sealed for Function {}
-impl ValueKind for Function {
-    type LlvmType = Pointer;
+impl<'context, 'module, T: UserMarker> Value<'context, 'module, T> {
+    /// How many operands this value has.
+    #[must_use]
+    pub fn operand_count(self) -> u32 {
+        // SAFETY: `UserMarker` guarantees a user, which is what LLVM asks for. A count is never negative.
+        unsafe { raw::LLVMGetNumOperands(self.raw) }.cast_unsigned()
+    }
 
+    #[track_caller]
+    fn check_operand_index(self, operation: &str, index: u32) {
+        let count = self.operand_count();
+        if !checks::index_in_bounds(index, count) {
+            bad_call(format_args!("{operation}: index {index} is out of bounds for {} operands", count));
+        }
+    }
+
+    /// The operand at `index`. Operands that are blocks come back as values too.
+    ///
+    /// # Panics
+    /// If there is no such operand (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn operand(self, index: u32) -> Value<'context, 'module> {
+        self.check_operand_index("operand", index);
+        // SAFETY: the index was just checked, and the user is live for `'module`.
+        unsafe { Value::from_raw(raw::LLVMGetOperand(self.raw, index)) }
+    }
+
+    /// The use at operand `index`.
+    ///
+    /// # Panics
+    /// If there is no such operand (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn operand_use(self, index: u32) -> Use<'context, 'module> {
+        self.check_operand_index("operand_use", index);
+        // SAFETY: the index was just checked, and the user is live for `'module`.
+        unsafe { Use::from_raw(raw::LLVMGetOperandUse(self.raw, index)) }
+    }
+
+    /// Sets the operand at `index`.
+    ///
+    /// # Panics
+    /// If there is no such operand, or the new one has another type, or it belongs to another module (D3).
+    #[track_caller]
+    pub fn set_operand<U>(self, index: u32, operand: Value<'context, 'module, U>) {
+        self.check_operand_index("set_operand", index);
+        // SAFETY: the index was just checked and both values are live.
+        unsafe {
+            let old = raw::LLVMGetOperand(self.raw, index);
+            if !checks::same_identity(raw::LLVMTypeOf(old) as usize, raw::LLVMTypeOf(operand.raw) as usize) {
+                bad_call(format_args!(
+                    "set_operand: {} doesn't have the type of operand {index} of {}",
+                    operand.print_to_string(),
+                    self.print_to_string()
+                ));
+            }
+            if !shim::lyftar_values_share_module(self.raw, operand.raw) {
+                bad_call(format_args!(
+                    "set_operand: {} belongs to another module than {}",
+                    operand.print_to_string(),
+                    self.print_to_string()
+                ));
+            }
+            raw::LLVMSetOperand(self.raw, index, operand.raw);
+        }
+    }
+}
+
+impl<'context, 'module> Value<'context, 'module, BasicBlock> {
+    /// This value as a block.
+    #[must_use]
+    pub fn to_block(self) -> Block<'context, 'module> {
+        // SAFETY: `BasicBlock` guarantees a block, which is live for `'module`.
+        unsafe { Block::from_raw(raw::LLVMValueAsBasicBlock(self.raw)) }
+    }
+}
+
+/// Metadata wrapped as a value, as an intrinsic's argument takes it.
+#[derive(Clone, Copy, Debug)]
+pub struct MetadataAsValue;
+impl Sealed for MetadataAsValue {}
+impl ValueMarker for MetadataAsValue {
+    type LlvmType = Dynamic;
     unsafe fn accepts_value(raw: raw::LLVMValueRef) -> bool {
         // SAFETY: the caller promises a live value.
-        unsafe { !raw::LLVMIsAFunction(raw).is_null() }
+        unsafe { raw::LLVMGetValueKind(raw) == raw::LLVMValueKind::LLVMMetadataAsValueValueKind }
     }
 }
 
-impl<'context, 'module> Value<'context, 'module, Function> {
-    /// Adds a new block at the end of this function.
-    ///
-    /// # Panics
-    /// If `name` has a NUL byte inside it (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn append_block(self, name: &str) -> Block<'context, 'module> {
-        let name = c_string(name, "append_block");
-        // SAFETY: the function is live for `'module`, and `name` is a valid C string for the call.
-        unsafe {
-            let context = raw::LLVMGetValueContext(self.raw);
-            Block::from_raw(raw::LLVMAppendBasicBlockInContext(context, self.raw, name.as_ptr()))
-        }
-    }
-
-    /// The parameter at `index`.
-    ///
-    /// # Panics
-    /// If the function has no such parameter (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn parameter(self, index: u32) -> Value<'context, 'module> {
-        // SAFETY: the function is live for `'module`.
-        let count = unsafe { raw::LLVMCountParams(self.raw) };
-        if !crate::checks::index_in_bounds(index, count) {
-            bad_call(format_args!("parameter: index {index} is out of bounds for a function of {count} parameters"));
-        }
-        // SAFETY: the index was just checked.
-        unsafe { Value::from_raw(raw::LLVMGetParam(self.raw, index)) }
+/// A `phi`. It says what it holds, as `PhiNode<Integer<Bits<64>>>`, and [`Value::as_value`] gives its value.
+#[derive(Clone, Copy, Debug)]
+pub struct PhiNode<T = Dynamic>(PhantomData<fn() -> T>);
+impl<T: TypeMarker> Sealed for PhiNode<T> {}
+impl<T: TypeMarker> ValueMarker for PhiNode<T> {
+    type LlvmType = T;
+    unsafe fn accepts_value(raw: raw::LLVMValueRef) -> bool {
+        // SAFETY: the caller promises a live value, and a live value has a live type.
+        unsafe { !raw::LLVMIsAPHINode(raw).is_null() && T::accepts_type(raw::LLVMTypeOf(raw)) }
     }
 }
+impl<T: TypeMarker> UserMarker for PhiNode<T> {}
+impl<T: TypeMarker> InstructionMarker for PhiNode<T> {}
