@@ -39,7 +39,11 @@ a real use of the constant stopped the deletion in the two cases tried, with the
 
 ## Waiting on design claude
 
-What to do about the known hole above. D30 to D36 are built.
+D37 is not built, because it doesn't close the hole as written. LLVM keeps one copy of a constant per context, so a constant
+borrowed from module A is the same object as one in module B, and a pass on B can delete it while A's borrow still compiles.
+ASan confirms it. Passes also crash on invalid IR, since nothing verifies first: an unterminated block through `default<O2>`
+segfaults, and a `llvm.dbg.declare` with a data array argument makes `strip-debug-declare` free plain data. Both questions are
+with design claude, along with where `ConstantPtrAuth` and the unlisted plain-data kinds go.
 
 ## Untested
 
