@@ -24,6 +24,7 @@ pub mod functions;
 pub mod instructions;
 pub mod intrinsics;
 pub mod ir_reader;
+pub mod jit;
 pub mod linker;
 pub mod memory_buffer;
 pub mod metadata;

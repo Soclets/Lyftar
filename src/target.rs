@@ -582,6 +582,13 @@ impl Drop for TargetData<'_> {
     }
 }
 
+impl<'data> TargetData<'data> {
+    /// Wraps a layout something else owns for `'data`.
+    pub(crate) fn borrowed(raw: raw::LLVMTargetDataRef) -> Self {
+        TargetData { raw, owned: false, marker: PhantomData }
+    }
+}
+
 impl TargetData<'static> {
     /// A data layout from its text.
     ///

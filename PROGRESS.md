@@ -12,3 +12,8 @@ Freeform notes for whoever picks this up after a compaction. `coverage.json` hol
 
 Spelling of: `Byte<Bits<N>>`, pointer address spaces, specific arrays/vectors/structs, function signatures. All of these
 work through dynamic `Type`/`Value` until answered.
+
+## kayo's passes
+
+`examples/kayo/` in Rust, compared with kayo's C++ passes on the same IR through `opt`: the printed output was byte-identical
+for both passes (a one-off in scratch, since the other repository is a read-only reference).
