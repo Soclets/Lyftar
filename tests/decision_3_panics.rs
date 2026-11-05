@@ -154,6 +154,24 @@ panics!(decision_3_a_bad_target_extension_type_panics, "target_extension_type: L
     let _ = context.target_extension_type("aarch64.svcount", &[context.get_type::<I64>().to_dynamic()], &[]);
 });
 
+panics!(decision_22_a_byte_of_no_bits_panics, "byte_type: 0 bits is not between 1 and 2^23 bits", |context| {
+    let _ = context.byte_type(0);
+});
+panics!(
+    decision_3_a_constant_byte_from_no_words_panics,
+    "constant_byte_from_words: there must be at least one word",
+    |context| {
+        let _ = context.byte_type(8).constant_byte_from_words(&[]);
+    }
+);
+panics!(
+    decision_22_a_bad_byte_in_text_panics,
+    "constant_byte_from_string: \"x\" is not a number in radix 10",
+    |context| {
+        let _ = context.byte_type(8).constant_byte_from_string("x", 10);
+    }
+);
+
 // ---- Values ----
 
 panics!(decision_4_a_checked_cast_of_a_value_panics, "checked_cast: i64 1 is not a", |context| {

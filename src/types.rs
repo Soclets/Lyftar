@@ -510,6 +510,61 @@ impl<'context, T> Type<'context, T> {
 
     // ---- Arrays and vectors ----
 
+    /// This byte type's width.
+    ///
+    /// # Panics
+    /// If this isn't a byte type (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn byte_width_in_bits(self) -> u32 {
+        self.require_kind(raw::LLVMTypeKind::LLVMByteTypeKind, "byte_width_in_bits", "a byte type");
+        // SAFETY: just checked to be a byte type.
+        unsafe { raw::LLVMGetByteTypeWidth(self.raw) }
+    }
+
+    /// A constant of this byte type.
+    ///
+    /// # Panics
+    /// If this isn't a byte type (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_byte(self, value: u64) -> Value<'context, 'static, T> {
+        self.require_kind(raw::LLVMTypeKind::LLVMByteTypeKind, "constant_byte", "a byte type");
+        // SAFETY: just checked to be a byte type; the constant belongs to the context.
+        unsafe { Value::from_raw(raw::LLVMConstByte(self.raw, value)) }
+    }
+
+    /// A constant of this byte type wider than 64 bits, from little-endian 64-bit words.
+    ///
+    /// # Panics
+    /// If this isn't a byte type, or there are no words (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_byte_from_words(self, words: &[u64]) -> Value<'context, 'static, T> {
+        self.require_kind(raw::LLVMTypeKind::LLVMByteTypeKind, "constant_byte_from_words", "a byte type");
+        if words.is_empty() {
+            bad_call(format_args!("constant_byte_from_words: there must be at least one word"));
+        }
+        let count = length_as_u32(words.len(), "constant_byte_from_words");
+        // SAFETY: just checked; LLVM reads `count` words, and the constant belongs to the context.
+        unsafe { Value::from_raw(raw::LLVMConstByteOfArbitraryPrecision(self.raw, count, words.as_ptr())) }
+    }
+
+    /// A constant of this byte type from text, in the given radix.
+    ///
+    /// # Panics
+    /// If this isn't a byte type, or the text isn't a number in that radix (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_byte_from_string(self, text: &str, radix: u8) -> Value<'context, 'static, T> {
+        self.require_kind(raw::LLVMTypeKind::LLVMByteTypeKind, "constant_byte_from_string", "a byte type");
+        if !checks::integer_text_is_valid(text.as_bytes(), radix) {
+            bad_call(format_args!("constant_byte_from_string: {text:?} is not a number in radix {radix}"));
+        }
+        // SAFETY: just checked; LLVM reads the length given, and the constant belongs to the context.
+        unsafe { Value::from_raw(raw::LLVMConstByteOfStringAndSize(self.raw, text.as_ptr().cast(), text.len(), radix)) }
+    }
+
     /// The element type of this array or vector.
     ///
     /// # Panics
@@ -704,6 +759,15 @@ impl<'context, T> Type<'context, T> {
     }
 }
 
+impl Type<'_, Pointer> {
+    /// This pointer's address space.
+    #[must_use]
+    pub fn address_space(self) -> u32 {
+        // SAFETY: `Pointer` guarantees a pointer type.
+        unsafe { raw::LLVMGetPointerAddressSpace(self.raw) }
+    }
+}
+
 impl<W> Type<'_, Integer<W>> {
     /// This integer type's width.
     #[must_use]
@@ -732,6 +796,20 @@ impl<'context> Context<'context> {
         }
         // SAFETY: the width was just checked.
         Type { raw: unsafe { raw::LLVMIntTypeInContext(self.raw, width_in_bits) }, marker: PhantomData }
+    }
+
+    /// LLVM 23's byte type of a width. Its specific spelling is waiting on the owner, so this is dynamic.
+    ///
+    /// # Panics
+    /// If the width isn't between 1 and 2^23 bits (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn byte_type(self, width_in_bits: u32) -> Type<'context> {
+        if !checks::integer_width_is_valid(width_in_bits) {
+            bad_call(format_args!("byte_type: {width_in_bits} bits is not between 1 and 2^23 bits"));
+        }
+        // SAFETY: the width was just checked.
+        Type { raw: unsafe { raw::LLVMByteTypeInContext(self.raw, width_in_bits) }, marker: PhantomData }
     }
 
     /// `void`.

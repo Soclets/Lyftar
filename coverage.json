@@ -1,0 +1,6053 @@
+{
+  "raw": {
+    "LLVMABIAlignmentOfType": {
+      "status": "wrapped"
+    },
+    "LLVMABISizeOfType": {
+      "status": "wrapped"
+    },
+    "LLVMAddAlias2": {
+      "status": "wrapped"
+    },
+    "LLVMAddAnalysisPasses": {
+      "status": "not_wrapped",
+      "reason": "It is for the legacy pass manager, which LLVM's C API no longer has passes for; Lyftar's passes use the new pass manager."
+    },
+    "LLVMAddAttributeAtIndex": {
+      "status": "wrapped"
+    },
+    "LLVMAddCallSiteAttribute": {
+      "status": "wrapped"
+    },
+    "LLVMAddCase": {
+      "status": "wrapped"
+    },
+    "LLVMAddClause": {
+      "status": "wrapped"
+    },
+    "LLVMAddDestination": {
+      "status": "wrapped"
+    },
+    "LLVMAddFunction": {
+      "status": "wrapped"
+    },
+    "LLVMAddGlobal": {
+      "status": "not_wrapped",
+      "reason": "LLVMAddGlobalInAddressSpace with address space 0 is the same, and is what Lyftar wraps."
+    },
+    "LLVMAddGlobalIFunc": {
+      "status": "wrapped"
+    },
+    "LLVMAddGlobalInAddressSpace": {
+      "status": "wrapped"
+    },
+    "LLVMAddGlobalMapping": {
+      "status": "wrapped"
+    },
+    "LLVMAddHandler": {
+      "status": "wrapped"
+    },
+    "LLVMAddIncoming": {
+      "status": "wrapped"
+    },
+    "LLVMAddMetadataToInst": {
+      "status": "wrapped"
+    },
+    "LLVMAddModule": {
+      "status": "wrapped"
+    },
+    "LLVMAddModuleFlag": {
+      "status": "wrapped"
+    },
+    "LLVMAddNamedMetadataOperand": {
+      "status": "wrapped"
+    },
+    "LLVMAddSymbol": {
+      "status": "wrapped"
+    },
+    "LLVMAddTargetDependentFunctionAttr": {
+      "status": "wrapped"
+    },
+    "LLVMAddTargetLibraryInfo": {
+      "status": "not_wrapped",
+      "reason": "It is for the legacy pass manager, which LLVM's C API no longer has passes for; Lyftar's passes use the new pass manager."
+    },
+    "LLVMAliasGetAliasee": {
+      "status": "wrapped"
+    },
+    "LLVMAliasSetAliasee": {
+      "status": "wrapped"
+    },
+    "LLVMAlignOf": {
+      "status": "wrapped"
+    },
+    "LLVMAppendBasicBlock": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMAppendBasicBlockInContext": {
+      "status": "wrapped"
+    },
+    "LLVMAppendExistingBasicBlock": {
+      "status": "not_wrapped",
+      "reason": "They work with a block that isn't in a function, which a Block promises not to be: its function and module couldn't be checked (D3)."
+    },
+    "LLVMAppendModuleInlineAsm": {
+      "status": "wrapped"
+    },
+    "LLVMArrayType": {
+      "status": "not_wrapped",
+      "reason": "It takes a 32-bit length; LLVMArrayType2 and LLVMGetArrayLength2, which Lyftar wraps, take 64."
+    },
+    "LLVMArrayType2": {
+      "status": "wrapped"
+    },
+    "LLVMBFloatType": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMBFloatTypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMBasicBlockAsValue": {
+      "status": "wrapped"
+    },
+    "LLVMBinaryCopyMemoryBuffer": {
+      "status": "wrapped"
+    },
+    "LLVMBinaryGetType": {
+      "status": "wrapped"
+    },
+    "LLVMBlockAddress": {
+      "status": "wrapped"
+    },
+    "LLVMBuildAShr": {
+      "status": "wrapped"
+    },
+    "LLVMBuildAdd": {
+      "status": "wrapped"
+    },
+    "LLVMBuildAddrSpaceCast": {
+      "status": "wrapped"
+    },
+    "LLVMBuildAggregateRet": {
+      "status": "wrapped"
+    },
+    "LLVMBuildAlloca": {
+      "status": "wrapped"
+    },
+    "LLVMBuildAnd": {
+      "status": "wrapped"
+    },
+    "LLVMBuildArrayAlloca": {
+      "status": "wrapped"
+    },
+    "LLVMBuildArrayMalloc": {
+      "status": "wrapped"
+    },
+    "LLVMBuildAtomicCmpXchg": {
+      "status": "wrapped"
+    },
+    "LLVMBuildAtomicCmpXchgSyncScope": {
+      "status": "wrapped"
+    },
+    "LLVMBuildAtomicRMW": {
+      "status": "wrapped"
+    },
+    "LLVMBuildAtomicRMWSyncScope": {
+      "status": "wrapped"
+    },
+    "LLVMBuildBinOp": {
+      "status": "wrapped"
+    },
+    "LLVMBuildBitCast": {
+      "status": "wrapped"
+    },
+    "LLVMBuildBr": {
+      "status": "wrapped"
+    },
+    "LLVMBuildCall2": {
+      "status": "wrapped"
+    },
+    "LLVMBuildCallBr": {
+      "status": "wrapped"
+    },
+    "LLVMBuildCallWithOperandBundles": {
+      "status": "wrapped"
+    },
+    "LLVMBuildCast": {
+      "status": "wrapped"
+    },
+    "LLVMBuildCatchPad": {
+      "status": "wrapped"
+    },
+    "LLVMBuildCatchRet": {
+      "status": "wrapped"
+    },
+    "LLVMBuildCatchSwitch": {
+      "status": "wrapped"
+    },
+    "LLVMBuildCleanupPad": {
+      "status": "wrapped"
+    },
+    "LLVMBuildCleanupRet": {
+      "status": "wrapped"
+    },
+    "LLVMBuildCondBr": {
+      "status": "wrapped"
+    },
+    "LLVMBuildExactSDiv": {
+      "status": "wrapped"
+    },
+    "LLVMBuildExactUDiv": {
+      "status": "wrapped"
+    },
+    "LLVMBuildExtractElement": {
+      "status": "wrapped"
+    },
+    "LLVMBuildExtractValue": {
+      "status": "wrapped"
+    },
+    "LLVMBuildFAdd": {
+      "status": "wrapped"
+    },
+    "LLVMBuildFCmp": {
+      "status": "wrapped"
+    },
+    "LLVMBuildFDiv": {
+      "status": "wrapped"
+    },
+    "LLVMBuildFMul": {
+      "status": "wrapped"
+    },
+    "LLVMBuildFNeg": {
+      "status": "wrapped"
+    },
+    "LLVMBuildFPCast": {
+      "status": "wrapped"
+    },
+    "LLVMBuildFPExt": {
+      "status": "wrapped"
+    },
+    "LLVMBuildFPToSI": {
+      "status": "wrapped"
+    },
+    "LLVMBuildFPToUI": {
+      "status": "wrapped"
+    },
+    "LLVMBuildFPTrunc": {
+      "status": "wrapped"
+    },
+    "LLVMBuildFRem": {
+      "status": "wrapped"
+    },
+    "LLVMBuildFSub": {
+      "status": "wrapped"
+    },
+    "LLVMBuildFence": {
+      "status": "wrapped"
+    },
+    "LLVMBuildFenceSyncScope": {
+      "status": "wrapped"
+    },
+    "LLVMBuildFree": {
+      "status": "wrapped"
+    },
+    "LLVMBuildFreeze": {
+      "status": "wrapped"
+    },
+    "LLVMBuildGEP2": {
+      "status": "wrapped"
+    },
+    "LLVMBuildGEPWithNoWrapFlags": {
+      "status": "wrapped"
+    },
+    "LLVMBuildGlobalString": {
+      "status": "wrapped"
+    },
+    "LLVMBuildGlobalStringPtr": {
+      "status": "wrapped"
+    },
+    "LLVMBuildICmp": {
+      "status": "wrapped"
+    },
+    "LLVMBuildInBoundsGEP2": {
+      "status": "wrapped"
+    },
+    "LLVMBuildIndirectBr": {
+      "status": "wrapped"
+    },
+    "LLVMBuildInsertElement": {
+      "status": "wrapped"
+    },
+    "LLVMBuildInsertValue": {
+      "status": "wrapped"
+    },
+    "LLVMBuildIntCast": {
+      "status": "not_wrapped",
+      "reason": "LLVMBuildIntCast2 says whether the operand is signed, where this guesses; Lyftar wraps that."
+    },
+    "LLVMBuildIntCast2": {
+      "status": "wrapped"
+    },
+    "LLVMBuildIntToPtr": {
+      "status": "wrapped"
+    },
+    "LLVMBuildInvoke2": {
+      "status": "wrapped"
+    },
+    "LLVMBuildInvokeWithOperandBundles": {
+      "status": "wrapped"
+    },
+    "LLVMBuildIsNotNull": {
+      "status": "wrapped"
+    },
+    "LLVMBuildIsNull": {
+      "status": "wrapped"
+    },
+    "LLVMBuildLShr": {
+      "status": "wrapped"
+    },
+    "LLVMBuildLandingPad": {
+      "status": "wrapped"
+    },
+    "LLVMBuildLoad2": {
+      "status": "wrapped"
+    },
+    "LLVMBuildMalloc": {
+      "status": "wrapped"
+    },
+    "LLVMBuildMemCpy": {
+      "status": "wrapped"
+    },
+    "LLVMBuildMemMove": {
+      "status": "wrapped"
+    },
+    "LLVMBuildMemSet": {
+      "status": "wrapped"
+    },
+    "LLVMBuildMul": {
+      "status": "wrapped"
+    },
+    "LLVMBuildNSWAdd": {
+      "status": "wrapped"
+    },
+    "LLVMBuildNSWMul": {
+      "status": "wrapped"
+    },
+    "LLVMBuildNSWNeg": {
+      "status": "wrapped"
+    },
+    "LLVMBuildNSWSub": {
+      "status": "wrapped"
+    },
+    "LLVMBuildNUWAdd": {
+      "status": "wrapped"
+    },
+    "LLVMBuildNUWMul": {
+      "status": "wrapped"
+    },
+    "LLVMBuildNUWNeg": {
+      "status": "wrapped"
+    },
+    "LLVMBuildNUWSub": {
+      "status": "wrapped"
+    },
+    "LLVMBuildNeg": {
+      "status": "wrapped"
+    },
+    "LLVMBuildNot": {
+      "status": "wrapped"
+    },
+    "LLVMBuildOr": {
+      "status": "wrapped"
+    },
+    "LLVMBuildPhi": {
+      "status": "wrapped"
+    },
+    "LLVMBuildPointerCast": {
+      "status": "wrapped"
+    },
+    "LLVMBuildPtrDiff2": {
+      "status": "wrapped"
+    },
+    "LLVMBuildPtrToInt": {
+      "status": "wrapped"
+    },
+    "LLVMBuildResume": {
+      "status": "wrapped"
+    },
+    "LLVMBuildRet": {
+      "status": "wrapped"
+    },
+    "LLVMBuildRetVoid": {
+      "status": "wrapped"
+    },
+    "LLVMBuildSDiv": {
+      "status": "wrapped"
+    },
+    "LLVMBuildSExt": {
+      "status": "wrapped"
+    },
+    "LLVMBuildSExtOrBitCast": {
+      "status": "wrapped"
+    },
+    "LLVMBuildSIToFP": {
+      "status": "wrapped"
+    },
+    "LLVMBuildSRem": {
+      "status": "wrapped"
+    },
+    "LLVMBuildSelect": {
+      "status": "wrapped"
+    },
+    "LLVMBuildShl": {
+      "status": "wrapped"
+    },
+    "LLVMBuildShuffleVector": {
+      "status": "wrapped"
+    },
+    "LLVMBuildStore": {
+      "status": "wrapped"
+    },
+    "LLVMBuildStructGEP2": {
+      "status": "wrapped"
+    },
+    "LLVMBuildSub": {
+      "status": "wrapped"
+    },
+    "LLVMBuildSwitch": {
+      "status": "wrapped"
+    },
+    "LLVMBuildTrunc": {
+      "status": "wrapped"
+    },
+    "LLVMBuildTruncOrBitCast": {
+      "status": "wrapped"
+    },
+    "LLVMBuildUDiv": {
+      "status": "wrapped"
+    },
+    "LLVMBuildUIToFP": {
+      "status": "wrapped"
+    },
+    "LLVMBuildURem": {
+      "status": "wrapped"
+    },
+    "LLVMBuildUnreachable": {
+      "status": "wrapped"
+    },
+    "LLVMBuildVAArg": {
+      "status": "wrapped"
+    },
+    "LLVMBuildXor": {
+      "status": "wrapped"
+    },
+    "LLVMBuildZExt": {
+      "status": "wrapped"
+    },
+    "LLVMBuildZExtOrBitCast": {
+      "status": "wrapped"
+    },
+    "LLVMBuilderGetDefaultFPMathTag": {
+      "status": "wrapped"
+    },
+    "LLVMBuilderSetDefaultFPMathTag": {
+      "status": "wrapped"
+    },
+    "LLVMByteOrder": {
+      "status": "wrapped"
+    },
+    "LLVMByteTypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMCallFrameAlignmentOfType": {
+      "status": "wrapped"
+    },
+    "LLVMCanValueUseFastMathFlags": {
+      "status": "wrapped"
+    },
+    "LLVMCantFail": {
+      "status": "not_wrapped",
+      "reason": "An LLVMErrorRef turns straight into lyftar::error::Error, whose message is what's left to say; LLVMCantFail is undefined behaviour on an error."
+    },
+    "LLVMClearInsertionPosition": {
+      "status": "not_wrapped",
+      "reason": "It would leave a builder with no position, which D3 rules out."
+    },
+    "LLVMCloneModule": {
+      "status": "wrapped"
+    },
+    "LLVMConstAdd": {
+      "status": "wrapped"
+    },
+    "LLVMConstAddrSpaceCast": {
+      "status": "wrapped"
+    },
+    "LLVMConstAllOnes": {
+      "status": "wrapped"
+    },
+    "LLVMConstArray": {
+      "status": "not_wrapped",
+      "reason": "It is the older form with a 32-bit length; Lyftar wraps the one with 64."
+    },
+    "LLVMConstArray2": {
+      "status": "wrapped"
+    },
+    "LLVMConstBitCast": {
+      "status": "wrapped"
+    },
+    "LLVMConstByte": {
+      "status": "wrapped"
+    },
+    "LLVMConstByteGetSExtValue": {
+      "status": "wrapped"
+    },
+    "LLVMConstByteGetZExtValue": {
+      "status": "wrapped"
+    },
+    "LLVMConstByteOfArbitraryPrecision": {
+      "status": "wrapped"
+    },
+    "LLVMConstByteOfStringAndSize": {
+      "status": "wrapped"
+    },
+    "LLVMConstDataArray": {
+      "status": "wrapped"
+    },
+    "LLVMConstExtractElement": {
+      "status": "wrapped"
+    },
+    "LLVMConstFPFromBits": {
+      "status": "wrapped"
+    },
+    "LLVMConstGEP2": {
+      "status": "not_wrapped",
+      "reason": "LLVMConstGEPWithNoWrapFlags covers both with its flags."
+    },
+    "LLVMConstGEPWithNoWrapFlags": {
+      "status": "wrapped"
+    },
+    "LLVMConstInBoundsGEP2": {
+      "status": "not_wrapped",
+      "reason": "LLVMConstGEPWithNoWrapFlags covers both with its flags."
+    },
+    "LLVMConstInlineAsm": {
+      "status": "not_wrapped",
+      "reason": "It is the older form of LLVMGetInlineAsm, which takes lengths, a dialect and whether it can unwind."
+    },
+    "LLVMConstInsertElement": {
+      "status": "wrapped"
+    },
+    "LLVMConstInt": {
+      "status": "wrapped"
+    },
+    "LLVMConstIntGetSExtValue": {
+      "status": "wrapped"
+    },
+    "LLVMConstIntGetZExtValue": {
+      "status": "wrapped"
+    },
+    "LLVMConstIntOfArbitraryPrecision": {
+      "status": "wrapped"
+    },
+    "LLVMConstIntOfString": {
+      "status": "not_wrapped",
+      "reason": "It takes a C string; the AndSize form Lyftar wraps takes a length, and needs no copy."
+    },
+    "LLVMConstIntOfStringAndSize": {
+      "status": "wrapped"
+    },
+    "LLVMConstIntToPtr": {
+      "status": "wrapped"
+    },
+    "LLVMConstNSWAdd": {
+      "status": "wrapped"
+    },
+    "LLVMConstNSWNeg": {
+      "status": "wrapped"
+    },
+    "LLVMConstNSWSub": {
+      "status": "wrapped"
+    },
+    "LLVMConstNUWAdd": {
+      "status": "wrapped"
+    },
+    "LLVMConstNUWNeg": {
+      "status": "wrapped"
+    },
+    "LLVMConstNUWSub": {
+      "status": "wrapped"
+    },
+    "LLVMConstNamedStruct": {
+      "status": "wrapped"
+    },
+    "LLVMConstNeg": {
+      "status": "wrapped"
+    },
+    "LLVMConstNot": {
+      "status": "wrapped"
+    },
+    "LLVMConstNull": {
+      "status": "wrapped"
+    },
+    "LLVMConstPointerCast": {
+      "status": "wrapped"
+    },
+    "LLVMConstPointerNull": {
+      "status": "not_wrapped",
+      "reason": "LLVMConstNull does the same for pointers, through Type::constant_null."
+    },
+    "LLVMConstPtrToInt": {
+      "status": "wrapped"
+    },
+    "LLVMConstReal": {
+      "status": "wrapped"
+    },
+    "LLVMConstRealGetDouble": {
+      "status": "wrapped"
+    },
+    "LLVMConstRealOfString": {
+      "status": "not_wrapped",
+      "reason": "It takes a C string; the AndSize form Lyftar wraps takes a length, and needs no copy."
+    },
+    "LLVMConstRealOfStringAndSize": {
+      "status": "wrapped"
+    },
+    "LLVMConstShuffleVector": {
+      "status": "wrapped"
+    },
+    "LLVMConstString": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMConstStringInContext": {
+      "status": "not_wrapped",
+      "reason": "It is the older form with a 32-bit length; Lyftar wraps the one with 64."
+    },
+    "LLVMConstStringInContext2": {
+      "status": "wrapped"
+    },
+    "LLVMConstStruct": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMConstStructInContext": {
+      "status": "wrapped"
+    },
+    "LLVMConstSub": {
+      "status": "wrapped"
+    },
+    "LLVMConstTrunc": {
+      "status": "wrapped"
+    },
+    "LLVMConstTruncOrBitCast": {
+      "status": "wrapped"
+    },
+    "LLVMConstVector": {
+      "status": "wrapped"
+    },
+    "LLVMConstXor": {
+      "status": "wrapped"
+    },
+    "LLVMConstantPtrAuth": {
+      "status": "wrapped"
+    },
+    "LLVMConsumeError": {
+      "status": "not_wrapped",
+      "reason": "An LLVMErrorRef turns straight into lyftar::error::Error, whose message is what's left to say; LLVMCantFail is undefined behaviour on an error."
+    },
+    "LLVMContextCreate": {
+      "status": "wrapped"
+    },
+    "LLVMContextDispose": {
+      "status": "wrapped"
+    },
+    "LLVMContextGetDiagnosticContext": {
+      "status": "not_wrapped",
+      "reason": "They hand back a raw function pointer and raw data with no safe meaning; set_diagnostic_handler is how Lyftar sets one."
+    },
+    "LLVMContextGetDiagnosticHandler": {
+      "status": "not_wrapped",
+      "reason": "They hand back a raw function pointer and raw data with no safe meaning; set_diagnostic_handler is how Lyftar sets one."
+    },
+    "LLVMContextSetDiagnosticHandler": {
+      "status": "wrapped"
+    },
+    "LLVMContextSetDiscardValueNames": {
+      "status": "wrapped"
+    },
+    "LLVMContextSetYieldCallback": {
+      "status": "not_wrapped",
+      "reason": "LLVM's yield callback is called from inside optimizer loops with no way to return an error, and no project here needs it."
+    },
+    "LLVMContextShouldDiscardValueNames": {
+      "status": "wrapped"
+    },
+    "LLVMCopyModuleFlagsMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMCopyStringRepOfTargetData": {
+      "status": "wrapped"
+    },
+    "LLVMCountBasicBlocks": {
+      "status": "wrapped"
+    },
+    "LLVMCountIncoming": {
+      "status": "wrapped"
+    },
+    "LLVMCountParamTypes": {
+      "status": "wrapped"
+    },
+    "LLVMCountParams": {
+      "status": "wrapped"
+    },
+    "LLVMCountStructElementTypes": {
+      "status": "wrapped"
+    },
+    "LLVMCreateBasicBlockInContext": {
+      "status": "not_wrapped",
+      "reason": "They work with a block that isn't in a function, which a Block promises not to be: its function and module couldn't be checked (D3)."
+    },
+    "LLVMCreateBinary": {
+      "status": "wrapped"
+    },
+    "LLVMCreateBuilder": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMCreateBuilderInContext": {
+      "status": "wrapped"
+    },
+    "LLVMCreateConstantRangeAttribute": {
+      "status": "wrapped"
+    },
+    "LLVMCreateDIBuilder": {
+      "status": "wrapped"
+    },
+    "LLVMCreateDIBuilderDisallowUnresolved": {
+      "status": "wrapped"
+    },
+    "LLVMCreateDenormalFPEnvAttribute": {
+      "status": "wrapped"
+    },
+    "LLVMCreateDisasm": {
+      "status": "not_wrapped",
+      "reason": "LLVMCreateDisasmCPUFeatures covers both, with empty text for what isn't given."
+    },
+    "LLVMCreateDisasmCPU": {
+      "status": "not_wrapped",
+      "reason": "LLVMCreateDisasmCPUFeatures covers both, with empty text for what isn't given."
+    },
+    "LLVMCreateDisasmCPUFeatures": {
+      "status": "wrapped"
+    },
+    "LLVMCreateEnumAttribute": {
+      "status": "wrapped"
+    },
+    "LLVMCreateExecutionEngineForModule": {
+      "status": "wrapped"
+    },
+    "LLVMCreateFunctionPassManager": {
+      "status": "not_wrapped",
+      "reason": "It is for the legacy pass manager, which LLVM's C API no longer has passes for; Lyftar's passes use the new pass manager."
+    },
+    "LLVMCreateFunctionPassManagerForModule": {
+      "status": "not_wrapped",
+      "reason": "It is for the legacy pass manager, which LLVM's C API no longer has passes for; Lyftar's passes use the new pass manager."
+    },
+    "LLVMCreateGDBRegistrationListener": {
+      "status": "wrapped"
+    },
+    "LLVMCreateGenericValueOfFloat": {
+      "status": "wrapped"
+    },
+    "LLVMCreateGenericValueOfInt": {
+      "status": "wrapped"
+    },
+    "LLVMCreateGenericValueOfPointer": {
+      "status": "wrapped"
+    },
+    "LLVMCreateIntelJITEventListener": {
+      "status": "wrapped"
+    },
+    "LLVMCreateInterpreterForModule": {
+      "status": "wrapped"
+    },
+    "LLVMCreateJITCompilerForModule": {
+      "status": "wrapped"
+    },
+    "LLVMCreateMCJITCompilerForModule": {
+      "status": "wrapped"
+    },
+    "LLVMCreateMemoryBufferWithContentsOfFile": {
+      "status": "wrapped"
+    },
+    "LLVMCreateMemoryBufferWithMemoryRange": {
+      "status": "wrapped"
+    },
+    "LLVMCreateMemoryBufferWithMemoryRangeCopy": {
+      "status": "wrapped"
+    },
+    "LLVMCreateMemoryBufferWithSTDIN": {
+      "status": "wrapped"
+    },
+    "LLVMCreateMessage": {
+      "status": "not_wrapped",
+      "reason": "It makes text for LLVM to free; only the shim hands text to LLVM's callers that way, and Rust strings need no such thing."
+    },
+    "LLVMCreateModuleProviderForExistingModule": {
+      "status": "not_wrapped",
+      "reason": "It is for the legacy pass manager, which LLVM's C API no longer has passes for; Lyftar's passes use the new pass manager."
+    },
+    "LLVMCreateOProfileJITEventListener": {
+      "status": "wrapped"
+    },
+    "LLVMCreateObjectFile": {
+      "status": "not_wrapped",
+      "reason": "It is the older object file API that LLVMCreateBinary and its iterators replace, and Lyftar wraps those."
+    },
+    "LLVMCreateOperandBundle": {
+      "status": "wrapped"
+    },
+    "LLVMCreatePassBuilderOptions": {
+      "status": "wrapped"
+    },
+    "LLVMCreatePassManager": {
+      "status": "not_wrapped",
+      "reason": "It is for the legacy pass manager, which LLVM's C API no longer has passes for; Lyftar's passes use the new pass manager."
+    },
+    "LLVMCreatePerfJITEventListener": {
+      "status": "wrapped"
+    },
+    "LLVMCreateSimpleMCJITMemoryManager": {
+      "status": "not_wrapped",
+      "reason": "Its callbacks hand out raw memory that generated code runs from, with no safe form; the default memory manager is what Lyftar uses."
+    },
+    "LLVMCreateStringAttribute": {
+      "status": "wrapped"
+    },
+    "LLVMCreateStringError": {
+      "status": "wrapped"
+    },
+    "LLVMCreateTargetData": {
+      "status": "wrapped"
+    },
+    "LLVMCreateTargetDataLayout": {
+      "status": "wrapped"
+    },
+    "LLVMCreateTargetMachine": {
+      "status": "wrapped"
+    },
+    "LLVMCreateTargetMachineOptions": {
+      "status": "wrapped"
+    },
+    "LLVMCreateTargetMachineWithOptions": {
+      "status": "wrapped"
+    },
+    "LLVMCreateTypeAttribute": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateArrayType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateArtificialType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateAutoVariable": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateBasicType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateBitFieldMemberType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateClassType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateCompileUnit": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateConstantValueExpression": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateDebugLocation": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateDynamicArrayType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateEnumerationType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateEnumerator": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateEnumeratorOfArbitraryPrecision": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateExpression": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateFile": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateFileWithChecksum": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateForwardDecl": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateFunction": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateGlobalVariableExpression": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateImportedDeclaration": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateImportedModuleFromAlias": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateImportedModuleFromModule": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateImportedModuleFromNamespace": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateInheritance": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateLabel": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateLexicalBlock": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateLexicalBlockFile": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateMacro": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateMemberPointerType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateMemberType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateModule": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateNameSpace": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateNullPtrType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateObjCIVar": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateObjCProperty": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateObjectPointerType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateParameterVariable": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreatePointerType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateQualifiedType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateReferenceType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateReplaceableCompositeType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateSetType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateStaticMemberType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateStructType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateSubrangeType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateSubroutineType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateTempGlobalVariableFwdDecl": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateTempMacroFile": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateTypedef": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateUnionType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateUnspecifiedType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderCreateVectorType": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderFinalize": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderFinalizeSubprogram": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderGetOrCreateArray": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderGetOrCreateSubrange": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderGetOrCreateTypeArray": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderInsertDbgValueRecordAtEnd": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderInsertDbgValueRecordBefore": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderInsertDeclareRecordAtEnd": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderInsertDeclareRecordBefore": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderInsertLabelAtEnd": {
+      "status": "wrapped"
+    },
+    "LLVMDIBuilderInsertLabelBefore": {
+      "status": "wrapped"
+    },
+    "LLVMDIFileGetDirectory": {
+      "status": "wrapped"
+    },
+    "LLVMDIFileGetFilename": {
+      "status": "wrapped"
+    },
+    "LLVMDIFileGetSource": {
+      "status": "wrapped"
+    },
+    "LLVMDIGlobalVariableExpressionGetExpression": {
+      "status": "wrapped"
+    },
+    "LLVMDIGlobalVariableExpressionGetVariable": {
+      "status": "wrapped"
+    },
+    "LLVMDILocationGetColumn": {
+      "status": "wrapped"
+    },
+    "LLVMDILocationGetInlinedAt": {
+      "status": "wrapped"
+    },
+    "LLVMDILocationGetLine": {
+      "status": "wrapped"
+    },
+    "LLVMDILocationGetScope": {
+      "status": "wrapped"
+    },
+    "LLVMDIScopeGetFile": {
+      "status": "wrapped"
+    },
+    "LLVMDISubprogramGetLine": {
+      "status": "wrapped"
+    },
+    "LLVMDISubprogramReplaceType": {
+      "status": "wrapped"
+    },
+    "LLVMDITypeGetAlignInBits": {
+      "status": "wrapped"
+    },
+    "LLVMDITypeGetFlags": {
+      "status": "wrapped"
+    },
+    "LLVMDITypeGetLine": {
+      "status": "wrapped"
+    },
+    "LLVMDITypeGetName": {
+      "status": "wrapped"
+    },
+    "LLVMDITypeGetOffsetInBits": {
+      "status": "wrapped"
+    },
+    "LLVMDITypeGetSizeInBits": {
+      "status": "wrapped"
+    },
+    "LLVMDIVariableGetFile": {
+      "status": "wrapped"
+    },
+    "LLVMDIVariableGetLine": {
+      "status": "wrapped"
+    },
+    "LLVMDIVariableGetScope": {
+      "status": "wrapped"
+    },
+    "LLVMDbgRecordGetDebugLoc": {
+      "status": "wrapped"
+    },
+    "LLVMDbgRecordGetKind": {
+      "status": "wrapped"
+    },
+    "LLVMDbgVariableRecordGetExpression": {
+      "status": "wrapped"
+    },
+    "LLVMDbgVariableRecordGetValue": {
+      "status": "wrapped"
+    },
+    "LLVMDbgVariableRecordGetVariable": {
+      "status": "wrapped"
+    },
+    "LLVMDebugMetadataVersion": {
+      "status": "wrapped"
+    },
+    "LLVMDeleteBasicBlock": {
+      "status": "not_wrapped",
+      "reason": "Erasing goes through Module::erase, whose shim checks nothing that stays still uses what goes, drops a block from phis, and needs exclusive access (D11)."
+    },
+    "LLVMDeleteFunction": {
+      "status": "not_wrapped",
+      "reason": "Erasing goes through Module::erase, whose shim checks nothing that stays still uses what goes, drops a block from phis, and needs exclusive access (D11)."
+    },
+    "LLVMDeleteGlobal": {
+      "status": "not_wrapped",
+      "reason": "Erasing goes through Module::erase, whose shim checks nothing that stays still uses what goes, drops a block from phis, and needs exclusive access (D11)."
+    },
+    "LLVMDeleteInstruction": {
+      "status": "not_wrapped",
+      "reason": "Erasing goes through Module::erase, whose shim checks nothing that stays still uses what goes, drops a block from phis, and needs exclusive access (D11)."
+    },
+    "LLVMDisasmDispose": {
+      "status": "wrapped"
+    },
+    "LLVMDisasmInstruction": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeBinary": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeBuilder": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeDIBuilder": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeErrorMessage": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeExecutionEngine": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeGenericValue": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeMCJITMemoryManager": {
+      "status": "not_wrapped",
+      "reason": "Its callbacks hand out raw memory that generated code runs from, with no safe form; the default memory manager is what Lyftar uses."
+    },
+    "LLVMDisposeMemoryBuffer": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeMessage": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeModule": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeModuleFlagsMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeModuleProvider": {
+      "status": "not_wrapped",
+      "reason": "It is for the legacy pass manager, which LLVM's C API no longer has passes for; Lyftar's passes use the new pass manager."
+    },
+    "LLVMDisposeObjectFile": {
+      "status": "not_wrapped",
+      "reason": "It is the older object file API that LLVMCreateBinary and its iterators replace, and Lyftar wraps those."
+    },
+    "LLVMDisposeOperandBundle": {
+      "status": "wrapped"
+    },
+    "LLVMDisposePassBuilderOptions": {
+      "status": "wrapped"
+    },
+    "LLVMDisposePassManager": {
+      "status": "not_wrapped",
+      "reason": "It is for the legacy pass manager, which LLVM's C API no longer has passes for; Lyftar's passes use the new pass manager."
+    },
+    "LLVMDisposeRelocationIterator": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeSectionIterator": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeSymbolIterator": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeTargetData": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeTargetMachine": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeTargetMachineOptions": {
+      "status": "wrapped"
+    },
+    "LLVMDisposeTemporaryMDNode": {
+      "status": "not_wrapped",
+      "reason": "The shim's lyftar_temporary_metadata_dispose makes uses null first, where this would leave them dangling."
+    },
+    "LLVMDisposeValueMetadataEntries": {
+      "status": "wrapped"
+    },
+    "LLVMDoubleType": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMDoubleTypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMDumpModule": {
+      "status": "not_wrapped",
+      "reason": "It prints to standard error for debugging; print_to_string gives the same text, for the caller to put where it wants."
+    },
+    "LLVMDumpType": {
+      "status": "not_wrapped",
+      "reason": "It prints to standard error for debugging; print_to_string gives the same text, for the caller to put where it wants."
+    },
+    "LLVMDumpValue": {
+      "status": "not_wrapped",
+      "reason": "It prints to standard error for debugging; print_to_string gives the same text, for the caller to put where it wants."
+    },
+    "LLVMElementAtOffset": {
+      "status": "wrapped"
+    },
+    "LLVMEnablePrettyStackTrace": {
+      "status": "wrapped"
+    },
+    "LLVMEraseGlobalIFunc": {
+      "status": "not_wrapped",
+      "reason": "Erasing goes through Module::erase, whose shim checks nothing that stays still uses what goes, drops a block from phis, and needs exclusive access (D11)."
+    },
+    "LLVMExecutionEngineGetErrMsg": {
+      "status": "wrapped"
+    },
+    "LLVMFP128Type": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMFP128TypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMFinalizeFunctionPassManager": {
+      "status": "not_wrapped",
+      "reason": "It is for the legacy pass manager, which LLVM's C API no longer has passes for; Lyftar's passes use the new pass manager."
+    },
+    "LLVMFindFunction": {
+      "status": "wrapped"
+    },
+    "LLVMFloatType": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMFloatTypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMFreeMachineCodeForFunction": {
+      "status": "not_wrapped",
+      "reason": "MCJIT doesn't implement it: LLVM's own version does nothing or reports a fatal error."
+    },
+    "LLVMFunctionType": {
+      "status": "wrapped"
+    },
+    "LLVMGEPGetNoWrapFlags": {
+      "status": "wrapped"
+    },
+    "LLVMGEPSetNoWrapFlags": {
+      "status": "wrapped"
+    },
+    "LLVMGenericValueIntWidth": {
+      "status": "wrapped"
+    },
+    "LLVMGenericValueToFloat": {
+      "status": "wrapped"
+    },
+    "LLVMGenericValueToInt": {
+      "status": "wrapped"
+    },
+    "LLVMGenericValueToPointer": {
+      "status": "wrapped"
+    },
+    "LLVMGetAggregateElement": {
+      "status": "wrapped"
+    },
+    "LLVMGetAlignment": {
+      "status": "wrapped"
+    },
+    "LLVMGetAllocatedType": {
+      "status": "wrapped"
+    },
+    "LLVMGetArgOperand": {
+      "status": "wrapped"
+    },
+    "LLVMGetArrayLength": {
+      "status": "not_wrapped",
+      "reason": "It takes a 32-bit length; LLVMArrayType2 and LLVMGetArrayLength2, which Lyftar wraps, take 64."
+    },
+    "LLVMGetArrayLength2": {
+      "status": "wrapped"
+    },
+    "LLVMGetAsString": {
+      "status": "wrapped"
+    },
+    "LLVMGetAtomicRMWBinOp": {
+      "status": "wrapped"
+    },
+    "LLVMGetAtomicSyncScopeID": {
+      "status": "wrapped"
+    },
+    "LLVMGetAttributeCountAtIndex": {
+      "status": "wrapped"
+    },
+    "LLVMGetAttributesAtIndex": {
+      "status": "wrapped"
+    },
+    "LLVMGetBasicBlockName": {
+      "status": "wrapped"
+    },
+    "LLVMGetBasicBlockParent": {
+      "status": "wrapped"
+    },
+    "LLVMGetBasicBlockTerminator": {
+      "status": "wrapped"
+    },
+    "LLVMGetBasicBlocks": {
+      "status": "not_wrapped",
+      "reason": "Value::blocks walks the blocks with no list to allocate."
+    },
+    "LLVMGetBitcodeModule": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMGetBitcodeModule2": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMGetBitcodeModuleInContext": {
+      "status": "wrapped"
+    },
+    "LLVMGetBitcodeModuleInContext2": {
+      "status": "not_wrapped",
+      "reason": "It reports errors through the context, whose default handler exits the process, where the older form Lyftar wraps returns them as text (D3)."
+    },
+    "LLVMGetBlockAddressBasicBlock": {
+      "status": "wrapped"
+    },
+    "LLVMGetBlockAddressFunction": {
+      "status": "wrapped"
+    },
+    "LLVMGetBufferSize": {
+      "status": "wrapped"
+    },
+    "LLVMGetBufferStart": {
+      "status": "wrapped"
+    },
+    "LLVMGetBuilderContext": {
+      "status": "wrapped"
+    },
+    "LLVMGetByteTypeWidth": {
+      "status": "wrapped"
+    },
+    "LLVMGetCallBrDefaultDest": {
+      "status": "wrapped"
+    },
+    "LLVMGetCallBrIndirectDest": {
+      "status": "wrapped"
+    },
+    "LLVMGetCallBrNumIndirectDests": {
+      "status": "wrapped"
+    },
+    "LLVMGetCallSiteAttributeCount": {
+      "status": "wrapped"
+    },
+    "LLVMGetCallSiteAttributes": {
+      "status": "wrapped"
+    },
+    "LLVMGetCallSiteEnumAttribute": {
+      "status": "wrapped"
+    },
+    "LLVMGetCallSiteStringAttribute": {
+      "status": "wrapped"
+    },
+    "LLVMGetCalledFunctionType": {
+      "status": "wrapped"
+    },
+    "LLVMGetCalledValue": {
+      "status": "wrapped"
+    },
+    "LLVMGetCastOpcode": {
+      "status": "not_wrapped",
+      "reason": "LLVM has undefined behaviour on types no cast fits and gives no way to ask first; Builder::cast checks each opcode with castIsValid instead."
+    },
+    "LLVMGetClause": {
+      "status": "wrapped"
+    },
+    "LLVMGetCmpXchgFailureOrdering": {
+      "status": "wrapped"
+    },
+    "LLVMGetCmpXchgSuccessOrdering": {
+      "status": "wrapped"
+    },
+    "LLVMGetComdat": {
+      "status": "wrapped"
+    },
+    "LLVMGetComdatSelectionKind": {
+      "status": "wrapped"
+    },
+    "LLVMGetCondition": {
+      "status": "wrapped"
+    },
+    "LLVMGetConstOpcode": {
+      "status": "wrapped"
+    },
+    "LLVMGetConstantPtrAuthAddrDiscriminator": {
+      "status": "wrapped"
+    },
+    "LLVMGetConstantPtrAuthDiscriminator": {
+      "status": "wrapped"
+    },
+    "LLVMGetConstantPtrAuthKey": {
+      "status": "wrapped"
+    },
+    "LLVMGetConstantPtrAuthPointer": {
+      "status": "wrapped"
+    },
+    "LLVMGetCurrentDebugLocation": {
+      "status": "not_wrapped",
+      "reason": "It is the older form working in values; the 2 forms work in metadata and Lyftar wraps those."
+    },
+    "LLVMGetCurrentDebugLocation2": {
+      "status": "wrapped"
+    },
+    "LLVMGetDINodeTag": {
+      "status": "wrapped"
+    },
+    "LLVMGetDLLStorageClass": {
+      "status": "wrapped"
+    },
+    "LLVMGetDataLayout": {
+      "status": "not_wrapped",
+      "reason": "It is the older name of LLVMGetDataLayoutStr, which Lyftar wraps."
+    },
+    "LLVMGetDataLayoutStr": {
+      "status": "wrapped"
+    },
+    "LLVMGetDebugLocColumn": {
+      "status": "wrapped"
+    },
+    "LLVMGetDebugLocDirectory": {
+      "status": "wrapped"
+    },
+    "LLVMGetDebugLocFilename": {
+      "status": "wrapped"
+    },
+    "LLVMGetDebugLocLine": {
+      "status": "wrapped"
+    },
+    "LLVMGetDefaultTargetTriple": {
+      "status": "wrapped"
+    },
+    "LLVMGetDiagInfoDescription": {
+      "status": "wrapped"
+    },
+    "LLVMGetDiagInfoSeverity": {
+      "status": "wrapped"
+    },
+    "LLVMGetElementAsConstant": {
+      "status": "wrapped"
+    },
+    "LLVMGetElementType": {
+      "status": "wrapped"
+    },
+    "LLVMGetEntryBasicBlock": {
+      "status": "wrapped"
+    },
+    "LLVMGetEnumAttributeAtIndex": {
+      "status": "wrapped"
+    },
+    "LLVMGetEnumAttributeKind": {
+      "status": "wrapped"
+    },
+    "LLVMGetEnumAttributeKindForName": {
+      "status": "wrapped"
+    },
+    "LLVMGetEnumAttributeValue": {
+      "status": "wrapped"
+    },
+    "LLVMGetErrorMessage": {
+      "status": "wrapped"
+    },
+    "LLVMGetErrorTypeId": {
+      "status": "not_wrapped",
+      "reason": "An LLVMErrorRef turns straight into lyftar::error::Error, whose message is what's left to say; LLVMCantFail is undefined behaviour on an error."
+    },
+    "LLVMGetExact": {
+      "status": "wrapped"
+    },
+    "LLVMGetExecutionEngineTargetData": {
+      "status": "wrapped"
+    },
+    "LLVMGetExecutionEngineTargetMachine": {
+      "status": "wrapped"
+    },
+    "LLVMGetFCmpPredicate": {
+      "status": "wrapped"
+    },
+    "LLVMGetFastMathFlags": {
+      "status": "wrapped"
+    },
+    "LLVMGetFirstBasicBlock": {
+      "status": "wrapped"
+    },
+    "LLVMGetFirstDbgRecord": {
+      "status": "wrapped"
+    },
+    "LLVMGetFirstFunction": {
+      "status": "wrapped"
+    },
+    "LLVMGetFirstGlobal": {
+      "status": "wrapped"
+    },
+    "LLVMGetFirstGlobalAlias": {
+      "status": "wrapped"
+    },
+    "LLVMGetFirstGlobalIFunc": {
+      "status": "wrapped"
+    },
+    "LLVMGetFirstInstruction": {
+      "status": "wrapped"
+    },
+    "LLVMGetFirstNamedMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMGetFirstParam": {
+      "status": "wrapped"
+    },
+    "LLVMGetFirstTarget": {
+      "status": "wrapped"
+    },
+    "LLVMGetFirstUse": {
+      "status": "wrapped"
+    },
+    "LLVMGetFunctionAddress": {
+      "status": "wrapped"
+    },
+    "LLVMGetFunctionCallConv": {
+      "status": "wrapped"
+    },
+    "LLVMGetGC": {
+      "status": "wrapped"
+    },
+    "LLVMGetGEPSourceElementType": {
+      "status": "wrapped"
+    },
+    "LLVMGetGlobalContext": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMGetGlobalIFuncResolver": {
+      "status": "wrapped"
+    },
+    "LLVMGetGlobalParent": {
+      "status": "wrapped"
+    },
+    "LLVMGetGlobalValueAddress": {
+      "status": "wrapped"
+    },
+    "LLVMGetHandlers": {
+      "status": "wrapped"
+    },
+    "LLVMGetHostCPUFeatures": {
+      "status": "wrapped"
+    },
+    "LLVMGetHostCPUName": {
+      "status": "wrapped"
+    },
+    "LLVMGetICmpPredicate": {
+      "status": "wrapped"
+    },
+    "LLVMGetICmpSameSign": {
+      "status": "wrapped"
+    },
+    "LLVMGetIncomingBlock": {
+      "status": "wrapped"
+    },
+    "LLVMGetIncomingValue": {
+      "status": "wrapped"
+    },
+    "LLVMGetIndices": {
+      "status": "wrapped"
+    },
+    "LLVMGetInitializer": {
+      "status": "wrapped"
+    },
+    "LLVMGetInlineAsm": {
+      "status": "wrapped"
+    },
+    "LLVMGetInlineAsmAsmString": {
+      "status": "wrapped"
+    },
+    "LLVMGetInlineAsmCanUnwind": {
+      "status": "wrapped"
+    },
+    "LLVMGetInlineAsmConstraintString": {
+      "status": "wrapped"
+    },
+    "LLVMGetInlineAsmDialect": {
+      "status": "wrapped"
+    },
+    "LLVMGetInlineAsmFunctionType": {
+      "status": "wrapped"
+    },
+    "LLVMGetInlineAsmHasSideEffects": {
+      "status": "wrapped"
+    },
+    "LLVMGetInlineAsmNeedsAlignedStack": {
+      "status": "wrapped"
+    },
+    "LLVMGetInsertBlock": {
+      "status": "wrapped"
+    },
+    "LLVMGetInstructionCallConv": {
+      "status": "wrapped"
+    },
+    "LLVMGetInstructionOpcode": {
+      "status": "wrapped"
+    },
+    "LLVMGetInstructionParent": {
+      "status": "wrapped"
+    },
+    "LLVMGetIntTypeWidth": {
+      "status": "wrapped"
+    },
+    "LLVMGetIntrinsicDeclaration": {
+      "status": "wrapped"
+    },
+    "LLVMGetIntrinsicID": {
+      "status": "wrapped"
+    },
+    "LLVMGetIsDisjoint": {
+      "status": "wrapped"
+    },
+    "LLVMGetLastBasicBlock": {
+      "status": "wrapped"
+    },
+    "LLVMGetLastDbgRecord": {
+      "status": "wrapped"
+    },
+    "LLVMGetLastEnumAttributeKind": {
+      "status": "wrapped"
+    },
+    "LLVMGetLastFunction": {
+      "status": "wrapped"
+    },
+    "LLVMGetLastGlobal": {
+      "status": "wrapped"
+    },
+    "LLVMGetLastGlobalAlias": {
+      "status": "wrapped"
+    },
+    "LLVMGetLastGlobalIFunc": {
+      "status": "wrapped"
+    },
+    "LLVMGetLastInstruction": {
+      "status": "wrapped"
+    },
+    "LLVMGetLastNamedMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMGetLastParam": {
+      "status": "wrapped"
+    },
+    "LLVMGetLinkage": {
+      "status": "wrapped"
+    },
+    "LLVMGetMDKindID": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMGetMDKindIDInContext": {
+      "status": "wrapped"
+    },
+    "LLVMGetMDNodeNumOperands": {
+      "status": "wrapped"
+    },
+    "LLVMGetMDNodeOperands": {
+      "status": "wrapped"
+    },
+    "LLVMGetMDString": {
+      "status": "wrapped"
+    },
+    "LLVMGetMaskValue": {
+      "status": "wrapped"
+    },
+    "LLVMGetMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMGetMetadataKind": {
+      "status": "wrapped"
+    },
+    "LLVMGetModuleContext": {
+      "status": "wrapped"
+    },
+    "LLVMGetModuleDataLayout": {
+      "status": "wrapped"
+    },
+    "LLVMGetModuleDebugMetadataVersion": {
+      "status": "wrapped"
+    },
+    "LLVMGetModuleFlag": {
+      "status": "wrapped"
+    },
+    "LLVMGetModuleIdentifier": {
+      "status": "wrapped"
+    },
+    "LLVMGetModuleInlineAsm": {
+      "status": "wrapped"
+    },
+    "LLVMGetNNeg": {
+      "status": "wrapped"
+    },
+    "LLVMGetNSW": {
+      "status": "wrapped"
+    },
+    "LLVMGetNUW": {
+      "status": "wrapped"
+    },
+    "LLVMGetNamedFunction": {
+      "status": "not_wrapped",
+      "reason": "It takes a C string; the WithLength form Lyftar wraps takes a length, with no allocation."
+    },
+    "LLVMGetNamedFunctionWithLength": {
+      "status": "wrapped"
+    },
+    "LLVMGetNamedGlobal": {
+      "status": "not_wrapped",
+      "reason": "It takes a C string; the WithLength form Lyftar wraps takes a length, with no allocation."
+    },
+    "LLVMGetNamedGlobalAlias": {
+      "status": "wrapped"
+    },
+    "LLVMGetNamedGlobalIFunc": {
+      "status": "wrapped"
+    },
+    "LLVMGetNamedGlobalWithLength": {
+      "status": "wrapped"
+    },
+    "LLVMGetNamedMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMGetNamedMetadataName": {
+      "status": "wrapped"
+    },
+    "LLVMGetNamedMetadataNumOperands": {
+      "status": "wrapped"
+    },
+    "LLVMGetNamedMetadataOperands": {
+      "status": "wrapped"
+    },
+    "LLVMGetNextBasicBlock": {
+      "status": "wrapped"
+    },
+    "LLVMGetNextDbgRecord": {
+      "status": "wrapped"
+    },
+    "LLVMGetNextFunction": {
+      "status": "wrapped"
+    },
+    "LLVMGetNextGlobal": {
+      "status": "wrapped"
+    },
+    "LLVMGetNextGlobalAlias": {
+      "status": "wrapped"
+    },
+    "LLVMGetNextGlobalIFunc": {
+      "status": "wrapped"
+    },
+    "LLVMGetNextInstruction": {
+      "status": "wrapped"
+    },
+    "LLVMGetNextNamedMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMGetNextParam": {
+      "status": "wrapped"
+    },
+    "LLVMGetNextTarget": {
+      "status": "wrapped"
+    },
+    "LLVMGetNextUse": {
+      "status": "wrapped"
+    },
+    "LLVMGetNormalDest": {
+      "status": "wrapped"
+    },
+    "LLVMGetNumArgOperands": {
+      "status": "wrapped"
+    },
+    "LLVMGetNumClauses": {
+      "status": "wrapped"
+    },
+    "LLVMGetNumContainedTypes": {
+      "status": "wrapped"
+    },
+    "LLVMGetNumHandlers": {
+      "status": "wrapped"
+    },
+    "LLVMGetNumIndices": {
+      "status": "wrapped"
+    },
+    "LLVMGetNumMaskElements": {
+      "status": "wrapped"
+    },
+    "LLVMGetNumOperandBundleArgs": {
+      "status": "wrapped"
+    },
+    "LLVMGetNumOperandBundles": {
+      "status": "wrapped"
+    },
+    "LLVMGetNumOperands": {
+      "status": "wrapped"
+    },
+    "LLVMGetNumSuccessors": {
+      "status": "wrapped"
+    },
+    "LLVMGetOperand": {
+      "status": "wrapped"
+    },
+    "LLVMGetOperandBundleArgAtIndex": {
+      "status": "wrapped"
+    },
+    "LLVMGetOperandBundleAtIndex": {
+      "status": "wrapped"
+    },
+    "LLVMGetOperandBundleTag": {
+      "status": "wrapped"
+    },
+    "LLVMGetOperandUse": {
+      "status": "wrapped"
+    },
+    "LLVMGetOrInsertComdat": {
+      "status": "wrapped"
+    },
+    "LLVMGetOrInsertFunction": {
+      "status": "wrapped"
+    },
+    "LLVMGetOrInsertNamedMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMGetOrdering": {
+      "status": "wrapped"
+    },
+    "LLVMGetParam": {
+      "status": "wrapped"
+    },
+    "LLVMGetParamParent": {
+      "status": "wrapped"
+    },
+    "LLVMGetParamTypes": {
+      "status": "wrapped"
+    },
+    "LLVMGetParams": {
+      "status": "wrapped"
+    },
+    "LLVMGetParentCatchSwitch": {
+      "status": "wrapped"
+    },
+    "LLVMGetPersonalityFn": {
+      "status": "wrapped"
+    },
+    "LLVMGetPointerAddressSpace": {
+      "status": "wrapped"
+    },
+    "LLVMGetPointerToGlobal": {
+      "status": "wrapped"
+    },
+    "LLVMGetPoison": {
+      "status": "wrapped"
+    },
+    "LLVMGetPrefixData": {
+      "status": "wrapped"
+    },
+    "LLVMGetPreviousBasicBlock": {
+      "status": "wrapped"
+    },
+    "LLVMGetPreviousDbgRecord": {
+      "status": "wrapped"
+    },
+    "LLVMGetPreviousFunction": {
+      "status": "wrapped"
+    },
+    "LLVMGetPreviousGlobal": {
+      "status": "wrapped"
+    },
+    "LLVMGetPreviousGlobalAlias": {
+      "status": "wrapped"
+    },
+    "LLVMGetPreviousGlobalIFunc": {
+      "status": "wrapped"
+    },
+    "LLVMGetPreviousInstruction": {
+      "status": "wrapped"
+    },
+    "LLVMGetPreviousNamedMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMGetPreviousParam": {
+      "status": "wrapped"
+    },
+    "LLVMGetPrologueData": {
+      "status": "wrapped"
+    },
+    "LLVMGetRawDataValues": {
+      "status": "wrapped"
+    },
+    "LLVMGetRelocationOffset": {
+      "status": "wrapped"
+    },
+    "LLVMGetRelocationSymbol": {
+      "status": "wrapped"
+    },
+    "LLVMGetRelocationType": {
+      "status": "wrapped"
+    },
+    "LLVMGetRelocationTypeName": {
+      "status": "not_wrapped",
+      "reason": "It leaves off the NUL at the end of its text; the shim's lyftar_relocation_type_name gives the same name with one."
+    },
+    "LLVMGetRelocationValueString": {
+      "status": "wrapped"
+    },
+    "LLVMGetRelocations": {
+      "status": "wrapped"
+    },
+    "LLVMGetReturnType": {
+      "status": "wrapped"
+    },
+    "LLVMGetSection": {
+      "status": "wrapped"
+    },
+    "LLVMGetSectionAddress": {
+      "status": "wrapped"
+    },
+    "LLVMGetSectionContainsSymbol": {
+      "status": "wrapped"
+    },
+    "LLVMGetSectionContents": {
+      "status": "wrapped"
+    },
+    "LLVMGetSectionName": {
+      "status": "wrapped"
+    },
+    "LLVMGetSectionSize": {
+      "status": "wrapped"
+    },
+    "LLVMGetSections": {
+      "status": "not_wrapped",
+      "reason": "It is the older object file API that LLVMCreateBinary and its iterators replace, and Lyftar wraps those."
+    },
+    "LLVMGetSourceFileName": {
+      "status": "wrapped"
+    },
+    "LLVMGetStringAttributeAtIndex": {
+      "status": "wrapped"
+    },
+    "LLVMGetStringAttributeKind": {
+      "status": "wrapped"
+    },
+    "LLVMGetStringAttributeValue": {
+      "status": "wrapped"
+    },
+    "LLVMGetStringErrorTypeId": {
+      "status": "not_wrapped",
+      "reason": "An LLVMErrorRef turns straight into lyftar::error::Error, whose message is what's left to say; LLVMCantFail is undefined behaviour on an error."
+    },
+    "LLVMGetStructElementTypes": {
+      "status": "wrapped"
+    },
+    "LLVMGetStructName": {
+      "status": "wrapped"
+    },
+    "LLVMGetSubprogram": {
+      "status": "wrapped"
+    },
+    "LLVMGetSubtypes": {
+      "status": "wrapped"
+    },
+    "LLVMGetSuccessor": {
+      "status": "wrapped"
+    },
+    "LLVMGetSwitchCaseValue": {
+      "status": "wrapped"
+    },
+    "LLVMGetSwitchDefaultDest": {
+      "status": "wrapped"
+    },
+    "LLVMGetSymbolAddress": {
+      "status": "wrapped"
+    },
+    "LLVMGetSymbolName": {
+      "status": "wrapped"
+    },
+    "LLVMGetSymbolSize": {
+      "status": "wrapped"
+    },
+    "LLVMGetSymbols": {
+      "status": "not_wrapped",
+      "reason": "It is the older object file API that LLVMCreateBinary and its iterators replace, and Lyftar wraps those."
+    },
+    "LLVMGetSyncScopeID": {
+      "status": "wrapped"
+    },
+    "LLVMGetTailCallKind": {
+      "status": "wrapped"
+    },
+    "LLVMGetTarget": {
+      "status": "wrapped"
+    },
+    "LLVMGetTargetDescription": {
+      "status": "wrapped"
+    },
+    "LLVMGetTargetExtTypeIntParam": {
+      "status": "wrapped"
+    },
+    "LLVMGetTargetExtTypeName": {
+      "status": "wrapped"
+    },
+    "LLVMGetTargetExtTypeNumIntParams": {
+      "status": "wrapped"
+    },
+    "LLVMGetTargetExtTypeNumTypeParams": {
+      "status": "wrapped"
+    },
+    "LLVMGetTargetExtTypeTypeParam": {
+      "status": "wrapped"
+    },
+    "LLVMGetTargetFromName": {
+      "status": "wrapped"
+    },
+    "LLVMGetTargetFromTriple": {
+      "status": "wrapped"
+    },
+    "LLVMGetTargetMachineCPU": {
+      "status": "wrapped"
+    },
+    "LLVMGetTargetMachineFeatureString": {
+      "status": "wrapped"
+    },
+    "LLVMGetTargetMachineTarget": {
+      "status": "wrapped"
+    },
+    "LLVMGetTargetMachineTriple": {
+      "status": "wrapped"
+    },
+    "LLVMGetTargetName": {
+      "status": "wrapped"
+    },
+    "LLVMGetThreadLocalMode": {
+      "status": "wrapped"
+    },
+    "LLVMGetTypeAttributeValue": {
+      "status": "wrapped"
+    },
+    "LLVMGetTypeByName": {
+      "status": "wrapped"
+    },
+    "LLVMGetTypeByName2": {
+      "status": "wrapped"
+    },
+    "LLVMGetTypeContext": {
+      "status": "wrapped"
+    },
+    "LLVMGetTypeKind": {
+      "status": "wrapped"
+    },
+    "LLVMGetUndef": {
+      "status": "wrapped"
+    },
+    "LLVMGetUndefMaskElem": {
+      "status": "wrapped"
+    },
+    "LLVMGetUnnamedAddress": {
+      "status": "wrapped"
+    },
+    "LLVMGetUnwindDest": {
+      "status": "wrapped"
+    },
+    "LLVMGetUsedValue": {
+      "status": "wrapped"
+    },
+    "LLVMGetUser": {
+      "status": "wrapped"
+    },
+    "LLVMGetValueContext": {
+      "status": "wrapped"
+    },
+    "LLVMGetValueKind": {
+      "status": "wrapped"
+    },
+    "LLVMGetValueName": {
+      "status": "not_wrapped",
+      "reason": "It is the older form that works in C strings; LLVMGetValueName2 and LLVMSetValueName2 take lengths."
+    },
+    "LLVMGetValueName2": {
+      "status": "wrapped"
+    },
+    "LLVMGetVectorSize": {
+      "status": "wrapped"
+    },
+    "LLVMGetVersion": {
+      "status": "wrapped"
+    },
+    "LLVMGetVisibility": {
+      "status": "wrapped"
+    },
+    "LLVMGetVolatile": {
+      "status": "wrapped"
+    },
+    "LLVMGetWeak": {
+      "status": "wrapped"
+    },
+    "LLVMGlobalAddDebugInfo": {
+      "status": "wrapped"
+    },
+    "LLVMGlobalAddMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMGlobalClearMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMGlobalCopyAllMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMGlobalEraseMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMGlobalGetValueType": {
+      "status": "wrapped"
+    },
+    "LLVMGlobalSetMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMHalfType": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMHalfTypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMHasMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMHasPersonalityFn": {
+      "status": "wrapped"
+    },
+    "LLVMHasPrefixData": {
+      "status": "wrapped"
+    },
+    "LLVMHasPrologueData": {
+      "status": "wrapped"
+    },
+    "LLVMHasUnnamedAddr": {
+      "status": "not_wrapped",
+      "reason": "They are the older two-state forms of LLVMGetUnnamedAddress and LLVMSetUnnamedAddress, which Lyftar wraps."
+    },
+    "LLVMInitializeFunctionPassManager": {
+      "status": "not_wrapped",
+      "reason": "It is for the legacy pass manager, which LLVM's C API no longer has passes for; Lyftar's passes use the new pass manager."
+    },
+    "LLVMInitializeMCJITCompilerOptions": {
+      "status": "wrapped"
+    },
+    "LLVMInsertBasicBlock": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMInsertBasicBlockInContext": {
+      "status": "wrapped"
+    },
+    "LLVMInsertExistingBasicBlockAfterInsertBlock": {
+      "status": "not_wrapped",
+      "reason": "They work with a block that isn't in a function, which a Block promises not to be: its function and module couldn't be checked (D3)."
+    },
+    "LLVMInsertIntoBuilder": {
+      "status": "wrapped"
+    },
+    "LLVMInsertIntoBuilderWithName": {
+      "status": "not_wrapped",
+      "reason": "Builder::insert_clone puts a clone in and names it with no allocation; an instruction with no parent never exists otherwise."
+    },
+    "LLVMInstallFatalErrorHandler": {
+      "status": "wrapped"
+    },
+    "LLVMInstructionClone": {
+      "status": "wrapped"
+    },
+    "LLVMInstructionEraseFromParent": {
+      "status": "not_wrapped",
+      "reason": "Erasing goes through Module::erase, whose shim checks nothing that stays still uses what goes, drops a block from phis, and needs exclusive access (D11)."
+    },
+    "LLVMInstructionGetAllMetadataOtherThanDebugLoc": {
+      "status": "wrapped"
+    },
+    "LLVMInstructionGetDebugLoc": {
+      "status": "wrapped"
+    },
+    "LLVMInstructionRemoveFromParent": {
+      "status": "not_wrapped",
+      "reason": "It leaves something with no parent and no owner, which a Value promises not to be; Builder::move_instruction_here moves an instruction without that."
+    },
+    "LLVMInstructionSetDebugLoc": {
+      "status": "wrapped"
+    },
+    "LLVMInt128Type": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMInt128TypeInContext": {
+      "status": "not_wrapped",
+      "reason": "LLVMIntTypeInContext makes every width, through Context::get_type and Context::integer_type."
+    },
+    "LLVMInt16Type": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMInt16TypeInContext": {
+      "status": "not_wrapped",
+      "reason": "LLVMIntTypeInContext makes every width, through Context::get_type and Context::integer_type."
+    },
+    "LLVMInt1Type": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMInt1TypeInContext": {
+      "status": "not_wrapped",
+      "reason": "LLVMIntTypeInContext makes every width, through Context::get_type and Context::integer_type."
+    },
+    "LLVMInt32Type": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMInt32TypeInContext": {
+      "status": "not_wrapped",
+      "reason": "LLVMIntTypeInContext makes every width, through Context::get_type and Context::integer_type."
+    },
+    "LLVMInt64Type": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMInt64TypeInContext": {
+      "status": "not_wrapped",
+      "reason": "LLVMIntTypeInContext makes every width, through Context::get_type and Context::integer_type."
+    },
+    "LLVMInt8Type": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMInt8TypeInContext": {
+      "status": "not_wrapped",
+      "reason": "LLVMIntTypeInContext makes every width, through Context::get_type and Context::integer_type."
+    },
+    "LLVMIntPtrType": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMIntPtrTypeForAS": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMIntPtrTypeForASInContext": {
+      "status": "wrapped"
+    },
+    "LLVMIntPtrTypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMIntType": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMIntTypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMIntrinsicCopyOverloadedName": {
+      "status": "not_wrapped",
+      "reason": "It is deprecated in favour of LLVMIntrinsicCopyOverloadedName2, which Module::intrinsic_overloaded_name wraps."
+    },
+    "LLVMIntrinsicCopyOverloadedName2": {
+      "status": "wrapped"
+    },
+    "LLVMIntrinsicGetName": {
+      "status": "wrapped"
+    },
+    "LLVMIntrinsicGetType": {
+      "status": "wrapped"
+    },
+    "LLVMIntrinsicIsOverloaded": {
+      "status": "wrapped"
+    },
+    "LLVMIsAAddrSpaceCastInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAAllocaInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAArgument": {
+      "status": "wrapped"
+    },
+    "LLVMIsAAtomicCmpXchgInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAAtomicRMWInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsABasicBlock": {
+      "status": "wrapped"
+    },
+    "LLVMIsABinaryOperator": {
+      "status": "wrapped"
+    },
+    "LLVMIsABitCastInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsABlockAddress": {
+      "status": "wrapped"
+    },
+    "LLVMIsABranchInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsACallBrInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsACallInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsACastInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsACatchPadInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsACatchReturnInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsACatchSwitchInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsACleanupPadInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsACleanupReturnInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsACmpInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsACondBrInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAConstant": {
+      "status": "wrapped"
+    },
+    "LLVMIsAConstantAggregateZero": {
+      "status": "wrapped"
+    },
+    "LLVMIsAConstantArray": {
+      "status": "wrapped"
+    },
+    "LLVMIsAConstantByte": {
+      "status": "wrapped"
+    },
+    "LLVMIsAConstantDataArray": {
+      "status": "wrapped"
+    },
+    "LLVMIsAConstantDataSequential": {
+      "status": "wrapped"
+    },
+    "LLVMIsAConstantDataVector": {
+      "status": "wrapped"
+    },
+    "LLVMIsAConstantExpr": {
+      "status": "wrapped"
+    },
+    "LLVMIsAConstantFP": {
+      "status": "wrapped"
+    },
+    "LLVMIsAConstantInt": {
+      "status": "wrapped"
+    },
+    "LLVMIsAConstantPointerNull": {
+      "status": "wrapped"
+    },
+    "LLVMIsAConstantPtrAuth": {
+      "status": "wrapped"
+    },
+    "LLVMIsAConstantStruct": {
+      "status": "wrapped"
+    },
+    "LLVMIsAConstantTokenNone": {
+      "status": "wrapped"
+    },
+    "LLVMIsAConstantVector": {
+      "status": "wrapped"
+    },
+    "LLVMIsADbgDeclareInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsADbgInfoIntrinsic": {
+      "status": "wrapped"
+    },
+    "LLVMIsADbgLabelInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsADbgVariableIntrinsic": {
+      "status": "wrapped"
+    },
+    "LLVMIsAExtractElementInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAExtractValueInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAFCmpInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAFPExtInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAFPToSIInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAFPToUIInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAFPTruncInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAFenceInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAFreezeInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAFuncletPadInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAFunction": {
+      "status": "wrapped"
+    },
+    "LLVMIsAGetElementPtrInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAGlobalAlias": {
+      "status": "wrapped"
+    },
+    "LLVMIsAGlobalIFunc": {
+      "status": "wrapped"
+    },
+    "LLVMIsAGlobalObject": {
+      "status": "wrapped"
+    },
+    "LLVMIsAGlobalValue": {
+      "status": "wrapped"
+    },
+    "LLVMIsAGlobalVariable": {
+      "status": "wrapped"
+    },
+    "LLVMIsAICmpInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAIndirectBrInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAInlineAsm": {
+      "status": "wrapped"
+    },
+    "LLVMIsAInsertElementInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAInsertValueInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAInstruction": {
+      "status": "wrapped"
+    },
+    "LLVMIsAIntToPtrInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAIntrinsicInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAInvokeInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsALandingPadInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsALoadInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAMDNode": {
+      "status": "wrapped"
+    },
+    "LLVMIsAMDString": {
+      "status": "wrapped"
+    },
+    "LLVMIsAMemCpyInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAMemIntrinsic": {
+      "status": "wrapped"
+    },
+    "LLVMIsAMemMoveInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAMemSetInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAPHINode": {
+      "status": "wrapped"
+    },
+    "LLVMIsAPoisonValue": {
+      "status": "wrapped"
+    },
+    "LLVMIsAPtrToIntInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAResumeInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAReturnInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsASExtInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsASIToFPInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsASelectInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAShuffleVectorInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAStoreInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsASwitchInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsATerminatorInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsATruncInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAUIToFPInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAUnaryInstruction": {
+      "status": "wrapped"
+    },
+    "LLVMIsAUnaryOperator": {
+      "status": "wrapped"
+    },
+    "LLVMIsAUncondBrInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAUndefValue": {
+      "status": "wrapped"
+    },
+    "LLVMIsAUnreachableInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAUser": {
+      "status": "wrapped"
+    },
+    "LLVMIsAVAArgInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAValueAsMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMIsAZExtInst": {
+      "status": "wrapped"
+    },
+    "LLVMIsAtomic": {
+      "status": "wrapped"
+    },
+    "LLVMIsAtomicSingleThread": {
+      "status": "wrapped"
+    },
+    "LLVMIsCleanup": {
+      "status": "wrapped"
+    },
+    "LLVMIsConditional": {
+      "status": "not_wrapped",
+      "reason": "as_kind asks the same question, through the BasicBlock or ConditionalBranchInstruction marker."
+    },
+    "LLVMIsConstant": {
+      "status": "wrapped"
+    },
+    "LLVMIsConstantString": {
+      "status": "wrapped"
+    },
+    "LLVMIsDeclaration": {
+      "status": "wrapped"
+    },
+    "LLVMIsEnumAttribute": {
+      "status": "wrapped"
+    },
+    "LLVMIsExternallyInitialized": {
+      "status": "wrapped"
+    },
+    "LLVMIsFunctionVarArg": {
+      "status": "wrapped"
+    },
+    "LLVMIsGlobalConstant": {
+      "status": "wrapped"
+    },
+    "LLVMIsInBounds": {
+      "status": "wrapped"
+    },
+    "LLVMIsLiteralStruct": {
+      "status": "wrapped"
+    },
+    "LLVMIsMultithreaded": {
+      "status": "wrapped"
+    },
+    "LLVMIsNewDbgInfoFormat": {
+      "status": "wrapped"
+    },
+    "LLVMIsNull": {
+      "status": "wrapped"
+    },
+    "LLVMIsOpaqueStruct": {
+      "status": "wrapped"
+    },
+    "LLVMIsPackedStruct": {
+      "status": "wrapped"
+    },
+    "LLVMIsPoison": {
+      "status": "wrapped"
+    },
+    "LLVMIsRelocationIteratorAtEnd": {
+      "status": "wrapped"
+    },
+    "LLVMIsSectionIteratorAtEnd": {
+      "status": "not_wrapped",
+      "reason": "It is the older object file API that LLVMCreateBinary and its iterators replace, and Lyftar wraps those."
+    },
+    "LLVMIsStringAttribute": {
+      "status": "wrapped"
+    },
+    "LLVMIsSymbolIteratorAtEnd": {
+      "status": "not_wrapped",
+      "reason": "It is the older object file API that LLVMCreateBinary and its iterators replace, and Lyftar wraps those."
+    },
+    "LLVMIsTailCall": {
+      "status": "wrapped"
+    },
+    "LLVMIsThreadLocal": {
+      "status": "wrapped"
+    },
+    "LLVMIsTypeAttribute": {
+      "status": "wrapped"
+    },
+    "LLVMIsUndef": {
+      "status": "wrapped"
+    },
+    "LLVMLabelType": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMLabelTypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMLinkInInterpreter": {
+      "status": "wrapped"
+    },
+    "LLVMLinkInMCJIT": {
+      "status": "wrapped"
+    },
+    "LLVMLinkModules2": {
+      "status": "not_wrapped",
+      "reason": "LLVM's linker reports through the context's diagnostics, whose default exits the process; the shim's lyftar_link_modules calls this with a handler that keeps the text (D3)."
+    },
+    "LLVMLoadLibraryPermanently": {
+      "status": "wrapped"
+    },
+    "LLVMLookupIntrinsicID": {
+      "status": "wrapped"
+    },
+    "LLVMMDNode": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMMDNodeInContext": {
+      "status": "not_wrapped",
+      "reason": "It is the older form working in values; the 2 forms work in metadata and Lyftar wraps those."
+    },
+    "LLVMMDNodeInContext2": {
+      "status": "wrapped"
+    },
+    "LLVMMDString": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMMDStringInContext": {
+      "status": "not_wrapped",
+      "reason": "It is the older form working in values; the 2 forms work in metadata and Lyftar wraps those."
+    },
+    "LLVMMDStringInContext2": {
+      "status": "wrapped"
+    },
+    "LLVMMachOUniversalBinaryCopyObjectForArch": {
+      "status": "wrapped"
+    },
+    "LLVMMetadataAsValue": {
+      "status": "wrapped"
+    },
+    "LLVMMetadataReplaceAllUsesWith": {
+      "status": "wrapped"
+    },
+    "LLVMMetadataTypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMModuleCreateWithName": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMModuleCreateWithNameInContext": {
+      "status": "wrapped"
+    },
+    "LLVMModuleFlagEntriesGetFlagBehavior": {
+      "status": "wrapped"
+    },
+    "LLVMModuleFlagEntriesGetKey": {
+      "status": "wrapped"
+    },
+    "LLVMModuleFlagEntriesGetMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMMoveBasicBlockAfter": {
+      "status": "wrapped"
+    },
+    "LLVMMoveBasicBlockBefore": {
+      "status": "wrapped"
+    },
+    "LLVMMoveToContainingSection": {
+      "status": "wrapped"
+    },
+    "LLVMMoveToNextRelocation": {
+      "status": "wrapped"
+    },
+    "LLVMMoveToNextSection": {
+      "status": "wrapped"
+    },
+    "LLVMMoveToNextSymbol": {
+      "status": "wrapped"
+    },
+    "LLVMNormalizeTargetTriple": {
+      "status": "wrapped"
+    },
+    "LLVMObjectFileCopySectionIterator": {
+      "status": "wrapped"
+    },
+    "LLVMObjectFileCopySymbolIterator": {
+      "status": "wrapped"
+    },
+    "LLVMObjectFileIsSectionIteratorAtEnd": {
+      "status": "wrapped"
+    },
+    "LLVMObjectFileIsSymbolIteratorAtEnd": {
+      "status": "wrapped"
+    },
+    "LLVMOffsetOfElement": {
+      "status": "wrapped"
+    },
+    "LLVMOrcAbsoluteSymbols": {
+      "status": "wrapped"
+    },
+    "LLVMOrcCreateCustomCAPIDefinitionGenerator": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcCreateCustomMaterializationUnit": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcCreateDumpObjects": {
+      "status": "wrapped"
+    },
+    "LLVMOrcCreateDynamicLibrarySearchGeneratorForPath": {
+      "status": "wrapped"
+    },
+    "LLVMOrcCreateDynamicLibrarySearchGeneratorForProcess": {
+      "status": "wrapped"
+    },
+    "LLVMOrcCreateLLJIT": {
+      "status": "wrapped"
+    },
+    "LLVMOrcCreateLLJITBuilder": {
+      "status": "wrapped"
+    },
+    "LLVMOrcCreateLocalIndirectStubsManager": {
+      "status": "not_wrapped",
+      "reason": "Lazy reexports need raw stubs managers and a raw error handler address; no safe form is designed, and no project here uses lazy compilation."
+    },
+    "LLVMOrcCreateLocalLazyCallThroughManager": {
+      "status": "not_wrapped",
+      "reason": "Lazy reexports need raw stubs managers and a raw error handler address; no safe form is designed, and no project here uses lazy compilation."
+    },
+    "LLVMOrcCreateNewThreadSafeContext": {
+      "status": "not_wrapped",
+      "reason": "Jit::add_module makes the LLVM context first, so the closure gets a Context, and wraps it with LLVMOrcCreateNewThreadSafeContextFromLLVMContext."
+    },
+    "LLVMOrcCreateNewThreadSafeContextFromLLVMContext": {
+      "status": "wrapped"
+    },
+    "LLVMOrcCreateNewThreadSafeModule": {
+      "status": "wrapped"
+    },
+    "LLVMOrcCreateObjectLinkingLayerWithInProcessMemoryManager": {
+      "status": "not_wrapped",
+      "reason": "LLJIT's default linker and JitBuilder::use_runtime_dyld cover the choice here; a layer made by hand needs ownership no wrapper here gives."
+    },
+    "LLVMOrcCreateRTDyldObjectLinkingLayerWithMCJITMemoryManagerLikeCallbacks": {
+      "status": "not_wrapped",
+      "reason": "Its callbacks hand out raw memory that generated code runs from, with no safe form; the default memory manager is what Lyftar uses."
+    },
+    "LLVMOrcCreateRTDyldObjectLinkingLayerWithSectionMemoryManager": {
+      "status": "wrapped"
+    },
+    "LLVMOrcCreateRTDyldObjectLinkingLayerWithSectionMemoryManagerReserveAlloc": {
+      "status": "not_wrapped",
+      "reason": "LLJIT's default linker and JitBuilder::use_runtime_dyld cover the choice here; a layer made by hand needs ownership no wrapper here gives."
+    },
+    "LLVMOrcCreateStaticLibrarySearchGeneratorForPath": {
+      "status": "wrapped"
+    },
+    "LLVMOrcDisposeCSymbolFlagsMap": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcDisposeDefinitionGenerator": {
+      "status": "not_wrapped",
+      "reason": "Ownership always passes on to ORC in Lyftar's wrappers, so nothing is left to dispose of."
+    },
+    "LLVMOrcDisposeDumpObjects": {
+      "status": "wrapped"
+    },
+    "LLVMOrcDisposeIndirectStubsManager": {
+      "status": "not_wrapped",
+      "reason": "Lazy reexports need raw stubs managers and a raw error handler address; no safe form is designed, and no project here uses lazy compilation."
+    },
+    "LLVMOrcDisposeJITTargetMachineBuilder": {
+      "status": "not_wrapped",
+      "reason": "Ownership always passes on to ORC in Lyftar's wrappers, so nothing is left to dispose of."
+    },
+    "LLVMOrcDisposeLLJIT": {
+      "status": "wrapped"
+    },
+    "LLVMOrcDisposeLLJITBuilder": {
+      "status": "wrapped"
+    },
+    "LLVMOrcDisposeLazyCallThroughManager": {
+      "status": "not_wrapped",
+      "reason": "Lazy reexports need raw stubs managers and a raw error handler address; no safe form is designed, and no project here uses lazy compilation."
+    },
+    "LLVMOrcDisposeMaterializationResponsibility": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcDisposeMaterializationUnit": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcDisposeObjectLayer": {
+      "status": "not_wrapped",
+      "reason": "Ownership always passes on to ORC in Lyftar's wrappers, so nothing is left to dispose of."
+    },
+    "LLVMOrcDisposeSymbols": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcDisposeThreadSafeContext": {
+      "status": "wrapped"
+    },
+    "LLVMOrcDisposeThreadSafeModule": {
+      "status": "not_wrapped",
+      "reason": "Ownership always passes on to ORC in Lyftar's wrappers, so nothing is left to dispose of."
+    },
+    "LLVMOrcDumpObjects_CallOperator": {
+      "status": "wrapped"
+    },
+    "LLVMOrcExecutionSessionCreateBareJITDylib": {
+      "status": "wrapped"
+    },
+    "LLVMOrcExecutionSessionCreateJITDylib": {
+      "status": "wrapped"
+    },
+    "LLVMOrcExecutionSessionGetJITDylibByName": {
+      "status": "wrapped"
+    },
+    "LLVMOrcExecutionSessionGetSymbolStringPool": {
+      "status": "wrapped"
+    },
+    "LLVMOrcExecutionSessionIntern": {
+      "status": "wrapped"
+    },
+    "LLVMOrcExecutionSessionLookup": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcExecutionSessionSetErrorReporter": {
+      "status": "wrapped"
+    },
+    "LLVMOrcIRTransformLayerEmit": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcIRTransformLayerSetTransform": {
+      "status": "wrapped"
+    },
+    "LLVMOrcJITDylibAddGenerator": {
+      "status": "wrapped"
+    },
+    "LLVMOrcJITDylibClear": {
+      "status": "wrapped"
+    },
+    "LLVMOrcJITDylibCreateResourceTracker": {
+      "status": "wrapped"
+    },
+    "LLVMOrcJITDylibDefine": {
+      "status": "wrapped"
+    },
+    "LLVMOrcJITDylibGetDefaultResourceTracker": {
+      "status": "wrapped"
+    },
+    "LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine": {
+      "status": "wrapped"
+    },
+    "LLVMOrcJITTargetMachineBuilderDetectHost": {
+      "status": "wrapped"
+    },
+    "LLVMOrcJITTargetMachineBuilderGetTargetTriple": {
+      "status": "wrapped"
+    },
+    "LLVMOrcJITTargetMachineBuilderSetTargetTriple": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITAddLLVMIRModule": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITAddLLVMIRModuleWithRT": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITAddObjectFile": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITAddObjectFileWithRT": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITBuilderSetJITTargetMachineBuilder": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITBuilderSetObjectLinkingLayerCreator": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITEnableDebugSupport": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITGetDataLayoutStr": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITGetExecutionSession": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITGetGlobalPrefix": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITGetIRTransformLayer": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITGetMainJITDylib": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITGetObjLinkingLayer": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITGetObjTransformLayer": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITGetTripleString": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITLookup": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLLJITMangleAndIntern": {
+      "status": "wrapped"
+    },
+    "LLVMOrcLazyReexports": {
+      "status": "not_wrapped",
+      "reason": "Lazy reexports need raw stubs managers and a raw error handler address; no safe form is designed, and no project here uses lazy compilation."
+    },
+    "LLVMOrcLookupStateContinueLookup": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcMaterializationResponsibilityDefineMaterializing": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcMaterializationResponsibilityDelegate": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcMaterializationResponsibilityFailMaterialization": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcMaterializationResponsibilityGetExecutionSession": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcMaterializationResponsibilityGetInitializerSymbol": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcMaterializationResponsibilityGetRequestedSymbols": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcMaterializationResponsibilityGetSymbols": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcMaterializationResponsibilityGetTargetDylib": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcMaterializationResponsibilityNotifyEmitted": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcMaterializationResponsibilityNotifyResolved": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcMaterializationResponsibilityReplace": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcObjectLayerAddObjectFile": {
+      "status": "wrapped"
+    },
+    "LLVMOrcObjectLayerAddObjectFileWithRT": {
+      "status": "wrapped"
+    },
+    "LLVMOrcObjectLayerEmit": {
+      "status": "not_wrapped",
+      "reason": "Custom materialization is a raw protocol: each responsibility must be resolved, emitted or failed exactly once, across callbacks, or the JIT hangs or crashes. No safe form is designed, and LLJIT with add_module covers what the projects here need."
+    },
+    "LLVMOrcObjectTransformLayerSetTransform": {
+      "status": "wrapped"
+    },
+    "LLVMOrcRTDyldObjectLinkingLayerRegisterJITEventListener": {
+      "status": "wrapped"
+    },
+    "LLVMOrcReleaseResourceTracker": {
+      "status": "wrapped"
+    },
+    "LLVMOrcReleaseSymbolStringPoolEntry": {
+      "status": "wrapped"
+    },
+    "LLVMOrcResourceTrackerRemove": {
+      "status": "wrapped"
+    },
+    "LLVMOrcResourceTrackerTransferTo": {
+      "status": "wrapped"
+    },
+    "LLVMOrcRetainSymbolStringPoolEntry": {
+      "status": "wrapped"
+    },
+    "LLVMOrcSymbolStringPoolClearDeadEntries": {
+      "status": "wrapped"
+    },
+    "LLVMOrcSymbolStringPoolEntryStr": {
+      "status": "wrapped"
+    },
+    "LLVMOrcThreadSafeModuleWithModuleDo": {
+      "status": "wrapped"
+    },
+    "LLVMPPCFP128Type": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMPPCFP128TypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMParseBitcode": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMParseBitcode2": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMParseBitcodeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMParseBitcodeInContext2": {
+      "status": "not_wrapped",
+      "reason": "It reports errors through the context, whose default handler exits the process, where the older form Lyftar wraps returns them as text (D3)."
+    },
+    "LLVMParseCommandLineOptions": {
+      "status": "wrapped"
+    },
+    "LLVMParseIRInContext": {
+      "status": "not_wrapped",
+      "reason": "It frees the buffer it is given, which LLVMParseIRInContext2 replaces with a form that doesn't."
+    },
+    "LLVMParseIRInContext2": {
+      "status": "wrapped"
+    },
+    "LLVMPassBuilderOptionsSetAAPipeline": {
+      "status": "wrapped"
+    },
+    "LLVMPassBuilderOptionsSetCallGraphProfile": {
+      "status": "wrapped"
+    },
+    "LLVMPassBuilderOptionsSetDebugLogging": {
+      "status": "wrapped"
+    },
+    "LLVMPassBuilderOptionsSetForgetAllSCEVInLoopUnroll": {
+      "status": "wrapped"
+    },
+    "LLVMPassBuilderOptionsSetInlinerThreshold": {
+      "status": "wrapped"
+    },
+    "LLVMPassBuilderOptionsSetLicmMssaNoAccForPromotionCap": {
+      "status": "wrapped"
+    },
+    "LLVMPassBuilderOptionsSetLicmMssaOptCap": {
+      "status": "wrapped"
+    },
+    "LLVMPassBuilderOptionsSetLoopInterleaving": {
+      "status": "wrapped"
+    },
+    "LLVMPassBuilderOptionsSetLoopUnrolling": {
+      "status": "wrapped"
+    },
+    "LLVMPassBuilderOptionsSetLoopVectorization": {
+      "status": "wrapped"
+    },
+    "LLVMPassBuilderOptionsSetMergeFunctions": {
+      "status": "wrapped"
+    },
+    "LLVMPassBuilderOptionsSetSLPVectorization": {
+      "status": "wrapped"
+    },
+    "LLVMPassBuilderOptionsSetVerifyEach": {
+      "status": "wrapped"
+    },
+    "LLVMPointerSize": {
+      "status": "wrapped"
+    },
+    "LLVMPointerSizeForAS": {
+      "status": "wrapped"
+    },
+    "LLVMPointerType": {
+      "status": "not_wrapped",
+      "reason": "It takes an element type, which opaque pointers don't have; LLVMPointerTypeInContext is what Lyftar wraps."
+    },
+    "LLVMPointerTypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMPointerTypeIsOpaque": {
+      "status": "not_wrapped",
+      "reason": "Every pointer is opaque in LLVM 23, so the answer carries nothing."
+    },
+    "LLVMPositionBuilder": {
+      "status": "wrapped"
+    },
+    "LLVMPositionBuilderAtEnd": {
+      "status": "wrapped"
+    },
+    "LLVMPositionBuilderBefore": {
+      "status": "wrapped"
+    },
+    "LLVMPositionBuilderBeforeDbgRecords": {
+      "status": "wrapped"
+    },
+    "LLVMPositionBuilderBeforeInstrAndDbgRecords": {
+      "status": "wrapped"
+    },
+    "LLVMPreferredAlignmentOfGlobal": {
+      "status": "wrapped"
+    },
+    "LLVMPreferredAlignmentOfType": {
+      "status": "wrapped"
+    },
+    "LLVMPrintDbgRecordToString": {
+      "status": "wrapped"
+    },
+    "LLVMPrintModuleToFile": {
+      "status": "wrapped"
+    },
+    "LLVMPrintModuleToString": {
+      "status": "wrapped"
+    },
+    "LLVMPrintTypeToString": {
+      "status": "wrapped"
+    },
+    "LLVMPrintValueToString": {
+      "status": "wrapped"
+    },
+    "LLVMRecompileAndRelinkFunction": {
+      "status": "not_wrapped",
+      "reason": "MCJIT doesn't implement it: LLVM's own version does nothing or reports a fatal error."
+    },
+    "LLVMRemarkArgGetDebugLoc": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkArgGetKey": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkArgGetValue": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkDebugLocGetSourceColumn": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkDebugLocGetSourceFilePath": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkDebugLocGetSourceLine": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkEntryDispose": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkEntryGetDebugLoc": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkEntryGetFirstArg": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkEntryGetFunctionName": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkEntryGetHotness": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkEntryGetNextArg": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkEntryGetNumArgs": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkEntryGetPassName": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkEntryGetRemarkName": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkEntryGetType": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkParserCreateBitstream": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkParserCreateYAML": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkParserDispose": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkParserGetErrorMessage": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkParserGetNext": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkParserHasError": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkStringGetData": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkStringGetLen": {
+      "status": "wrapped"
+    },
+    "LLVMRemarkVersion": {
+      "status": "wrapped"
+    },
+    "LLVMRemoveBasicBlockFromParent": {
+      "status": "not_wrapped",
+      "reason": "It leaves something with no parent and no owner, which a Value promises not to be; Builder::move_instruction_here moves an instruction without that."
+    },
+    "LLVMRemoveCallSiteEnumAttribute": {
+      "status": "wrapped"
+    },
+    "LLVMRemoveCallSiteStringAttribute": {
+      "status": "wrapped"
+    },
+    "LLVMRemoveEnumAttributeAtIndex": {
+      "status": "wrapped"
+    },
+    "LLVMRemoveGlobalIFunc": {
+      "status": "not_wrapped",
+      "reason": "It leaves something with no parent and no owner, which a Value promises not to be; Builder::move_instruction_here moves an instruction without that."
+    },
+    "LLVMRemoveModule": {
+      "status": "wrapped"
+    },
+    "LLVMRemoveStringAttributeAtIndex": {
+      "status": "wrapped"
+    },
+    "LLVMReplaceAllUsesWith": {
+      "status": "wrapped"
+    },
+    "LLVMReplaceArrays": {
+      "status": "wrapped"
+    },
+    "LLVMReplaceMDNodeOperandWith": {
+      "status": "wrapped"
+    },
+    "LLVMResetFatalErrorHandler": {
+      "status": "wrapped"
+    },
+    "LLVMRunFunction": {
+      "status": "wrapped"
+    },
+    "LLVMRunFunctionAsMain": {
+      "status": "wrapped"
+    },
+    "LLVMRunFunctionPassManager": {
+      "status": "not_wrapped",
+      "reason": "It is for the legacy pass manager, which LLVM's C API no longer has passes for; Lyftar's passes use the new pass manager."
+    },
+    "LLVMRunPassManager": {
+      "status": "not_wrapped",
+      "reason": "It is for the legacy pass manager, which LLVM's C API no longer has passes for; Lyftar's passes use the new pass manager."
+    },
+    "LLVMRunPasses": {
+      "status": "wrapped"
+    },
+    "LLVMRunPassesOnFunction": {
+      "status": "wrapped"
+    },
+    "LLVMRunStaticConstructors": {
+      "status": "wrapped"
+    },
+    "LLVMRunStaticDestructors": {
+      "status": "wrapped"
+    },
+    "LLVMScalableVectorType": {
+      "status": "wrapped"
+    },
+    "LLVMSearchForAddressOfSymbol": {
+      "status": "wrapped"
+    },
+    "LLVMSetAlignment": {
+      "status": "wrapped"
+    },
+    "LLVMSetArgOperand": {
+      "status": "wrapped"
+    },
+    "LLVMSetAtomicRMWBinOp": {
+      "status": "wrapped"
+    },
+    "LLVMSetAtomicSingleThread": {
+      "status": "wrapped"
+    },
+    "LLVMSetAtomicSyncScopeID": {
+      "status": "wrapped"
+    },
+    "LLVMSetCleanup": {
+      "status": "wrapped"
+    },
+    "LLVMSetCmpXchgFailureOrdering": {
+      "status": "wrapped"
+    },
+    "LLVMSetCmpXchgSuccessOrdering": {
+      "status": "wrapped"
+    },
+    "LLVMSetComdat": {
+      "status": "wrapped"
+    },
+    "LLVMSetComdatSelectionKind": {
+      "status": "wrapped"
+    },
+    "LLVMSetCondition": {
+      "status": "wrapped"
+    },
+    "LLVMSetCurrentDebugLocation": {
+      "status": "not_wrapped",
+      "reason": "It is the older form working in values; the 2 forms work in metadata and Lyftar wraps those."
+    },
+    "LLVMSetCurrentDebugLocation2": {
+      "status": "wrapped"
+    },
+    "LLVMSetDLLStorageClass": {
+      "status": "wrapped"
+    },
+    "LLVMSetDataLayout": {
+      "status": "wrapped"
+    },
+    "LLVMSetDisasmOptions": {
+      "status": "wrapped"
+    },
+    "LLVMSetExact": {
+      "status": "wrapped"
+    },
+    "LLVMSetExternallyInitialized": {
+      "status": "wrapped"
+    },
+    "LLVMSetFastMathFlags": {
+      "status": "wrapped"
+    },
+    "LLVMSetFunctionCallConv": {
+      "status": "wrapped"
+    },
+    "LLVMSetGC": {
+      "status": "wrapped"
+    },
+    "LLVMSetGlobalConstant": {
+      "status": "wrapped"
+    },
+    "LLVMSetGlobalIFuncResolver": {
+      "status": "wrapped"
+    },
+    "LLVMSetICmpSameSign": {
+      "status": "wrapped"
+    },
+    "LLVMSetInitializer": {
+      "status": "wrapped"
+    },
+    "LLVMSetInstDebugLocation": {
+      "status": "wrapped"
+    },
+    "LLVMSetInstrParamAlignment": {
+      "status": "wrapped"
+    },
+    "LLVMSetInstructionCallConv": {
+      "status": "wrapped"
+    },
+    "LLVMSetIsDisjoint": {
+      "status": "wrapped"
+    },
+    "LLVMSetIsInBounds": {
+      "status": "wrapped"
+    },
+    "LLVMSetIsNewDbgInfoFormat": {
+      "status": "not_wrapped",
+      "reason": "LLVM 23 only has debug records; setting the old format is a no-op kept for old callers."
+    },
+    "LLVMSetLinkage": {
+      "status": "wrapped"
+    },
+    "LLVMSetMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMSetModuleDataLayout": {
+      "status": "wrapped"
+    },
+    "LLVMSetModuleIdentifier": {
+      "status": "wrapped"
+    },
+    "LLVMSetModuleInlineAsm": {
+      "status": "not_wrapped",
+      "reason": "It is the older form of LLVMSetModuleInlineAsm2, which takes a length."
+    },
+    "LLVMSetModuleInlineAsm2": {
+      "status": "wrapped"
+    },
+    "LLVMSetNNeg": {
+      "status": "wrapped"
+    },
+    "LLVMSetNSW": {
+      "status": "wrapped"
+    },
+    "LLVMSetNUW": {
+      "status": "wrapped"
+    },
+    "LLVMSetNormalDest": {
+      "status": "wrapped"
+    },
+    "LLVMSetOperand": {
+      "status": "wrapped"
+    },
+    "LLVMSetOrdering": {
+      "status": "wrapped"
+    },
+    "LLVMSetParamAlignment": {
+      "status": "wrapped"
+    },
+    "LLVMSetParentCatchSwitch": {
+      "status": "wrapped"
+    },
+    "LLVMSetPersonalityFn": {
+      "status": "wrapped"
+    },
+    "LLVMSetPrefixData": {
+      "status": "wrapped"
+    },
+    "LLVMSetPrologueData": {
+      "status": "wrapped"
+    },
+    "LLVMSetSection": {
+      "status": "wrapped"
+    },
+    "LLVMSetSourceFileName": {
+      "status": "wrapped"
+    },
+    "LLVMSetSubprogram": {
+      "status": "wrapped"
+    },
+    "LLVMSetSuccessor": {
+      "status": "wrapped"
+    },
+    "LLVMSetSwitchCaseValue": {
+      "status": "wrapped"
+    },
+    "LLVMSetTailCall": {
+      "status": "wrapped"
+    },
+    "LLVMSetTailCallKind": {
+      "status": "wrapped"
+    },
+    "LLVMSetTarget": {
+      "status": "wrapped"
+    },
+    "LLVMSetTargetMachineAsmVerbosity": {
+      "status": "wrapped"
+    },
+    "LLVMSetTargetMachineFastISel": {
+      "status": "wrapped"
+    },
+    "LLVMSetTargetMachineGlobalISel": {
+      "status": "wrapped"
+    },
+    "LLVMSetTargetMachineGlobalISelAbort": {
+      "status": "wrapped"
+    },
+    "LLVMSetTargetMachineMachineOutliner": {
+      "status": "wrapped"
+    },
+    "LLVMSetThreadLocal": {
+      "status": "wrapped"
+    },
+    "LLVMSetThreadLocalMode": {
+      "status": "wrapped"
+    },
+    "LLVMSetUnnamedAddr": {
+      "status": "not_wrapped",
+      "reason": "They are the older two-state forms of LLVMGetUnnamedAddress and LLVMSetUnnamedAddress, which Lyftar wraps."
+    },
+    "LLVMSetUnnamedAddress": {
+      "status": "wrapped"
+    },
+    "LLVMSetUnwindDest": {
+      "status": "wrapped"
+    },
+    "LLVMSetValueName": {
+      "status": "not_wrapped",
+      "reason": "It is the older form that works in C strings; LLVMGetValueName2 and LLVMSetValueName2 take lengths."
+    },
+    "LLVMSetValueName2": {
+      "status": "wrapped"
+    },
+    "LLVMSetVisibility": {
+      "status": "wrapped"
+    },
+    "LLVMSetVolatile": {
+      "status": "wrapped"
+    },
+    "LLVMSetWeak": {
+      "status": "wrapped"
+    },
+    "LLVMShutdown": {
+      "status": "not_wrapped",
+      "reason": "It deallocates LLVM's global state, after which nothing in LLVM can be used, which safe code can't rule out."
+    },
+    "LLVMSizeOf": {
+      "status": "wrapped"
+    },
+    "LLVMSizeOfTypeInBits": {
+      "status": "wrapped"
+    },
+    "LLVMStartMultithreaded": {
+      "status": "not_wrapped",
+      "reason": "They are no-ops kept for old callers: LLVM decides this when it is built."
+    },
+    "LLVMStopMultithreaded": {
+      "status": "not_wrapped",
+      "reason": "They are no-ops kept for old callers: LLVM decides this when it is built."
+    },
+    "LLVMStoreSizeOfType": {
+      "status": "wrapped"
+    },
+    "LLVMStripModuleDebugInfo": {
+      "status": "wrapped"
+    },
+    "LLVMStructCreateNamed": {
+      "status": "wrapped"
+    },
+    "LLVMStructGetTypeAtIndex": {
+      "status": "wrapped"
+    },
+    "LLVMStructSetBody": {
+      "status": "wrapped"
+    },
+    "LLVMStructType": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMStructTypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMTargetExtTypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMTargetHasAsmBackend": {
+      "status": "wrapped"
+    },
+    "LLVMTargetHasJIT": {
+      "status": "wrapped"
+    },
+    "LLVMTargetHasTargetMachine": {
+      "status": "wrapped"
+    },
+    "LLVMTargetMachineEmitToFile": {
+      "status": "wrapped"
+    },
+    "LLVMTargetMachineEmitToMemoryBuffer": {
+      "status": "wrapped"
+    },
+    "LLVMTargetMachineOptionsSetABI": {
+      "status": "wrapped"
+    },
+    "LLVMTargetMachineOptionsSetCPU": {
+      "status": "wrapped"
+    },
+    "LLVMTargetMachineOptionsSetCodeGenOptLevel": {
+      "status": "wrapped"
+    },
+    "LLVMTargetMachineOptionsSetCodeModel": {
+      "status": "wrapped"
+    },
+    "LLVMTargetMachineOptionsSetFeatures": {
+      "status": "wrapped"
+    },
+    "LLVMTargetMachineOptionsSetRelocMode": {
+      "status": "wrapped"
+    },
+    "LLVMTemporaryMDNode": {
+      "status": "wrapped"
+    },
+    "LLVMTokenTypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMTypeIsSized": {
+      "status": "wrapped"
+    },
+    "LLVMTypeOf": {
+      "status": "wrapped"
+    },
+    "LLVMValueAsBasicBlock": {
+      "status": "wrapped"
+    },
+    "LLVMValueAsMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMValueIsBasicBlock": {
+      "status": "not_wrapped",
+      "reason": "as_kind asks the same question, through the BasicBlock or ConditionalBranchInstruction marker."
+    },
+    "LLVMValueMetadataEntriesGetKind": {
+      "status": "wrapped"
+    },
+    "LLVMValueMetadataEntriesGetMetadata": {
+      "status": "wrapped"
+    },
+    "LLVMVectorType": {
+      "status": "wrapped"
+    },
+    "LLVMVerifyFunction": {
+      "status": "wrapped"
+    },
+    "LLVMVerifyModule": {
+      "status": "wrapped"
+    },
+    "LLVMViewFunctionCFG": {
+      "status": "not_wrapped",
+      "reason": "It opens a graph viewer on the running desktop, which is for a person debugging LLVM, not for a compiler using Lyftar."
+    },
+    "LLVMViewFunctionCFGOnly": {
+      "status": "not_wrapped",
+      "reason": "It opens a graph viewer on the running desktop, which is for a person debugging LLVM, not for a compiler using Lyftar."
+    },
+    "LLVMVoidType": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMVoidTypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMWriteBitcodeToFD": {
+      "status": "not_wrapped",
+      "reason": "It takes a raw file descriptor nothing can check; write_bitcode_to_memory_buffer and Rust's own file handling do the same safely."
+    },
+    "LLVMWriteBitcodeToFile": {
+      "status": "wrapped"
+    },
+    "LLVMWriteBitcodeToFileHandle": {
+      "status": "not_wrapped",
+      "reason": "It takes a raw file descriptor nothing can check; write_bitcode_to_memory_buffer and Rust's own file handling do the same safely."
+    },
+    "LLVMWriteBitcodeToMemoryBuffer": {
+      "status": "wrapped"
+    },
+    "LLVMX86AMXType": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMX86AMXTypeInContext": {
+      "status": "wrapped"
+    },
+    "LLVMX86FP80Type": {
+      "status": "not_wrapped",
+      "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
+    },
+    "LLVMX86FP80TypeInContext": {
+      "status": "wrapped"
+    },
+    "llvm_blake3_hasher_finalize": {
+      "status": "wrapped"
+    },
+    "llvm_blake3_hasher_finalize_seek": {
+      "status": "wrapped"
+    },
+    "llvm_blake3_hasher_init": {
+      "status": "wrapped"
+    },
+    "llvm_blake3_hasher_init_derive_key": {
+      "status": "wrapped"
+    },
+    "llvm_blake3_hasher_init_derive_key_raw": {
+      "status": "wrapped"
+    },
+    "llvm_blake3_hasher_init_keyed": {
+      "status": "wrapped"
+    },
+    "llvm_blake3_hasher_reset": {
+      "status": "wrapped"
+    },
+    "llvm_blake3_hasher_update": {
+      "status": "wrapped"
+    },
+    "llvm_blake3_version": {
+      "status": "wrapped"
+    },
+    "lto_api_version": {
+      "status": "wrapped"
+    },
+    "lto_codegen_add_module": {
+      "status": "wrapped"
+    },
+    "lto_codegen_add_must_preserve_symbol": {
+      "status": "wrapped"
+    },
+    "lto_codegen_compile": {
+      "status": "wrapped"
+    },
+    "lto_codegen_compile_optimized": {
+      "status": "wrapped"
+    },
+    "lto_codegen_compile_to_file": {
+      "status": "wrapped"
+    },
+    "lto_codegen_create": {
+      "status": "wrapped"
+    },
+    "lto_codegen_create_in_local_context": {
+      "status": "wrapped"
+    },
+    "lto_codegen_debug_options": {
+      "status": "wrapped"
+    },
+    "lto_codegen_debug_options_array": {
+      "status": "wrapped"
+    },
+    "lto_codegen_dispose": {
+      "status": "wrapped"
+    },
+    "lto_codegen_optimize": {
+      "status": "wrapped"
+    },
+    "lto_codegen_set_assembler_args": {
+      "status": "wrapped"
+    },
+    "lto_codegen_set_assembler_path": {
+      "status": "wrapped"
+    },
+    "lto_codegen_set_cpu": {
+      "status": "wrapped"
+    },
+    "lto_codegen_set_debug_model": {
+      "status": "wrapped"
+    },
+    "lto_codegen_set_diagnostic_handler": {
+      "status": "wrapped"
+    },
+    "lto_codegen_set_module": {
+      "status": "wrapped"
+    },
+    "lto_codegen_set_pic_model": {
+      "status": "wrapped"
+    },
+    "lto_codegen_set_should_embed_uselists": {
+      "status": "wrapped"
+    },
+    "lto_codegen_set_should_internalize": {
+      "status": "wrapped"
+    },
+    "lto_codegen_write_merged_modules": {
+      "status": "wrapped"
+    },
+    "lto_get_error_message": {
+      "status": "wrapped"
+    },
+    "lto_get_version": {
+      "status": "wrapped"
+    },
+    "lto_initialize_disassembler": {
+      "status": "wrapped"
+    },
+    "lto_input_create": {
+      "status": "wrapped"
+    },
+    "lto_input_dispose": {
+      "status": "wrapped"
+    },
+    "lto_input_get_dependent_library": {
+      "status": "wrapped"
+    },
+    "lto_input_get_num_dependent_libraries": {
+      "status": "wrapped"
+    },
+    "lto_module_create": {
+      "status": "wrapped"
+    },
+    "lto_module_create_from_fd": {
+      "status": "not_wrapped",
+      "reason": "It takes a raw file descriptor nothing can check; LtoModule::from_memory with Rust's own file handling does the same safely."
+    },
+    "lto_module_create_from_fd_at_offset": {
+      "status": "not_wrapped",
+      "reason": "It takes a raw file descriptor nothing can check; LtoModule::from_memory with Rust's own file handling does the same safely."
+    },
+    "lto_module_create_from_memory": {
+      "status": "wrapped"
+    },
+    "lto_module_create_from_memory_with_path": {
+      "status": "wrapped"
+    },
+    "lto_module_create_in_codegen_context": {
+      "status": "wrapped"
+    },
+    "lto_module_create_in_local_context": {
+      "status": "wrapped"
+    },
+    "lto_module_dispose": {
+      "status": "wrapped"
+    },
+    "lto_module_get_asm_undef_symbol_name": {
+      "status": "wrapped"
+    },
+    "lto_module_get_linkeropts": {
+      "status": "wrapped"
+    },
+    "lto_module_get_macho_cputype": {
+      "status": "wrapped"
+    },
+    "lto_module_get_num_asm_undef_symbols": {
+      "status": "wrapped"
+    },
+    "lto_module_get_num_symbols": {
+      "status": "wrapped"
+    },
+    "lto_module_get_symbol_attribute": {
+      "status": "wrapped"
+    },
+    "lto_module_get_symbol_name": {
+      "status": "wrapped"
+    },
+    "lto_module_get_target_triple": {
+      "status": "wrapped"
+    },
+    "lto_module_has_ctor_dtor": {
+      "status": "wrapped"
+    },
+    "lto_module_has_objc_category": {
+      "status": "wrapped"
+    },
+    "lto_module_is_object_file": {
+      "status": "wrapped"
+    },
+    "lto_module_is_object_file_for_target": {
+      "status": "wrapped"
+    },
+    "lto_module_is_object_file_in_memory": {
+      "status": "wrapped"
+    },
+    "lto_module_is_object_file_in_memory_for_target": {
+      "status": "wrapped"
+    },
+    "lto_module_is_thinlto": {
+      "status": "wrapped"
+    },
+    "lto_module_set_target_triple": {
+      "status": "wrapped"
+    },
+    "lto_runtime_lib_symbols_list": {
+      "status": "wrapped"
+    },
+    "lto_set_debug_options": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_add_cross_referenced_symbol": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_add_module": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_add_must_preserve_symbol": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_disable_codegen": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_dispose": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_process": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_set_cache_dir": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_set_cache_entry_expiration": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_set_cache_pruning_interval": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_set_cache_size_bytes": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_set_cache_size_files": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_set_cache_size_megabytes": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_set_codegen_only": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_set_cpu": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_set_final_cache_size_relative_to_available_space": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_set_pic_model": {
+      "status": "wrapped"
+    },
+    "thinlto_codegen_set_savetemps_dir": {
+      "status": "wrapped"
+    },
+    "thinlto_create_codegen": {
+      "status": "wrapped"
+    },
+    "thinlto_debug_options": {
+      "status": "wrapped"
+    },
+    "thinlto_module_get_num_object_files": {
+      "status": "wrapped"
+    },
+    "thinlto_module_get_num_objects": {
+      "status": "wrapped"
+    },
+    "thinlto_module_get_object": {
+      "status": "wrapped"
+    },
+    "thinlto_module_get_object_file": {
+      "status": "wrapped"
+    },
+    "thinlto_set_generated_objects_dir": {
+      "status": "wrapped"
+    }
+  },
+  "inkwell": {
+    "methods": {
+      "add_attribute": {
+        "lyftar": "Value<Function>::add_attribute, Value<CallBaseMarker>::add_attribute",
+        "projects": [
+          "kayo",
+          "luarust"
+        ]
+      },
+      "add_basic_value_flag": {
+        "lyftar": "Module::add_module_flag, with Value::as_metadata",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "add_function": {
+        "lyftar": "Module::add_function",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "add_global": {
+        "lyftar": "Module::add_global",
+        "projects": [
+          "kayo",
+          "luarust",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "add_global_mapping": {
+        "lyftar": "ExecutionEngine::add_global_mapping",
+        "projects": [
+          "luarust"
+        ]
+      },
+      "add_incoming": {
+        "lyftar": "Value<PhiNode>::add_incoming",
+        "projects": [
+          "kayo",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "append_basic_block": {
+        "lyftar": "Value<Function>::append_block",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "array_type": {
+        "lyftar": "Type::array_type",
+        "projects": [
+          "kayo",
+          "luarust",
+          "quipaws"
+        ]
+      },
+      "as_basic_value": {
+        "lyftar": "Value<PhiNode>::as_value",
+        "projects": [
+          "kayo",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "as_global_value": {
+        "lyftar": "a function is already a Value<Function>; Value::as_pointer",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "as_instruction": {
+        "lyftar": "Value::as_kind::<Instruction>",
+        "projects": [
+          "ahpcl",
+          "kayo"
+        ]
+      },
+      "as_mut_ptr": {
+        "lyftar": "Value::as_raw, D15",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "as_pointer_value": {
+        "lyftar": "Value::as_pointer",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "as_ptr": {
+        "lyftar": "Value::as_raw, D15",
+        "projects": [
+          "kayo",
+          "luarust"
+        ]
+      },
+      "as_slice": {
+        "lyftar": "MemoryBuffer::as_bytes",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "as_str": {
+        "lyftar": "Module::target and Module::data_layout give a String",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "qmcl",
+          "verb-al"
+        ]
+      },
+      "attributes": {
+        "lyftar": "Value<Function>::attributes",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "bf16_type": {
+        "lyftar": "Context::get_type::<Float<BrainFloat>>",
+        "projects": [
+          "kayo",
+          "verb-al"
+        ]
+      },
+      "block": {
+        "lyftar": "Value::as_kind::<BasicBlock>, Value<BasicBlock>::to_block",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "verb-al"
+        ]
+      },
+      "bool_type": {
+        "lyftar": "Context::get_type::<Integer<Bits<1>>>",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_alloca": {
+        "lyftar": "Builder::stack_allocate",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_and": {
+        "lyftar": "Builder::and",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_array_alloca": {
+        "lyftar": "Builder::stack_allocate_array",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "verb-al"
+        ]
+      },
+      "build_atomicrmw": {
+        "lyftar": "Builder::atomic_read_modify_write",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_bit_cast": {
+        "lyftar": "Builder::bit_cast",
+        "projects": [
+          "kayo",
+          "luarust"
+        ]
+      },
+      "build_call": {
+        "lyftar": "Builder::call",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_conditional_branch": {
+        "lyftar": "Builder::conditional_branch",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_extract_element": {
+        "lyftar": "Builder::extract_element",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_extract_value": {
+        "lyftar": "Builder::extract_value",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_float_add": {
+        "lyftar": "Builder::float_add",
+        "projects": [
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_float_cast": {
+        "lyftar": "Builder::float_cast",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_float_compare": {
+        "lyftar": "Builder::float_compare",
+        "projects": [
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_float_div": {
+        "lyftar": "Builder::float_divide",
+        "projects": [
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_float_ext": {
+        "lyftar": "Builder::float_extend",
+        "projects": [
+          "kayo",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_float_mul": {
+        "lyftar": "Builder::float_multiply",
+        "projects": [
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_float_neg": {
+        "lyftar": "Builder::float_negate",
+        "projects": [
+          "kayo",
+          "luarust",
+          "verb-al"
+        ]
+      },
+      "build_float_rem": {
+        "lyftar": "Builder::float_remainder",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_float_sub": {
+        "lyftar": "Builder::float_subtract",
+        "projects": [
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_float_to_signed_int": {
+        "lyftar": "Builder::float_to_signed_integer",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_float_trunc": {
+        "lyftar": "Builder::float_truncate",
+        "projects": [
+          "kayo",
+          "qmcl",
+          "quipaws"
+        ]
+      },
+      "build_gep": {
+        "lyftar": "Builder::get_element_pointer",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "verb-al"
+        ]
+      },
+      "build_global_string_ptr": {
+        "lyftar": "Builder::global_string_pointer",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_in_bounds_gep": {
+        "lyftar": "Builder::in_bounds_get_element_pointer",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_indirect_call": {
+        "lyftar": "Builder::call_indirect",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_insert_element": {
+        "lyftar": "Builder::insert_element",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_insert_value": {
+        "lyftar": "Builder::insert_value",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "verb-al"
+        ]
+      },
+      "build_int_add": {
+        "lyftar": "Builder::integer_add",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_int_cast": {
+        "lyftar": "Builder::integer_cast",
+        "projects": [
+          "quipaws"
+        ]
+      },
+      "build_int_cast_sign_flag": {
+        "lyftar": "Builder::integer_cast",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_int_compare": {
+        "lyftar": "Builder::integer_compare",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_int_mul": {
+        "lyftar": "Builder::integer_multiply",
+        "projects": [
+          "kayo",
+          "luarust",
+          "qmcl",
+          "verb-al"
+        ]
+      },
+      "build_int_neg": {
+        "lyftar": "Builder::integer_negate",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "verb-al"
+        ]
+      },
+      "build_int_nsw_add": {
+        "lyftar": "Builder::integer_add_no_signed_wrap",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_int_nsw_mul": {
+        "lyftar": "Builder::integer_multiply_no_signed_wrap",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_int_nsw_sub": {
+        "lyftar": "Builder::integer_subtract_no_signed_wrap",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_int_nuw_add": {
+        "lyftar": "Builder::integer_add_no_unsigned_wrap",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_int_nuw_mul": {
+        "lyftar": "Builder::integer_multiply_no_unsigned_wrap",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_int_nuw_sub": {
+        "lyftar": "Builder::integer_subtract_no_unsigned_wrap",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_int_s_extend": {
+        "lyftar": "Builder::sign_extend",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_int_s_extend_or_bit_cast": {
+        "lyftar": "Builder::sign_extend_or_bit_cast",
+        "projects": [
+          "kayo",
+          "quipaws"
+        ]
+      },
+      "build_int_signed_div": {
+        "lyftar": "Builder::signed_divide",
+        "projects": [
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_int_signed_rem": {
+        "lyftar": "Builder::signed_remainder",
+        "projects": [
+          "kayo",
+          "luarust",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_int_sub": {
+        "lyftar": "Builder::integer_subtract",
+        "projects": [
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_int_to_ptr": {
+        "lyftar": "Builder::integer_to_pointer",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_int_truncate": {
+        "lyftar": "Builder::truncate",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_int_truncate_or_bit_cast": {
+        "lyftar": "Builder::truncate_or_bit_cast",
+        "projects": [
+          "kayo",
+          "luarust"
+        ]
+      },
+      "build_int_unsigned_div": {
+        "lyftar": "Builder::unsigned_divide",
+        "projects": [
+          "kayo",
+          "luarust",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_int_unsigned_rem": {
+        "lyftar": "Builder::unsigned_remainder",
+        "projects": [
+          "kayo",
+          "luarust",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_int_z_extend": {
+        "lyftar": "Builder::zero_extend",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_int_z_extend_or_bit_cast": {
+        "lyftar": "Builder::zero_extend_or_bit_cast",
+        "projects": [
+          "kayo",
+          "quipaws"
+        ]
+      },
+      "build_is_null": {
+        "lyftar": "Builder::is_null",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_left_shift": {
+        "lyftar": "Builder::shift_left",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_load": {
+        "lyftar": "Builder::load",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_memcpy": {
+        "lyftar": "Builder::memory_copy",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_memset": {
+        "lyftar": "Builder::memory_set",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_not": {
+        "lyftar": "Builder::not",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_or": {
+        "lyftar": "Builder::or",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "verb-al"
+        ]
+      },
+      "build_phi": {
+        "lyftar": "Builder::phi",
+        "projects": [
+          "kayo",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_ptr_diff": {
+        "lyftar": "Builder::pointer_difference",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_ptr_to_int": {
+        "lyftar": "Builder::pointer_to_integer",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_return": {
+        "lyftar": "Builder::return_value, Builder::return_void",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_right_shift": {
+        "lyftar": "Builder::logical_shift_right, Builder::arithmetic_shift_right",
+        "projects": [
+          "kayo",
+          "verb-al"
+        ]
+      },
+      "build_select": {
+        "lyftar": "Builder::select",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_shuffle_vector": {
+        "lyftar": "Builder::shuffle_vector",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_signed_int_to_float": {
+        "lyftar": "Builder::signed_integer_to_float",
+        "projects": [
+          "kayo",
+          "qmcl",
+          "quipaws"
+        ]
+      },
+      "build_store": {
+        "lyftar": "Builder::store",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_struct_gep": {
+        "lyftar": "Builder::struct_get_element_pointer",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_switch": {
+        "lyftar": "Builder::switch",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "build_unconditional_branch": {
+        "lyftar": "Builder::branch",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_unreachable": {
+        "lyftar": "Builder::unreachable",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "build_unsigned_int_to_float": {
+        "lyftar": "Builder::unsigned_integer_to_float",
+        "projects": [
+          "kayo",
+          "qmcl",
+          "quipaws"
+        ]
+      },
+      "build_xor": {
+        "lyftar": "Builder::exclusive_or",
+        "projects": [
+          "kayo",
+          "luarust"
+        ]
+      },
+      "call": {
+        "lyftar": "ExecutionEngine::function_address or Jit::lookup, cast to a function: calling generated code is unsafe",
+        "projects": [
+          "kayo",
+          "luarust",
+          "verb-al"
+        ]
+      },
+      "const_all_ones": {
+        "lyftar": "Type<Integer>::constant_all_ones",
+        "projects": [
+          "kayo",
+          "luarust",
+          "verb-al"
+        ]
+      },
+      "const_array": {
+        "lyftar": "Type::constant_array",
+        "projects": [
+          "kayo",
+          "luarust"
+        ]
+      },
+      "const_float": {
+        "lyftar": "Type<Float>::constant_float",
+        "projects": [
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "const_float_from_string": {
+        "lyftar": "Type<Float>::constant_float_from_string",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "const_int": {
+        "lyftar": "Type<Integer>::constant_integer",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "const_int_arbitrary_precision": {
+        "lyftar": "Type<Integer>::constant_integer_from_words",
+        "projects": [
+          "ahpcl",
+          "kayo"
+        ]
+      },
+      "const_int_from_string": {
+        "lyftar": "Type<Integer>::constant_integer_from_string",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "const_named_struct": {
+        "lyftar": "Type::constant_named_struct",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "verb-al"
+        ]
+      },
+      "const_neg": {
+        "lyftar": "Value<Integer>::constant_negate",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "const_null": {
+        "lyftar": "Type::constant_null",
+        "projects": [
+          "ahpcl",
+          "kayo"
+        ]
+      },
+      "const_string": {
+        "lyftar": "Context::constant_string",
+        "projects": [
+          "kayo",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "const_vector": {
+        "lyftar": "Context::constant_vector",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "const_zero": {
+        "lyftar": "Type::constant_null",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "count_basic_blocks": {
+        "lyftar": "Value<Function>::block_count",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "count_fields": {
+        "lyftar": "Type::struct_element_count",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "count_params": {
+        "lyftar": "Value<Function>::parameter_count",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "create": {
+        "lyftar": "with_context; Context::create_module; PassOptions::default; TargetMachine::for_host",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "create_builder": {
+        "lyftar": "Builder::at_end_of",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "create_enum_attribute": {
+        "lyftar": "Context::enum_attribute",
+        "projects": [
+          "kayo",
+          "luarust"
+        ]
+      },
+      "create_inline_asm": {
+        "lyftar": "Type::inline_assembly",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "create_jit_execution_engine": {
+        "lyftar": "ExecutionEngine::jit_compiler",
+        "projects": [
+          "luarust",
+          "verb-al"
+        ]
+      },
+      "create_module": {
+        "lyftar": "Context::create_module",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "create_target_machine": {
+        "lyftar": "Target::create_target_machine",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "create_type_attribute": {
+        "lyftar": "Context::type_attribute",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "custom_width_int_type": {
+        "lyftar": "Context::integer_type",
+        "projects": [
+          "kayo",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "expect_basic": {
+        "lyftar": "Value<CallInstruction>::to_dynamic",
+        "projects": [
+          "luarust",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "f128_type": {
+        "lyftar": "Context::get_type::<Float<Ieee754Binary<Bits<128>>>>",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "f16_type": {
+        "lyftar": "Context::get_type::<Float<Ieee754Binary<Bits<16>>>>",
+        "projects": [
+          "kayo",
+          "qmcl",
+          "verb-al"
+        ]
+      },
+      "f32_type": {
+        "lyftar": "Context::get_type::<Float<Ieee754Binary<Bits<32>>>>",
+        "projects": [
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "f64_type": {
+        "lyftar": "Context::get_type::<Float<Ieee754Binary<Bits<64>>>>",
+        "projects": [
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "find": {
+        "lyftar": "Intrinsic::find",
+        "projects": [
+          "kayo",
+          "quipaws"
+        ]
+      },
+      "fn_type": {
+        "lyftar": "Context::function_type",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "from_name": {
+        "lyftar": "Target::from_name",
+        "projects": [
+          "verb-al"
+        ]
+      },
+      "from_triple": {
+        "lyftar": "Target::from_triple",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "function": {
+        "lyftar": "Value<CallBaseMarker>::called_function",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_abi_alignment": {
+        "lyftar": "TargetData::abi_alignment_in_bytes",
+        "projects": [
+          "kayo",
+          "verb-al"
+        ]
+      },
+      "get_abi_size": {
+        "lyftar": "TargetData::allocation_size_in_bytes",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_basic_block_iter": {
+        "lyftar": "Value<Function>::blocks",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_bit_width": {
+        "lyftar": "Type<Integer>::width_in_bits",
+        "projects": [
+          "kayo",
+          "quipaws"
+        ]
+      },
+      "get_byte_ordering": {
+        "lyftar": "TargetData::byte_order",
+        "projects": [
+          "verb-al"
+        ]
+      },
+      "get_context": {
+        "lyftar": "Module::context, Type::context, Value::context",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_cpu": {
+        "lyftar": "TargetMachine::cpu",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_data_layout": {
+        "lyftar": "Module::target_data, TargetMachine::data_layout",
+        "projects": [
+          "kayo",
+          "quipaws"
+        ]
+      },
+      "get_declaration": {
+        "lyftar": "Module::intrinsic_declaration",
+        "projects": [
+          "kayo",
+          "quipaws"
+        ]
+      },
+      "get_default_triple": {
+        "lyftar": "target::default_target_triple",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "get_element_type": {
+        "lyftar": "Type::element_type",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_enum_kind_id": {
+        "lyftar": "Attribute::kind",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_feature_string": {
+        "lyftar": "TargetMachine::features",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_field_type_at_index": {
+        "lyftar": "Type::struct_element_type_at",
+        "projects": [
+          "ahpcl",
+          "kayo"
+        ]
+      },
+      "get_field_types": {
+        "lyftar": "Type::struct_element_types",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_first": {
+        "lyftar": "Target::all",
+        "projects": [
+          "verb-al"
+        ]
+      },
+      "get_first_basic_block": {
+        "lyftar": "Value<Function>::first_block",
+        "projects": [
+          "ahpcl",
+          "kayo"
+        ]
+      },
+      "get_first_function": {
+        "lyftar": "Module::functions",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_first_instruction": {
+        "lyftar": "Block::first_instruction",
+        "projects": [
+          "ahpcl",
+          "kayo"
+        ]
+      },
+      "get_first_use": {
+        "lyftar": "Value::uses",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_function": {
+        "lyftar": "Module::get_function, ExecutionEngine::find_function, ExecutionEngine::function_address",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "get_function_address": {
+        "lyftar": "ExecutionEngine::function_address",
+        "projects": [
+          "luarust"
+        ]
+      },
+      "get_functions": {
+        "lyftar": "Module::functions",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_global": {
+        "lyftar": "Module::get_global",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_host_cpu_features": {
+        "lyftar": "target::host_cpu_features",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "get_host_cpu_name": {
+        "lyftar": "target::host_cpu_name",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "get_insert_block": {
+        "lyftar": "Builder::insertion_block",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "get_instructions": {
+        "lyftar": "Block::instructions",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_last_basic_block": {
+        "lyftar": "Value<Function>::last_block",
+        "projects": [
+          "luarust"
+        ]
+      },
+      "get_name": {
+        "lyftar": "Value::name, Block::name",
+        "projects": [
+          "kayo",
+          "verb-al"
+        ]
+      },
+      "get_named_enum_kind_id": {
+        "lyftar": "AttributeKind::for_name",
+        "projects": [
+          "kayo",
+          "luarust"
+        ]
+      },
+      "get_next": {
+        "lyftar": "Target::all",
+        "projects": [
+          "verb-al"
+        ]
+      },
+      "get_next_function": {
+        "lyftar": "Value<Function>::next_function",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_nth_param": {
+        "lyftar": "Value<Function>::parameter",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "verb-al"
+        ]
+      },
+      "get_opcode": {
+        "lyftar": "Value<InstructionMarker>::opcode",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_param_types": {
+        "lyftar": "Type::parameter_types",
+        "projects": [
+          "ahpcl",
+          "kayo"
+        ]
+      },
+      "get_parent": {
+        "lyftar": "Block::parent, Value<InstructionMarker>::parent_block",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "quipaws"
+        ]
+      },
+      "get_pointer_byte_size": {
+        "lyftar": "TargetData::pointer_size_in_bytes",
+        "projects": [
+          "verb-al"
+        ]
+      },
+      "get_return_type": {
+        "lyftar": "Type::return_type",
+        "projects": [
+          "ahpcl"
+        ]
+      },
+      "get_size": {
+        "lyftar": "MemoryBuffer::as_bytes, Type::vector_size_in_elements",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_store_size": {
+        "lyftar": "TargetData::store_size_in_bytes",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_string_kind_id": {
+        "lyftar": "Attribute::string_key",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "get_target_data": {
+        "lyftar": "TargetMachine::data_layout",
+        "projects": [
+          "kayo",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "get_terminator": {
+        "lyftar": "Block::terminator",
+        "projects": [
+          "ahpcl",
+          "luarust"
+        ]
+      },
+      "get_triple": {
+        "lyftar": "Module::target, TargetMachine::triple",
+        "projects": [
+          "kayo",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "get_type": {
+        "lyftar": "Value::get_type",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "get_undef": {
+        "lyftar": "Type::undefined",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "verb-al"
+        ]
+      },
+      "get_zero_extended_constant": {
+        "lyftar": "Value<ConstantInteger>::zero_extended_value",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "has_target_machine": {
+        "lyftar": "Target::has_target_machine",
+        "projects": [
+          "verb-al"
+        ]
+      },
+      "i128_type": {
+        "lyftar": "Context::get_type::<Integer<Bits<128>>>",
+        "projects": [
+          "ahpcl",
+          "kayo"
+        ]
+      },
+      "i16_type": {
+        "lyftar": "Context::get_type::<Integer<Bits<16>>>",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws"
+        ]
+      },
+      "i32_type": {
+        "lyftar": "Context::get_type::<Integer<Bits<32>>>",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "i64_type": {
+        "lyftar": "Context::get_type::<Integer<Bits<64>>>",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "i8_type": {
+        "lyftar": "Context::get_type::<Integer<Bits<8>>>",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "initialize_aarch64": {
+        "lyftar": "target::initialize_target",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "initialize_all": {
+        "lyftar": "target::initialize_all_targets",
+        "projects": [
+          "luarust",
+          "verb-al"
+        ]
+      },
+      "initialize_native": {
+        "lyftar": "target::initialize_native_target",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws"
+        ]
+      },
+      "into_float_type": {
+        "lyftar": "Type::checked_cast",
+        "projects": [
+          "kayo",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "into_float_value": {
+        "lyftar": "Value::checked_cast",
+        "projects": [
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "into_int_type": {
+        "lyftar": "Type::checked_cast",
+        "projects": [
+          "kayo",
+          "quipaws"
+        ]
+      },
+      "into_int_value": {
+        "lyftar": "Value::checked_cast",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "into_pointer_value": {
+        "lyftar": "Value::checked_cast",
+        "projects": [
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "into_struct_type": {
+        "lyftar": "a struct is a dynamic Type",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "into_struct_value": {
+        "lyftar": "a struct is a dynamic Value",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "into_vector_type": {
+        "lyftar": "a vector is a dynamic Type",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "into_vector_value": {
+        "lyftar": "a vector is a dynamic Value",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "is_const": {
+        "lyftar": "Value::is_constant",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "is_empty": {
+        "lyftar": "Rust slices, and Type::array_length_in_elements",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "verb-al"
+        ]
+      },
+      "is_float_type": {
+        "lyftar": "Type::as_kind",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "is_int_type": {
+        "lyftar": "Type::as_kind",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "is_int_value": {
+        "lyftar": "Value::as_kind",
+        "projects": [
+          "ahpcl",
+          "quipaws"
+        ]
+      },
+      "is_null": {
+        "lyftar": "Value::is_null",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "is_pointer_type": {
+        "lyftar": "Type::as_kind",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "is_pointer_value": {
+        "lyftar": "Value::as_kind",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "is_string": {
+        "lyftar": "Attribute::is_string",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "is_struct_type": {
+        "lyftar": "Type::kind",
+        "projects": [
+          "ahpcl"
+        ]
+      },
+      "is_struct_value": {
+        "lyftar": "Type::kind",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "is_var_arg": {
+        "lyftar": "Type::is_variadic",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "is_vector_value": {
+        "lyftar": "Type::kind",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "len": {
+        "lyftar": "Rust slices, and Type::array_length_in_elements",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "new": {
+        "lyftar": "Rust constructors",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "offset_of_element": {
+        "lyftar": "TargetData::offset_of_element_in_bytes",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "position_at_end": {
+        "lyftar": "Builder::position_at_end",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "position_before": {
+        "lyftar": "Builder::position_before",
+        "projects": [
+          "ahpcl",
+          "kayo"
+        ]
+      },
+      "print_to_string": {
+        "lyftar": "Module::print_to_string, Type::print_to_string, Value::print_to_string",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "ptr_type": {
+        "lyftar": "Context::pointer_type",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "remove_enum_attribute": {
+        "lyftar": "Value<Function>::remove_enum_attribute",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "remove_string_attribute": {
+        "lyftar": "Value<Function>::remove_string_attribute",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "run_passes": {
+        "lyftar": "Module::run_passes, Module::run_passes_on_function",
+        "projects": [
+          "ahpcl",
+          "luarust",
+          "quipaws"
+        ]
+      },
+      "set_alignment": {
+        "lyftar": "Value<AlignedMarker>::set_alignment_in_bytes",
+        "projects": [
+          "ahpcl",
+          "kayo"
+        ]
+      },
+      "set_atomic_ordering": {
+        "lyftar": "Value<LoadInstruction>::set_ordering",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "set_constant": {
+        "lyftar": "Value<GlobalVariable>::set_global_constant",
+        "projects": [
+          "kayo",
+          "luarust",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "set_data_layout": {
+        "lyftar": "Module::set_data_layout, Module::set_target_data",
+        "projects": [
+          "kayo",
+          "quipaws"
+        ]
+      },
+      "set_gc": {
+        "lyftar": "Value<Function>::set_garbage_collector",
+        "projects": [
+          "quipaws"
+        ]
+      },
+      "set_initializer": {
+        "lyftar": "Value<GlobalVariable>::set_initializer",
+        "projects": [
+          "kayo",
+          "luarust",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "set_inline_assembly": {
+        "lyftar": "Module::set_inline_assembly",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "set_linkage": {
+        "lyftar": "Value<GlobalValueMarker>::set_linkage",
+        "projects": [
+          "kayo",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "set_loop_interleaving": {
+        "lyftar": "PassOptions::loop_interleaving",
+        "projects": [
+          "luarust"
+        ]
+      },
+      "set_loop_slp_vectorization": {
+        "lyftar": "PassOptions::superword_level_parallelism_vectorization",
+        "projects": [
+          "luarust"
+        ]
+      },
+      "set_loop_unrolling": {
+        "lyftar": "PassOptions::loop_unrolling",
+        "projects": [
+          "luarust"
+        ]
+      },
+      "set_loop_vectorization": {
+        "lyftar": "PassOptions::loop_vectorization",
+        "projects": [
+          "luarust"
+        ]
+      },
+      "set_no_signed_wrap_flag": {
+        "lyftar": "Value<InstructionMarker>::set_no_signed_wrap",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "set_triple": {
+        "lyftar": "Module::set_target",
+        "projects": [
+          "kayo",
+          "luarust",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "set_unnamed_addr": {
+        "lyftar": "Value<GlobalValueMarker>::set_unnamed_address",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "struct_type": {
+        "lyftar": "Context::struct_type",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "verb-al"
+        ]
+      },
+      "to_string": {
+        "lyftar": "Module::print_to_string",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "try_as_basic_value": {
+        "lyftar": "Value<CallInstruction>::to_dynamic",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "vec_type": {
+        "lyftar": "Type::vector_type",
+        "projects": [
+          "kayo"
+        ]
+      },
+      "verify": {
+        "lyftar": "Module::verify, Value<Function>::verify",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "void_type": {
+        "lyftar": "Context::void_type",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "quipaws",
+          "verb-al"
+        ]
+      },
+      "write_to_file": {
+        "lyftar": "TargetMachine::emit_to_file",
+        "projects": [
+          "ahpcl",
+          "kayo",
+          "luarust",
+          "qmcl",
+          "quipaws",
+          "verb-al"
+        ]
+      }
+    },
+    "types": {
+      "AddressSpace": {
+        "lyftar": "Context::pointer_type takes a number"
+      },
+      "AnyType": {
+        "lyftar": "Type"
+      },
+      "AnyTypeEnum": {
+        "lyftar": "Type"
+      },
+      "AsContextRef": {
+        "lyftar": "Context::as_raw"
+      },
+      "AsValueRef": {
+        "lyftar": "Value::as_raw"
+      },
+      "AtomicOrdering": {
+        "lyftar": "enums::AtomicOrdering"
+      },
+      "AtomicRMWBinOp": {
+        "lyftar": "enums::AtomicReadModifyWriteOperation"
+      },
+      "Attribute": {
+        "lyftar": "attributes::Attribute"
+      },
+      "AttributeLoc": {
+        "lyftar": "attributes::AttributeLocation"
+      },
+      "BasicBlock": {
+        "lyftar": "Block"
+      },
+      "BasicMetadataTypeEnum": {
+        "lyftar": "Type"
+      },
+      "BasicMetadataValueEnum": {
+        "lyftar": "Value"
+      },
+      "BasicType": {
+        "lyftar": "Type"
+      },
+      "BasicTypeEnum": {
+        "lyftar": "Type"
+      },
+      "BasicValue": {
+        "lyftar": "Value"
+      },
+      "BasicValueEnum": {
+        "lyftar": "Value"
+      },
+      "Builder": {
+        "lyftar": "Builder"
+      },
+      "BuilderError": {
+        "lyftar": "none: a bad build call panics (D3)"
+      },
+      "ByteOrdering": {
+        "lyftar": "target::ByteOrdering"
+      },
+      "CallSiteValue": {
+        "lyftar": "Value<CallInstruction>"
+      },
+      "CodeModel": {
+        "lyftar": "target::CodeModel"
+      },
+      "Context": {
+        "lyftar": "Context"
+      },
+      "ExecutionEngine": {
+        "lyftar": "jit::ExecutionEngine"
+      },
+      "FileType": {
+        "lyftar": "target::CodeGenerationFileType"
+      },
+      "FlagBehavior": {
+        "lyftar": "enums::ModuleFlagBehavior"
+      },
+      "FloatMathValue": {
+        "lyftar": "Value<Float>"
+      },
+      "FloatPredicate": {
+        "lyftar": "enums::FloatPredicate"
+      },
+      "FloatType": {
+        "lyftar": "Type<Float>"
+      },
+      "FloatValue": {
+        "lyftar": "Value<Float>"
+      },
+      "FunctionType": {
+        "lyftar": "Type"
+      },
+      "FunctionValue": {
+        "lyftar": "Value<Function>"
+      },
+      "InitializationConfig": {
+        "lyftar": "target::initialize_native_target"
+      },
+      "InstructionOpcode": {
+        "lyftar": "enums::Opcode"
+      },
+      "InstructionValue": {
+        "lyftar": "Value<Instruction>"
+      },
+      "IntPredicate": {
+        "lyftar": "enums::IntegerPredicate"
+      },
+      "IntType": {
+        "lyftar": "Type<Integer>"
+      },
+      "IntValue": {
+        "lyftar": "Value<Integer>"
+      },
+      "Intrinsic": {
+        "lyftar": "intrinsics::Intrinsic"
+      },
+      "JitFunction": {
+        "lyftar": "jit::ExecutionEngine::function_address, cast to a function"
+      },
+      "Linkage": {
+        "lyftar": "enums::Linkage"
+      },
+      "Module": {
+        "lyftar": "Module"
+      },
+      "OptimizationLevel": {
+        "lyftar": "target::CodeGenerationOptimizationLevel"
+      },
+      "PassBuilderOptions": {
+        "lyftar": "passes::PassOptions"
+      },
+      "PointerType": {
+        "lyftar": "Type<Pointer>"
+      },
+      "PointerValue": {
+        "lyftar": "Value<Pointer>"
+      },
+      "RelocMode": {
+        "lyftar": "target::RelocationMode"
+      },
+      "StringRadix": {
+        "lyftar": "a radix is a number: Type::constant_integer_from_string"
+      },
+      "StructType": {
+        "lyftar": "Type"
+      },
+      "StructValue": {
+        "lyftar": "Value"
+      },
+      "Target": {
+        "lyftar": "target::Target"
+      },
+      "TargetData": {
+        "lyftar": "target::TargetData"
+      },
+      "TargetMachine": {
+        "lyftar": "target::TargetMachine"
+      },
+      "TargetTriple": {
+        "lyftar": "a triple is text: Module::set_target"
+      },
+      "ValueKind": {
+        "lyftar": "Value<CallInstruction>::to_dynamic"
+      },
+      "VectorType": {
+        "lyftar": "Type"
+      },
+      "VectorValue": {
+        "lyftar": "Value"
+      }
+    }
+  }
+}

@@ -231,13 +231,6 @@ extern "C" bool lyftar_values_share_module(LLVMValueRef user,
   return !mixed && (first == nullptr || second == nullptr || first == second);
 }
 
-// Contract: returns whether `value` is a block terminator.
-extern "C" bool lyftar_value_is_terminator(LLVMValueRef value) {
-  require(value != nullptr, "lyftar_value_is_terminator: null value");
-  const auto *instruction = dyn_cast<Instruction>(unwrap(value));
-  return instruction != nullptr && instruction->isTerminator();
-}
-
 // Contract: returns whether LLVM can replace `value`'s uses with `replacement`: not with itself, and only for what
 // keeps a use list, since LLVM's constants of plain data don't have one. The two types were compared by the caller.
 extern "C" bool lyftar_value_can_replace_uses(LLVMValueRef value,

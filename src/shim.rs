@@ -21,7 +21,6 @@ unsafe extern "C" {
     pub fn lyftar_link_modules(destination: LLVMModuleRef, source: LLVMModuleRef, message: *mut *mut c_char) -> bool;
     pub fn lyftar_value_belongs_to_module(value: LLVMValueRef, module: LLVMModuleRef) -> bool;
     pub fn lyftar_values_share_module(user: LLVMValueRef, other: LLVMValueRef) -> bool;
-    pub fn lyftar_value_is_terminator(value: LLVMValueRef) -> bool;
     pub fn lyftar_value_operands_can_change(value: LLVMValueRef) -> bool;
     pub fn lyftar_value_can_replace_uses(value: LLVMValueRef, replacement: LLVMValueRef) -> bool;
     pub fn lyftar_value_is_erasable(value: LLVMValueRef) -> bool;

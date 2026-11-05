@@ -148,6 +148,13 @@ impl<'context, 'module, T: InstructionMarker> Value<'context, 'module, T> {
         unsafe { raw::LLVMGetDebugLocColumn(self.raw) }
     }
 
+    /// Whether this instruction is atomic.
+    #[must_use]
+    pub fn is_atomic(self) -> bool {
+        // SAFETY: the marker guarantees an instruction.
+        unsafe { raw::LLVMIsAtomic(self.raw) != 0 }
+    }
+
     /// Whether this instruction can have fast-math flags.
     #[must_use]
     pub fn can_use_fast_math_flags(self) -> bool {
@@ -406,6 +413,13 @@ impl<T: VolatileMarker> Value<'_, '_, T> {
 }
 
 impl<T: AtomicMarker> Value<'_, '_, T> {
+    /// Whether this operation only synchronizes with its own thread.
+    #[must_use]
+    pub fn is_single_thread(self) -> bool {
+        // SAFETY: `AtomicMarker` guarantees an atomic instruction.
+        unsafe { raw::LLVMIsAtomicSingleThread(self.raw) != 0 }
+    }
+
     /// Sets whether this operation only synchronizes with its own thread.
     pub fn set_single_thread(self, value: bool) {
         // SAFETY: `AtomicMarker` guarantees an atomic instruction.

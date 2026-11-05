@@ -50,6 +50,13 @@ impl<'context, 'module> Metadata<'context, 'module> {
         self.raw
     }
 
+    /// LLVM's number for what kind of metadata this is.
+    #[must_use]
+    pub fn kind_number(self) -> u32 {
+        // SAFETY: the metadata is live for `'module`.
+        unsafe { raw::LLVMGetMetadataKind(self.raw) }
+    }
+
     /// This metadata wrapped as a value, as an intrinsic's argument takes it.
     #[must_use]
     pub fn as_value(self, context: Context<'context>) -> Value<'context, 'module, MetadataAsValue> {

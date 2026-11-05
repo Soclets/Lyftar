@@ -319,6 +319,19 @@ fn decision_16_lto_reads_bitcode_and_makes_an_object() {
 }
 
 #[test]
+fn decision_16_bytes_are_there_through_dynamic_types() {
+    with_context(|context| {
+        let byte = context.byte_type(8);
+        assert_eq!(byte.byte_width_in_bits(), 8);
+        assert_eq!(byte.print_to_string(), "b8");
+        let constant = byte.constant_byte(7);
+        assert_eq!(constant.checked_cast::<lyftar::values::ConstantByte>().zero_extended_value(), 7);
+        let text = byte.constant_byte_from_string("12", 10);
+        assert_eq!(text.checked_cast::<lyftar::values::ConstantByte>().sign_extended_value(), 12);
+    });
+}
+
+#[test]
 fn decision_16_support_answers() {
     assert_eq!(lyftar::support::version().0, 23);
     assert!(lyftar::support::search_for_address_of_symbol("this_symbol_is_not_there").is_none());

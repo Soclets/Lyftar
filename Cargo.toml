@@ -16,6 +16,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_keep_ghost)'] }
 cc = "1"
 
 [dev-dependencies]
+serde_json = "1"
 trybuild = "1"
 
 # D14: macOS uses the committed bindings; every other platform generates them.

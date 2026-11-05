@@ -224,6 +224,8 @@ value_markers! {
     ShuffleVectorInstruction = LLVMIsAShuffleVectorInst as Dynamic: [UserMarker, InstructionMarker];
     /// A `store`.
     StoreInstruction = LLVMIsAStoreInst as Dynamic: [UserMarker, InstructionMarker, AlignedMarker, VolatileMarker];
+    /// A `br`, with or without a condition.
+    BranchInstruction = LLVMIsABranchInst as Dynamic: [UserMarker, InstructionMarker, TerminatorMarker];
     /// A `br` with no condition.
     UnconditionalBranchInstruction = LLVMIsAUncondBrInst as Dynamic: [UserMarker, InstructionMarker, TerminatorMarker];
     /// A `br` with a condition.
@@ -331,13 +333,29 @@ impl Sealed for Terminator {}
 impl ValueMarker for Terminator {
     type LlvmType = Dynamic;
     unsafe fn accepts_value(raw: raw::LLVMValueRef) -> bool {
-        // SAFETY: the caller promises a live value; the shim only reads it.
-        unsafe { shim::lyftar_value_is_terminator(raw) }
+        // SAFETY: the caller promises a live value.
+        unsafe { !raw::LLVMIsATerminatorInst(raw).is_null() }
     }
 }
 impl UserMarker for Terminator {}
 impl InstructionMarker for Terminator {}
 impl TerminatorMarker for Terminator {}
+
+impl Value<'_, '_, ConstantByte> {
+    /// This constant, zero-extended, assuming it fits in 64 bits, as LLVM's C API does.
+    #[must_use]
+    pub fn zero_extended_value(self) -> u64 {
+        // SAFETY: the marker guarantees a constant byte.
+        unsafe { raw::LLVMConstByteGetZExtValue(self.raw) }
+    }
+
+    /// This constant, sign-extended, assuming it fits in 64 bits, as LLVM's C API does.
+    #[must_use]
+    pub fn sign_extended_value(self) -> i64 {
+        // SAFETY: the marker guarantees a constant byte.
+        unsafe { raw::LLVMConstByteGetSExtValue(self.raw) }
+    }
+}
 
 /// A use of a value: one operand of one user.
 #[derive(Clone, Copy)]
