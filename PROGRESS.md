@@ -24,12 +24,12 @@ targets into a loop. A `libLTO` generator in the global context also leaves a da
 lock in `lto.rs`, and generators that own their context are what came of it, and `tests/decision_16_threads.rs` reproduces the
 hang without them.
 
-## Known hole: context constants deleted by passes
+## How the constant hole was closed
 
-Reproduced with `#![forbid(unsafe_code)]`, under AddressSanitizer: heap use-after-free, allocated by `constant_struct` and freed by
-`EliminateAvailableExternallyPass`. Make `held = context.constant_struct(..)`. Add a global with `held` as its initializer and
-`Linkage::AvailableExternally`, and a function that loads it. Run `default<O2>`, then read `held`, say with `module.track(held)`.
-`Linkage::Internal` with no use and `globaldce` does the same.
+LLVM's passes can delete aggregates and constant expressions that belong only to the context, which was a use-after-free in safe
+code through plain `default<O2>`. D37's borrow of one module and D39's token each left a way through, shown under AddressSanitizer:
+a second module sharing the constant, and a constant read back from a module. D42 and D43 closed it, and each of those programs is
+now a compile-fail test with a twin.
 
 Also found while probing, and fixed under D38: `default<Os>`, `<Oz>`, `function-import`, `free-machine-function` and text with
 debug information that fails the verifier now give errors. Not fixed: bitcode with debug information that fails the verifier
@@ -41,12 +41,7 @@ a real use of the constant stopped the deletion in the two cases tried, with the
 
 ## Waiting on design claude
 
-D39 is not built. The token is tried in scratch and does what it says for constants made through it, but a constant read back out
-of a module borrows only that module, and ASan shows it dangling after a pass on another module: `global.initializer()` then
-`remove_initializer()`, or `node_operands()` from metadata, with no removal at all. Design claude has the options, the spelling
-and the proposal of a separate `Constants` type. Probes found no deletion from dropping, cloning, linking, stripping debug
-information, erasing or a bitcode round trip, and none from emission on 17 targets or MCJIT, though those run passes that can.
-Where `ConstantPtrAuth` and the unlisted plain-data kinds go is also open.
+Nothing. D30 to D43 are built.
 
 ## Untested
 

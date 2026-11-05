@@ -1,10 +1,21 @@
-error[E0502]: cannot borrow `module` as mutable because it is also borrowed as immutable
-  --> tests/compile_fail/value_held_across_linking.rs:27:9
+error[E0502]: cannot borrow `*context` as mutable because it is also borrowed as immutable
+  --> tests/compile_fail/value_held_across_linking.rs:28:9
    |
-19 |         let function = module.add_function("f", function_type);
-   |                        ------ immutable borrow occurs here
+19 |         let function = context.module(&module).add_function("f", function_type);
+   |                        ------- immutable borrow occurs here
 ...
-27 |         module.link_in(context.create_module("other")).unwrap();
-   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
-28 |         let _ = sum.print_to_string();
+28 |         context.exclusive_module(&mut module).link_in(other).unwrap();
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+29 |         let _ = sum.print_to_string();
+   |                 --- immutable borrow later used here
+
+error[E0502]: cannot borrow `module` as mutable because it is also borrowed as immutable
+  --> tests/compile_fail/value_held_across_linking.rs:28:34
+   |
+19 |         let function = context.module(&module).add_function("f", function_type);
+   |                                       ------- immutable borrow occurs here
+...
+28 |         context.exclusive_module(&mut module).link_in(other).unwrap();
+   |                                  ^^^^^^^^^^^ mutable borrow occurs here
+29 |         let _ = sum.print_to_string();
    |                 --- immutable borrow later used here

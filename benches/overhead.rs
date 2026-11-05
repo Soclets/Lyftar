@@ -11,9 +11,7 @@ use std::time::Instant;
 use lyftar::enums::IntegerPredicate;
 use lyftar::passes::{Analyses, FunctionInPass, FunctionPass, PassOptions, PreservedAnalyses};
 use lyftar::raw;
-use lyftar::{
-    BasicBlock, Bits, Builder, Context, Dynamic, Function, Integer, Module, Pointer, Type, Value, with_context,
-};
+use lyftar::{BasicBlock, Bits, Builder, Context, Dynamic, Function, Integer, Pointer, Type, Value, with_context};
 
 type I64 = Integer<Bits<64>>;
 
@@ -24,7 +22,7 @@ const BATCHES: u32 = 60;
 const EMPTY: *const std::ffi::c_char = c"".as_ptr();
 
 struct Scene<'context, 'module> {
-    context: Context<'context>,
+    context: &'module Context<'context>,
     builder: &'module Builder<'context, 'module>,
     raw_builder: raw::LLVMBuilderRef,
     left: Value<'context, 'module, I64>,
@@ -171,7 +169,8 @@ fn best_nanoseconds_per_call(step: Step) -> f64 {
     let mut best = f64::MAX;
     for _ in 0..BATCHES {
         let elapsed = with_context(|context| {
-            let module: Module<'_> = context.create_module("overhead");
+            let module = context.create_module("overhead");
+            let module = context.module(&module);
             let i64_type = context.get_type::<I64>().to_dynamic();
             let pointer_type = context.pointer_type(0).to_dynamic();
             let callee_type = context.function_type(i64_type, &[i64_type, i64_type], false);
@@ -231,11 +230,11 @@ fn best_nanoseconds_per_function(pipeline: &str, rust_pass: bool) -> f64 {
     let mut best = f64::MAX;
     for _ in 0..20 {
         let elapsed = with_context(|context| {
-            let mut module: Module<'_> = context.create_module("passes");
+            let mut module = context.create_module("passes");
             let i64_type = context.get_type::<I64>().to_dynamic();
             let function_type = context.function_type(i64_type, &[i64_type], false);
             for index in 0..FUNCTIONS {
-                let function = module.add_function(&format!("f{index}"), function_type);
+                let function = context.module(&module).add_function(&format!("f{index}"), function_type);
                 let builder = Builder::at_end_of(function.append_basic_block("entry"));
                 let parameter = function.parameter(0).checked_cast::<I64>();
                 let mut total = parameter;
@@ -247,13 +246,14 @@ fn best_nanoseconds_per_function(pipeline: &str, rust_pass: bool) -> f64 {
             let options = PassOptions::default();
             let start = Instant::now();
             if rust_pass {
-                module
+                context
+                    .exclusive_module(&mut module)
                     .run_passes_with(pipeline, None, &options, |builder| {
                         builder.register_function_pass("does-nothing", || DoesNothing);
                     })
                     .expect("the pipeline");
             } else {
-                module.run_passes(pipeline, None, &options).expect("the pipeline");
+                context.exclusive_module(&mut module).run_passes(pipeline, None, &options).expect("the pipeline");
             }
             start.elapsed()
         });

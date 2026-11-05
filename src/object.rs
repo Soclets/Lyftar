@@ -68,7 +68,7 @@ impl<'data> Binary<'data> {
     ///
     /// # Errors
     /// What is wrong with the file.
-    pub fn new(buffer: &'data MemoryBuffer<'data>, context: Option<Context<'data>>) -> Result<Self, Error> {
+    pub fn new(buffer: &'data MemoryBuffer<'data>, context: Option<&Context<'data>>) -> Result<Self, Error> {
         crate::target::set_up_targets();
         let raw_context = context.map_or(std::ptr::null_mut(), |found| found.raw);
         let mut message = std::ptr::null_mut();

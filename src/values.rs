@@ -17,9 +17,9 @@ use crate::shim;
 use crate::text::{from_owned_message, from_pointer_and_length};
 use crate::types::{Dynamic, Invariant, ReturnType, Sealed, Type, TypeMarker, TypeTuple, length_as_u32};
 
-/// A value: as specific as the code knows (D4), belonging to its context (invariant, D10) and borrowing its module
-/// (covariant, D11), so that holding one across a delete or a pass run doesn't compile and constants, which belong to
-/// the context, can be used with any module.
+/// A value: as specific as the code knows (D4), belonging to its context (invariant, D10) and borrowing that context and its
+/// module (covariant, D11, D42), so that holding one across a delete or a pass run on any module doesn't compile. Plain data
+/// borrows nothing, carrying `'static`, and survives those (D41).
 #[repr(transparent)]
 pub struct Value<'context, 'module, T = Dynamic> {
     pub(crate) raw: raw::LLVMValueRef,
@@ -114,7 +114,7 @@ pub trait FunctionMarker: GlobalObjectMarker + AlignedMarker {}
 /// A function whose signature is written into the Rust code, for [`Module::add_specific_function`](crate::Module::add_specific_function).
 pub trait SpecificFunction: FunctionMarker {
     #[doc(hidden)]
-    fn raw_function_type(context: Context<'_>) -> raw::LLVMTypeRef;
+    fn raw_function_type(context: &Context<'_>) -> raw::LLVMTypeRef;
 }
 
 /// Whether `raw` is a function of the type `T` says.
@@ -128,7 +128,7 @@ unsafe fn is_function_of<T: SpecificFunction>(raw: raw::LLVMValueRef) -> bool {
             return false;
         }
         let own_type = raw::LLVMGlobalGetValueType(raw);
-        own_type == T::raw_function_type(Context::from_raw(raw::LLVMGetTypeContext(own_type)))
+        own_type == T::raw_function_type(&Context::from_raw(raw::LLVMGetTypeContext(own_type)))
     }
 }
 
@@ -155,7 +155,7 @@ impl ValueMarker for Function {
 function_marker!([] Function);
 
 /// The function type for a return type and parameters.
-fn raw_function_type<R: ReturnType, P: TypeTuple>(context: Context<'_>, is_variadic: bool) -> raw::LLVMTypeRef {
+fn raw_function_type<R: ReturnType, P: TypeTuple>(context: &Context<'_>, is_variadic: bool) -> raw::LLVMTypeRef {
     let parameters = P::raw_types(context);
     let parameters = parameters.as_ref();
     let count = length_as_u32(parameters.len(), "add_specific_function");
@@ -173,7 +173,7 @@ impl<R: ReturnType, P: TypeTuple> ValueMarker for Function<R, P> {
 }
 function_marker!([R: ReturnType, P: TypeTuple] Function<R, P>);
 impl<R: ReturnType, P: TypeTuple> SpecificFunction for Function<R, P> {
-    fn raw_function_type(context: Context<'_>) -> raw::LLVMTypeRef {
+    fn raw_function_type(context: &Context<'_>) -> raw::LLVMTypeRef {
         raw_function_type::<R, P>(context, false)
     }
 }
@@ -188,7 +188,7 @@ impl<R: ReturnType, P: TypeTuple> ValueMarker for VariadicFunction<R, P> {
 }
 function_marker!([R: ReturnType, P: TypeTuple] VariadicFunction<R, P>);
 impl<R: ReturnType, P: TypeTuple> SpecificFunction for VariadicFunction<R, P> {
-    fn raw_function_type(context: Context<'_>) -> raw::LLVMTypeRef {
+    fn raw_function_type(context: &Context<'_>) -> raw::LLVMTypeRef {
         raw_function_type::<R, P>(context, true)
     }
 }
@@ -592,13 +592,6 @@ impl<'context, 'module, T> Value<'context, 'module, T> {
     pub fn category(self) -> ValueCategory {
         // SAFETY: the value is live for `'module`.
         ValueCategory::from_raw(unsafe { raw::LLVMGetValueKind(self.raw) })
-    }
-
-    /// The context this value belongs to.
-    #[must_use]
-    pub fn context(self) -> Context<'context> {
-        // SAFETY: the value's context is live for `'context`.
-        unsafe { Context::from_raw(raw::LLVMGetValueContext(self.raw)) }
     }
 
     /// Whether this value is a constant.

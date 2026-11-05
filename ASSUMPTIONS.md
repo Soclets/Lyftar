@@ -16,11 +16,17 @@ If one turns out false, the safety promise named beside it falls with it.
 ## What deletes what
 
 - **`ConstantData` has no use list** (`Value::hasUseList`), and is never deleted while its context lives (D11).
-- **Known hole, not closed: passes can delete an aggregate or constant expression that belongs only to the context.** D11
-  promises they survive, and they don't always. `GlobalDCEPass` and `EliminateAvailableExternallyPass` destroy the initializer
-  of a global they empty, when nothing else uses it, and `default<O1>` to `default<O3>` and `lto<O1>` to `lto<O3>` run them. A
-  `Value<'context, 'static, _>` held across that dangles, in safe code: AddressSanitizer reports a heap use-after-free. See
-  `PROGRESS.md`. Constants of plain data (`ConstantData`) were not deleted by any of LLVM's passes.
+- **Passes can delete an aggregate or constant expression that belongs only to the context.** `GlobalDCEPass` and
+  `EliminateAvailableExternallyPass` destroy the initializer of a global they empty, when nothing else uses it, and the default
+  pipelines run them. LLVM keeps one copy of an identical constant per context, so that can be a constant another module's code
+  holds. Hence D43: every value borrows the context, and anything that can delete needs it exclusively.
+- **Only what `'static` covers survives passes.** `Value<'context, 'static, _>` is only ever plain data (`ConstantData`) or inline
+  assembly, which `tests/decision_43_modules.rs` checks against the source. `isSafeToDestroyConstant` refuses `ConstantData`, and no
+  named pass deleted any in a probe of 271 pipelines. Inline assembly has no direct caller of its `destroyConstant`.
+- **Nothing but passes, code generation and exclusive calls deletes these.** Dropping or cloning a module, linking, stripping debug
+  information, erasing globals and a bitcode round trip deleted none in the same probe, and neither did reading.
+- **An `ExecutionEngine` only shares the context, though it can compile.** It compiles for this machine, and the backends found
+  calling `destroyConstant` directly are XCore and SPIR-V, which aren't hosts. A probe with MCJIT deleted nothing.
 - **A shared call to LLVM deletes nothing a `Value` can point at**, except the two cases `replace_all_uses_with` refuses:
   - It can destroy a constant other than a global that uses the value being replaced. Seen against the real library: it
     changes the constant in place, unless what the constant would become exists already.

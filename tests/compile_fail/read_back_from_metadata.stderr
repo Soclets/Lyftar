@@ -1,0 +1,10 @@
+error[E0502]: cannot borrow `*context` as mutable because it is also borrowed as immutable
+  --> tests/compile_fail/read_back_from_metadata.rs:19:9
+   |
+17 |         let named = context.module(&parsed).named_metadata("named").unwrap();
+   |                     ------- immutable borrow occurs here
+18 |         let read = named.operands()[0].node_operands()[0].unwrap();
+19 |         context.exclusive_module(&mut second).run_passes("globaldce", None, &PassOptions::default()).unwrap();
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+20 |         let _ = read.print_to_string();
+   |                 ---- immutable borrow later used here

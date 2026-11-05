@@ -1,0 +1,9 @@
+error[E0502]: cannot borrow `*context` as mutable because it is also borrowed as immutable
+  --> tests/compile_fail/value_from_another_module_across_a_pass.rs:17:9
+   |
+16 |         let global = context.module(&first).add_global("g", one.get_type());
+   |                      ------- immutable borrow occurs here
+17 |         context.exclusive_module(&mut second).run_passes("globaldce", None, &PassOptions::default()).unwrap();
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+18 |         let _ = global.name();
+   |                 ------ immutable borrow later used here

@@ -4782,7 +4782,7 @@
         ]
       },
       "const_array": {
-        "lyftar": "Type::constant_array",
+        "lyftar": "Context::constant_array",
         "projects": [
           "kayo",
           "luarust"
@@ -4829,7 +4829,7 @@
         ]
       },
       "const_named_struct": {
-        "lyftar": "Type::constant_named_struct",
+        "lyftar": "Context::constant_named_struct",
         "projects": [
           "ahpcl",
           "kayo",
@@ -4837,7 +4837,7 @@
         ]
       },
       "const_neg": {
-        "lyftar": "Value<Integer>::constant_negate",
+        "lyftar": "Context::constant_negate",
         "projects": [
           "kayo"
         ]
@@ -5085,7 +5085,7 @@
         ]
       },
       "get_context": {
-        "lyftar": "Module::context, Type::context, Value::context",
+        "lyftar": "Module::context",
         "projects": [
           "kayo"
         ]

@@ -59,7 +59,7 @@ impl<'context, 'module> Metadata<'context, 'module> {
 
     /// This metadata wrapped as a value, as an intrinsic's argument takes it.
     #[must_use]
-    pub fn as_value(self, context: Context<'context>) -> Value<'context, 'module, MetadataAsValue> {
+    pub fn as_value(self, context: &Context<'context>) -> Value<'context, 'module, MetadataAsValue> {
         // SAFETY: the metadata is live for `'module`, and belongs to this context.
         unsafe { Value::from_raw(raw::LLVMMetadataAsValue(context.raw, self.raw)) }
     }
@@ -166,7 +166,7 @@ impl<'context> Context<'context> {
     /// The metadata kind called `name`, such as `tbaa` or `llvm.loop`, registering it if it is new.
     #[must_use]
     #[track_caller]
-    pub fn metadata_kind(self, name: &str) -> MetadataKind {
+    pub fn metadata_kind(&self, name: &str) -> MetadataKind {
         let length = crate::types::length_as_u32(name.len(), "metadata_kind");
         // SAFETY: LLVM reads `length` bytes.
         MetadataKind(unsafe { raw::LLVMGetMDKindIDInContext(self.raw, name.as_ptr().cast(), length) })
@@ -174,14 +174,14 @@ impl<'context> Context<'context> {
 
     /// A metadata string.
     #[must_use]
-    pub fn metadata_string(self, text: &str) -> Metadata<'context, 'static> {
+    pub fn metadata_string(&self, text: &str) -> Metadata<'context, 'static> {
         // SAFETY: LLVM reads `text.len()` bytes; the string belongs to the context.
         unsafe { Metadata::from_raw(raw::LLVMMDStringInContext2(self.raw, text.as_ptr().cast(), text.len())) }
     }
 
     /// A metadata node.
     #[must_use]
-    pub fn metadata_node<'module>(self, operands: &[Metadata<'context, 'module>]) -> Metadata<'context, 'module> {
+    pub fn metadata_node<'module>(&self, operands: &[Metadata<'context, 'module>]) -> Metadata<'context, 'module> {
         // SAFETY: LLVM only reads the operands; `Metadata` has the layout of `LLVMMetadataRef`.
         unsafe {
             Metadata::from_raw(raw::LLVMMDNodeInContext2(self.raw, operands.as_ptr().cast_mut().cast(), operands.len()))
@@ -190,7 +190,7 @@ impl<'context> Context<'context> {
 
     /// The synchronization scope called `name`, registering it if it is new.
     #[must_use]
-    pub fn synchronization_scope(self, name: &str) -> crate::instructions::SynchronizationScope {
+    pub fn synchronization_scope(&self, name: &str) -> crate::instructions::SynchronizationScope {
         // SAFETY: LLVM reads `name.len()` bytes.
         crate::instructions::SynchronizationScope(unsafe {
             raw::LLVMGetSyncScopeID(self.raw, name.as_ptr().cast(), name.len())

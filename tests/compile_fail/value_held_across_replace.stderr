@@ -1,10 +1,21 @@
-error[E0502]: cannot borrow `module` as mutable because it is also borrowed as immutable
+error[E0502]: cannot borrow `*context` as mutable because it is also borrowed as immutable
   --> tests/compile_fail/value_held_across_replace.rs:18:9
    |
-14 |         let function = module.get_function("f").expect("the function");
-   |                        ------ immutable borrow occurs here
+14 |         let function = context.module(&module).get_function("f").expect("the function");
+   |                        ------- immutable borrow occurs here
 ...
-18 |         module.replace(&[entry]);
-   |         ^^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+18 |         context.exclusive_module(&mut module).replace(&[entry]);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+19 |         let _ = y.name();
+   |                 - immutable borrow later used here
+
+error[E0502]: cannot borrow `module` as mutable because it is also borrowed as immutable
+  --> tests/compile_fail/value_held_across_replace.rs:18:34
+   |
+14 |         let function = context.module(&module).get_function("f").expect("the function");
+   |                                       ------- immutable borrow occurs here
+...
+18 |         context.exclusive_module(&mut module).replace(&[entry]);
+   |                                  ^^^^^^^^^^^ mutable borrow occurs here
 19 |         let _ = y.name();
    |                 - immutable borrow later used here

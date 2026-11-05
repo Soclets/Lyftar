@@ -3,16 +3,20 @@
 use std::marker::PhantomData;
 
 use crate::enums::DiagnosticSeverity;
-use crate::module::Module;
+use crate::module::{Module, OwnedModule};
 use crate::raw;
 use crate::text::{c_string, from_owned_message};
 use crate::types::Invariant;
 
+// trace: D39, D42, D43
 /// An LLVM context: it owns the types and constants, and everything from it carries its `'context` lifetime.
 ///
 /// It only exists inside [`with_context`], and that lifetime is invariant, so a value can't be used with another
 /// context or taken out of the closure (D10).
-#[derive(Clone, Copy)]
+///
+/// Modules live inside it. [`Context::module`] gives a module to read and build, and every value borrows the context from
+/// there. [`Context::exclusive_module`] needs the context exclusively, so no value from any module can be held across what it
+/// allows, such as running passes. Types and plain data borrow nothing, and survive all of it.
 pub struct Context<'context> {
     pub(crate) raw: raw::LLVMContextRef,
     marker: Invariant<'context>,
@@ -34,13 +38,13 @@ impl Drop for DisposeOnExit {
 /// Runs `body` with a new LLVM context, and disposes the context afterwards.
 ///
 /// Plain data such as object file bytes can be returned; nothing carrying the context's lifetime can.
-pub fn with_context<R>(body: impl for<'context> FnOnce(Context<'context>) -> R) -> R {
+pub fn with_context<R>(body: impl for<'context> FnOnce(&mut Context<'context>) -> R) -> R {
     // Anything in a context can reach LLVM's target registry, such as parsing a module's inline assembly.
     crate::target::set_up_targets();
     // SAFETY: creating a context has no preconditions.
     let raw = unsafe { raw::LLVMContextCreate() };
     let _dispose = DisposeOnExit(raw);
-    body(Context { raw, marker: PhantomData })
+    body(&mut Context { raw, marker: PhantomData })
 }
 
 /// A diagnostic LLVM reports through a context.
@@ -83,8 +87,25 @@ impl<'context> Context<'context> {
     /// # Safety
     /// Raw calls can break what the safe API promises (D15).
     #[must_use]
-    pub unsafe fn as_raw(self) -> raw::LLVMContextRef {
+    pub unsafe fn as_raw(&self) -> raw::LLVMContextRef {
         self.raw
+    }
+
+    /// A module, to read and build. Everything from it borrows this context and the handle, so nothing from it can be held
+    /// across a call to [`Context::exclusive_module`] on any module, or the handle being dropped or moved.
+    #[must_use]
+    pub fn module<'borrow>(&'borrow self, module: &'borrow OwnedModule<'context>) -> &'borrow Module<'context> {
+        &module.module
+    }
+
+    /// A module, for what can delete things: running passes, emitting code, erasing and replacing. It needs this context
+    /// exclusively, since LLVM can delete a constant that another module shares (D42).
+    #[must_use]
+    pub fn exclusive_module<'borrow>(
+        &'borrow mut self,
+        module: &'borrow mut OwnedModule<'context>,
+    ) -> &'borrow mut Module<'context> {
+        &mut module.module
     }
 
     /// Creates an empty module in this context.
@@ -93,23 +114,23 @@ impl<'context> Context<'context> {
     /// If `name` has a NUL byte inside it (D3).
     #[must_use]
     #[track_caller]
-    pub fn create_module(self, name: &str) -> Module<'context> {
+    pub fn create_module(&self, name: &str) -> OwnedModule<'context> {
         let name = c_string(name, "create_module");
         // SAFETY: `name` is a valid C string for the call, and the context is live for `'context`.
         let raw = unsafe { raw::LLVMModuleCreateWithNameInContext(name.as_ptr(), self.raw) };
         // SAFETY: the module was just created, in this context, and is owned by the wrapper from here on.
-        unsafe { Module::from_raw(raw) }
+        unsafe { OwnedModule::from_raw(raw) }
     }
 
     /// Whether this context drops the names of values, which saves memory and time.
     #[must_use]
-    pub fn discards_value_names(self) -> bool {
+    pub fn discards_value_names(&self) -> bool {
         // SAFETY: the context is live for `'context`.
         unsafe { raw::LLVMContextShouldDiscardValueNames(self.raw) != 0 }
     }
 
     /// Sets whether this context drops the names of values, which saves memory and time.
-    pub fn set_discard_value_names(self, discard: bool) {
+    pub fn set_discard_value_names(&self, discard: bool) {
         // SAFETY: the context is live for `'context`.
         unsafe { raw::LLVMContextSetDiscardValueNames(self.raw, i32::from(discard)) };
     }
@@ -118,7 +139,7 @@ impl<'context> Context<'context> {
     /// is running inside LLVM (D3).
     ///
     /// The handler lives until the context goes, so setting one again leaks the old one.
-    pub fn set_diagnostic_handler<F: FnMut(Diagnostic) + 'context>(self, handler: F) {
+    pub fn set_diagnostic_handler<F: FnMut(Diagnostic) + 'context>(&self, handler: F) {
         let handler = Box::into_raw(Box::new(handler));
         // SAFETY: the function matches LLVM's signature, and `handler` stays valid for as long as the context does, since
         // it is leaked. The context is what calls it, and the closure's `'context` outlives the context's own use of it.

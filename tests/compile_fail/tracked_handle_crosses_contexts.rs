@@ -14,10 +14,12 @@ type F64 = Float<Ieee754Binary<Bits<64>>>;
 fn main() {
     with_context(|first| {
         let module = first.create_module("m");
+        let module = first.module(&module);
         let function = module.add_function("f", first.function_type(first.void_type(), &[], false));
         let handle = module.track(function);
         with_context(|second| {
             let other = second.create_module("other");
+        let other = second.module(&other);
             let _ = handle.get(&other);
         });
     });

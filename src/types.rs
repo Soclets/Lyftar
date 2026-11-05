@@ -133,7 +133,7 @@ pub trait TypeMarker: Sealed + 'static {
 /// A type written fully into the Rust code, so it can be made from the context alone.
 pub trait SpecificType: TypeMarker {
     #[doc(hidden)]
-    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef;
+    fn get_raw(context: &Context<'_>) -> raw::LLVMTypeRef;
 }
 
 /// A floating-point format that the Rust code spells out, and so how many bits a value of it takes.
@@ -143,7 +143,7 @@ pub trait FloatFormat: 'static {
     #[doc(hidden)]
     const RAW_KIND: raw::LLVMTypeKind;
     #[doc(hidden)]
-    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef;
+    fn get_raw(context: &Context<'_>) -> raw::LLVMTypeRef;
 }
 
 /// Declares a floating-point format.
@@ -152,7 +152,7 @@ macro_rules! float_format {
         impl FloatFormat for $format {
             const SIZE_IN_BITS: u32 = $size;
             const RAW_KIND: raw::LLVMTypeKind = raw::LLVMTypeKind::$kind;
-            fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+            fn get_raw(context: &Context<'_>) -> raw::LLVMTypeRef {
                 // SAFETY: the context is live, as it is a `Context`.
                 unsafe { raw::$get(context.raw) }
             }
@@ -221,7 +221,7 @@ impl<const N: u32> TypeMarker for Integer<Bits<N>> {
     }
 }
 impl<const N: u32> SpecificType for Integer<Bits<N>> {
-    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+    fn get_raw(context: &Context<'_>) -> raw::LLVMTypeRef {
         // LLVM's integer widths run from 1 to 2^23 bits, so this fails at `cargo build` when written wrong.
         const { assert!(N >= 1 && N <= (1 << 23), "an LLVM integer is between 1 and 2^23 bits wide") };
         // SAFETY: the context is live, as it is a `Context`, and N was just checked.
@@ -250,7 +250,7 @@ impl<const N: u32> TypeMarker for Byte<Bits<N>> {
 }
 // trace: D30
 impl<const N: u32> SpecificType for Byte<Bits<N>> {
-    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+    fn get_raw(context: &Context<'_>) -> raw::LLVMTypeRef {
         // LLVM's byte widths run from 1 to 2^23 bits, so this fails at `cargo build` when written wrong.
         const { assert!(N >= 1 && N <= (1 << 23), "an LLVM byte is between 1 and 2^23 bits wide") };
         // SAFETY: the context is live, as it is a `Context`, and N was just checked.
@@ -276,7 +276,7 @@ impl<F: FloatFormat> TypeMarker for Float<F> {
     }
 }
 impl<F: FloatFormat> SpecificType for Float<F> {
-    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+    fn get_raw(context: &Context<'_>) -> raw::LLVMTypeRef {
         F::get_raw(context)
     }
 }
@@ -308,7 +308,7 @@ impl<const N: u32> TypeMarker for Pointer<AddressSpace<N>> {
 }
 // trace: D31
 impl<const N: u32> SpecificType for Pointer<AddressSpace<N>> {
-    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+    fn get_raw(context: &Context<'_>) -> raw::LLVMTypeRef {
         // LLVM keeps an address space in 24 bits, so this fails at `cargo build` when written wrong.
         const { assert!(N < (1 << 24), "an LLVM address space is below 2^24") };
         // SAFETY: the context is live, as it is a `Context`, and N was just checked.
@@ -347,7 +347,7 @@ pub trait TypeTuple: Sealed + 'static {
     #[doc(hidden)]
     const ALL_FIXED_SIZE: bool;
     #[doc(hidden)]
-    fn raw_types(context: Context<'_>) -> Self::RawTypes;
+    fn raw_types(context: &Context<'_>) -> Self::RawTypes;
 }
 
 /// A [`TypeTuple`] all of whose types have a known size, so a struct of them can be an array's element (D32).
@@ -361,7 +361,7 @@ macro_rules! type_tuples {
                 type RawTypes = [raw::LLVMTypeRef; $count];
                 const ALL_FIXED_SIZE: bool = true $(&& <$name as TypeMarker>::FIXED_SIZE)*;
                 #[allow(unused_variables)]
-                fn raw_types(context: Context<'_>) -> Self::RawTypes {
+                fn raw_types(context: &Context<'_>) -> Self::RawTypes {
                     [$($name::get_raw(context)),*]
                 }
             }
@@ -392,7 +392,7 @@ type_tuples! {
 /// `raw` must be a live LLVM type.
 unsafe fn is_uniqued_type<T: SpecificType>(raw: raw::LLVMTypeRef) -> bool {
     // SAFETY: the caller promises a live type, so its context is live, and this only asks LLVM for a type there.
-    raw == T::get_raw(unsafe { Context::from_raw(raw::LLVMGetTypeContext(raw)) })
+    raw == T::get_raw(&unsafe { Context::from_raw(raw::LLVMGetTypeContext(raw)) })
 }
 
 impl<E: ArrayElementType, const N: u64> Sealed for Array<E, Elements<N>> {}
@@ -404,7 +404,7 @@ impl<E: ArrayElementType, const N: u64> TypeMarker for Array<E, Elements<N>> {
     }
 }
 impl<E: ArrayElementType, const N: u64> SpecificType for Array<E, Elements<N>> {
-    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+    fn get_raw(context: &Context<'_>) -> raw::LLVMTypeRef {
         // SAFETY: the marker's bound makes the element valid, and an array can have any length.
         unsafe { raw::LLVMArrayType2(E::get_raw(context), N) }
     }
@@ -421,7 +421,7 @@ impl<E: VectorElementType, const N: u64> TypeMarker for Vector<E, Elements<N>> {
     }
 }
 impl<E: VectorElementType, const N: u64> SpecificType for Vector<E, Elements<N>> {
-    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+    fn get_raw(context: &Context<'_>) -> raw::LLVMTypeRef {
         // LLVM's vectors have between 1 and 2^32 - 1 elements, so this fails at `cargo build` when written wrong.
         const { assert!(N >= 1 && N <= u32::MAX as u64, "an LLVM vector has between 1 and 2^32 - 1 elements") };
         // The check above keeps this in range.
@@ -445,7 +445,7 @@ impl<E: VectorElementType, const N: u32> TypeMarker for ScalableVector<E, Minimu
     }
 }
 impl<E: VectorElementType, const N: u32> SpecificType for ScalableVector<E, MinimumElements<N>> {
-    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+    fn get_raw(context: &Context<'_>) -> raw::LLVMTypeRef {
         // LLVM's vectors have at least 1 element, so this fails at `cargo build` when written wrong.
         const { assert!(N >= 1, "an LLVM scalable vector has at least 1 element") };
         // SAFETY: the marker's bound makes the element valid, and N was just checked.
@@ -469,7 +469,7 @@ macro_rules! struct_marker {
             }
         }
         impl<E: TypeTuple> SpecificType for $marker<E> {
-            fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+            fn get_raw(context: &Context<'_>) -> raw::LLVMTypeRef {
                 let elements = E::raw_types(context);
                 let elements = elements.as_ref();
                 let count = length_as_u32(elements.len(), "get_type");
@@ -499,7 +499,7 @@ impl TypeMarker for Void {
     }
 }
 impl SpecificType for Void {
-    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+    fn get_raw(context: &Context<'_>) -> raw::LLVMTypeRef {
         // SAFETY: the context is live, as it is a `Context`.
         unsafe { raw::LLVMVoidTypeInContext(context.raw) }
     }
@@ -591,13 +591,6 @@ impl<'context, T> Type<'context, T> {
         unsafe { raw::LLVMTypeIsSized(self.raw) != 0 }
     }
 
-    /// The context this type belongs to.
-    #[must_use]
-    pub fn context(self) -> Context<'context> {
-        // SAFETY: the type's context is live for `'context`.
-        unsafe { Context::from_raw(raw::LLVMGetTypeContext(self.raw)) }
-    }
-
     pub(crate) fn raw_kind(self) -> raw::LLVMTypeKind {
         // SAFETY: the type lives as long as its context.
         unsafe { raw::LLVMGetTypeKind(self.raw) }
@@ -608,34 +601,6 @@ impl<'context, T> Type<'context, T> {
         if self.raw_kind() != wanted {
             bad_call(format_args!("{operation}: {} is not {what}", self.describe()));
         }
-    }
-
-    /// A pointer-sized integer constant holding this type's size in bytes, as a constant expression.
-    ///
-    /// # Panics
-    /// If the type has no size (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn size_of(self) -> Value<'context, 'static> {
-        if !self.is_sized() {
-            bad_call(format_args!("size_of: {} has no size", self.describe()));
-        }
-        // SAFETY: the type was just checked to be sized, and the result belongs to the context.
-        unsafe { Value::from_raw(raw::LLVMSizeOf(self.raw)) }
-    }
-
-    /// A pointer-sized integer constant holding this type's alignment in bytes, as a constant expression.
-    ///
-    /// # Panics
-    /// If the type has no size, so no alignment (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn alignment_of(self) -> Value<'context, 'static> {
-        if !self.is_sized() {
-            bad_call(format_args!("alignment_of: {} has no size", self.describe()));
-        }
-        // SAFETY: the type was just checked to be sized, and the result belongs to the context.
-        unsafe { Value::from_raw(raw::LLVMAlignOf(self.raw)) }
     }
 
     /// The types this type directly contains: a function's return and parameter types, an aggregate's elements.
@@ -1079,7 +1044,7 @@ impl<'context, W> Type<'context, Byte<W>> {
 impl<'context> Context<'context> {
     /// The type `T`, when the Rust code spells it out.
     #[must_use]
-    pub fn get_type<T: SpecificType>(self) -> Type<'context, T> {
+    pub fn get_type<T: SpecificType>(&self) -> Type<'context, T> {
         Type { raw: T::get_raw(self), marker: PhantomData }
     }
 
@@ -1089,7 +1054,7 @@ impl<'context> Context<'context> {
     /// If the width isn't between 1 and 2^23 bits (D3).
     #[must_use]
     #[track_caller]
-    pub fn integer_type(self, width_in_bits: u32) -> Type<'context, Integer> {
+    pub fn integer_type(&self, width_in_bits: u32) -> Type<'context, Integer> {
         if !checks::integer_width_is_valid(width_in_bits) {
             bad_call(format_args!("integer_type: {width_in_bits} bits is not between 1 and 2^23 bits"));
         }
@@ -1104,7 +1069,7 @@ impl<'context> Context<'context> {
     /// If the width isn't between 1 and 2^23 bits (D3).
     #[must_use]
     #[track_caller]
-    pub fn byte_type(self, width_in_bits: u32) -> Type<'context, Byte> {
+    pub fn byte_type(&self, width_in_bits: u32) -> Type<'context, Byte> {
         if !checks::integer_width_is_valid(width_in_bits) {
             bad_call(format_args!("byte_type: {width_in_bits} bits is not between 1 and 2^23 bits"));
         }
@@ -1114,35 +1079,35 @@ impl<'context> Context<'context> {
 
     /// `void`.
     #[must_use]
-    pub fn void_type(self) -> Type<'context> {
+    pub fn void_type(&self) -> Type<'context> {
         // SAFETY: the context is live.
         Type { raw: unsafe { raw::LLVMVoidTypeInContext(self.raw) }, marker: PhantomData }
     }
 
     /// `label`.
     #[must_use]
-    pub fn label_type(self) -> Type<'context> {
+    pub fn label_type(&self) -> Type<'context> {
         // SAFETY: the context is live.
         Type { raw: unsafe { raw::LLVMLabelTypeInContext(self.raw) }, marker: PhantomData }
     }
 
     /// `metadata`.
     #[must_use]
-    pub fn metadata_type(self) -> Type<'context> {
+    pub fn metadata_type(&self) -> Type<'context> {
         // SAFETY: the context is live.
         Type { raw: unsafe { raw::LLVMMetadataTypeInContext(self.raw) }, marker: PhantomData }
     }
 
     /// `token`.
     #[must_use]
-    pub fn token_type(self) -> Type<'context> {
+    pub fn token_type(&self) -> Type<'context> {
         // SAFETY: the context is live.
         Type { raw: unsafe { raw::LLVMTokenTypeInContext(self.raw) }, marker: PhantomData }
     }
 
     /// `x86_amx`.
     #[must_use]
-    pub fn x86_advanced_matrix_extensions_type(self) -> Type<'context> {
+    pub fn x86_advanced_matrix_extensions_type(&self) -> Type<'context> {
         // SAFETY: the context is live.
         Type { raw: unsafe { raw::LLVMX86AMXTypeInContext(self.raw) }, marker: PhantomData }
     }
@@ -1154,7 +1119,7 @@ impl<'context> Context<'context> {
     /// If LLVM can't hold that address space (D3).
     #[must_use]
     #[track_caller]
-    pub fn pointer_type(self, address_space: u32) -> Type<'context> {
+    pub fn pointer_type(&self, address_space: u32) -> Type<'context> {
         check_address_space("pointer_type", address_space);
         // SAFETY: the context is live, and the space was just checked.
         Type { raw: unsafe { raw::LLVMPointerTypeInContext(self.raw, address_space) }, marker: PhantomData }
@@ -1167,7 +1132,7 @@ impl<'context> Context<'context> {
     #[must_use]
     #[track_caller]
     pub fn function_type(
-        self,
+        &self,
         return_type: Type<'context>,
         parameter_types: &[Type<'context>],
         is_variadic: bool,
@@ -1208,7 +1173,7 @@ impl<'context> Context<'context> {
     /// If an element can't go in a struct (D3).
     #[must_use]
     #[track_caller]
-    pub fn struct_type(self, elements: &[Type<'context>], is_packed: bool) -> Type<'context> {
+    pub fn struct_type(&self, elements: &[Type<'context>], is_packed: bool) -> Type<'context> {
         check_struct_elements("struct_type", elements);
         // SAFETY: LLVM only reads the elements, which were just checked.
         let raw = unsafe {
@@ -1228,7 +1193,7 @@ impl<'context> Context<'context> {
     /// If `name` has a NUL byte inside it (D3).
     #[must_use]
     #[track_caller]
-    pub fn create_named_struct(self, name: &str) -> Type<'context> {
+    pub fn create_named_struct(&self, name: &str) -> Type<'context> {
         let name = c_string(name, "create_named_struct");
         // SAFETY: the name is a valid C string for the call.
         Type { raw: unsafe { raw::LLVMStructCreateNamed(self.raw, name.as_ptr()) }, marker: PhantomData }
@@ -1240,7 +1205,7 @@ impl<'context> Context<'context> {
     /// If `name` has a NUL byte inside it (D3).
     #[must_use]
     #[track_caller]
-    pub fn get_named_struct(self, name: &str) -> Option<Type<'context>> {
+    pub fn get_named_struct(&self, name: &str) -> Option<Type<'context>> {
         let name = c_string(name, "get_named_struct");
         // SAFETY: the name is a valid C string for the call.
         let raw = unsafe { raw::LLVMGetTypeByName2(self.raw, name.as_ptr()) };
@@ -1254,7 +1219,7 @@ impl<'context> Context<'context> {
     #[must_use]
     #[track_caller]
     pub fn target_extension_type(
-        self,
+        &self,
         name: &str,
         type_parameters: &[Type<'context>],
         integer_parameters: &[u32],

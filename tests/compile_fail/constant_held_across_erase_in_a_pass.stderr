@@ -1,0 +1,10 @@
+error[E0502]: cannot borrow `*module` as mutable because it is also borrowed as immutable
+  --> tests/compile_fail/constant_held_across_erase_in_a_pass.rs:16:9
+   |
+13 |         let held = module.context().constant_struct(&[one, one], false);
+   |                    ------ immutable borrow occurs here
+...
+16 |         module.erase(&[entry]);
+   |         ^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+17 |         let _ = held.print_to_string();
+   |                 ---- immutable borrow later used here

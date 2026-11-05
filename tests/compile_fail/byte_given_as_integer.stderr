@@ -1,7 +1,7 @@
 error[E0277]: the trait bound `lyftar::Byte<lyftar::Bits<8>>: IntegerOperand` is not satisfied
-  --> tests/compile_fail/byte_given_as_integer.rs:22:25
+  --> tests/compile_fail/byte_given_as_integer.rs:23:25
    |
-22 |         let _ = builder.integer_add(b8_type.constant_byte(1), b8_type.constant_byte(2), "");
+23 |         let _ = builder.integer_add(b8_type.constant_byte(1), b8_type.constant_byte(2), "");
    |                         ^^^^^^^^^^^ the trait `IntegerOperand` is not implemented for `lyftar::Byte<lyftar::Bits<8>>`
    |
    = help: the following other types implement trait `IntegerOperand`:

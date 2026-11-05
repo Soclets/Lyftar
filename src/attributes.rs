@@ -184,7 +184,7 @@ impl<'context> Context<'context> {
     /// If this kind doesn't hold a plain number or nothing, such as a type attribute's kind (D3).
     #[must_use]
     #[track_caller]
-    pub fn enum_attribute(self, kind: AttributeKind, value: u64) -> Attribute<'context> {
+    pub fn enum_attribute(&self, kind: AttributeKind, value: u64) -> Attribute<'context> {
         // SAFETY: takes a number and looks it up.
         let allowed = unsafe { shim::lyftar_attribute_kind_takes_integer_or_nothing(kind.0, value) };
         if !allowed {
@@ -200,7 +200,7 @@ impl<'context> Context<'context> {
     /// If this kind doesn't hold a type (D3).
     #[must_use]
     #[track_caller]
-    pub fn type_attribute(self, kind: AttributeKind, attribute_type: Type<'context>) -> Attribute<'context> {
+    pub fn type_attribute(&self, kind: AttributeKind, attribute_type: Type<'context>) -> Attribute<'context> {
         // SAFETY: takes a number and looks it up.
         if !unsafe { shim::lyftar_attribute_kind_takes_type(kind.0) } {
             bad_call(format_args!("type_attribute: kind {} doesn't hold a type", kind.0));
@@ -220,7 +220,7 @@ impl<'context> Context<'context> {
     #[must_use]
     #[track_caller]
     pub fn constant_range_attribute(
-        self,
+        &self,
         kind: AttributeKind,
         width_in_bits: u32,
         lower_words: &[u64],
@@ -260,7 +260,7 @@ impl<'context> Context<'context> {
     /// A `denormal_fpenv` attribute: output and input modes for the default environment, and for `float`.
     #[must_use]
     pub fn denormal_float_environment_attribute(
-        self,
+        &self,
         default_output: DenormalMode,
         default_input: DenormalMode,
         float_output: DenormalMode,
@@ -284,7 +284,7 @@ impl<'context> Context<'context> {
     /// A string attribute: a key and a value.
     #[must_use]
     #[track_caller]
-    pub fn string_attribute(self, key: &str, value: &str) -> Attribute<'context> {
+    pub fn string_attribute(&self, key: &str, value: &str) -> Attribute<'context> {
         let key_length = length_as_u32(key.len(), "string_attribute");
         let value_length = length_as_u32(value.len(), "string_attribute");
         // SAFETY: LLVM reads the lengths given.

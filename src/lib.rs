@@ -3,6 +3,10 @@
 //! All work happens inside [`with_context`] (D10). A [`Value`] says as much as the code knows (D4): a type written into
 //! the Rust code is checked at `cargo build`, and one from the program being compiled is checked when the line runs, where
 //! a bad request panics and names the problem (D3).
+//!
+//! Modules live inside the context (D42, D43). You own an [`OwnedModule`], [`Context::module`] gives it to read and build, and
+//! [`Context::exclusive_module`] gives it for what can delete things. Every value borrows the context, so one held across an
+//! exclusive call on any module doesn't compile. Types and plain data borrow nothing, and survive.
 
 #![warn(clippy::pedantic)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -53,7 +57,7 @@ pub mod values;
 pub use basic_block::BasicBlock;
 pub use builder::Builder;
 pub use context::{Context, with_context};
-pub use module::Module;
+pub use module::{Module, OwnedModule};
 pub use types::{
     AddressSpace, Array, Bits, BrainFloat, Byte, Dynamic, Elements, Float, Ieee754Binary, Integer, MinimumElements,
     PackedStruct, Pointer, PowerPcDoubleDouble, ScalableVector, Struct, Type, Vector, Void, X87Extended,

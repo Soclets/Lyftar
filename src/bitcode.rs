@@ -5,7 +5,7 @@ use std::path::Path;
 use crate::context::Context;
 use crate::error::Error;
 use crate::memory_buffer::MemoryBuffer;
-use crate::module::Module;
+use crate::module::{Module, OwnedModule};
 use crate::raw;
 use crate::text::c_path;
 
@@ -14,7 +14,7 @@ impl<'context> Context<'context> {
     ///
     /// # Errors
     /// What is wrong with the bitcode.
-    pub fn parse_bitcode(self, buffer: &MemoryBuffer<'_>) -> Result<Module<'context>, Error> {
+    pub fn parse_bitcode(&self, buffer: &MemoryBuffer<'_>) -> Result<OwnedModule<'context>, Error> {
         let mut module = std::ptr::null_mut();
         let mut message = std::ptr::null_mut();
         // SAFETY: both are live; LLVM writes the module, or a message for the caller to free. This form reports errors
@@ -24,7 +24,7 @@ impl<'context> Context<'context> {
             return Err(Error::from_owned_message(message));
         }
         // SAFETY: LLVM just made this module, in this context, for the caller to own.
-        Ok(unsafe { Module::from_raw(module) })
+        Ok(unsafe { OwnedModule::from_raw(module) })
     }
 
     /// Reads a module from bitcode lazily: each function's body comes in when first asked for. The module owns the
@@ -32,7 +32,7 @@ impl<'context> Context<'context> {
     ///
     /// # Errors
     /// What is wrong with the bitcode.
-    pub fn lazy_bitcode_module(self, buffer: MemoryBuffer<'static>) -> Result<Module<'context>, Error> {
+    pub fn lazy_bitcode_module(&self, buffer: MemoryBuffer<'static>) -> Result<OwnedModule<'context>, Error> {
         let raw_buffer = buffer.into_raw();
         let mut module = std::ptr::null_mut();
         let mut message = std::ptr::null_mut();
@@ -46,7 +46,7 @@ impl<'context> Context<'context> {
             return Err(Error::from_owned_message(message));
         }
         // SAFETY: LLVM just made this module, in this context, for the caller to own.
-        Ok(unsafe { Module::from_raw(module) })
+        Ok(unsafe { OwnedModule::from_raw(module) })
     }
 }
 

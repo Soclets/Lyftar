@@ -1,0 +1,9 @@
+error[E0502]: cannot borrow `*context` as mutable because it is also borrowed as immutable
+  --> tests/compile_fail/expression_held_across_a_pass.rs:17:9
+   |
+16 |         let held = context.constant_integer_to_pointer(one, context.get_type::<Pointer>());
+   |                    ------- immutable borrow occurs here
+17 |         context.exclusive_module(&mut first).run_passes("globaldce", None, &PassOptions::default()).unwrap();
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+18 |         let _ = held.print_to_string();
+   |                 ---- immutable borrow later used here

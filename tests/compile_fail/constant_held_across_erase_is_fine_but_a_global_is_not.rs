@@ -16,17 +16,17 @@ fn main() {
         let mut module = context.create_module("m");
         let i64_type = context.get_type::<I64>();
         let function_type = context.function_type(i64_type.to_dynamic(), &[i64_type.to_dynamic()], false);
-        let function = module.add_function("f", function_type);
+        let function = context.module(&module).add_function("f", function_type);
         let block = function.append_basic_block("entry");
         let builder = Builder::at_end_of(block);
         let parameter = function.parameter(0);
         let sum = builder.integer_add(parameter, parameter, "sum");
         let ret = builder.return_value(sum);
         let _ = (sum, ret);
-        let global = module.add_global("g", i64_type);
+        let global = context.module(&module).add_global("g", i64_type);
         drop(builder);
-        let chosen = [module.value_to_erase(global)];
-        module.erase(&chosen);
+        let chosen = [context.module(&module).value_to_erase(global)];
+        context.exclusive_module(&mut module).erase(&chosen);
         let _ = global.name();
     });
 }

@@ -23,15 +23,54 @@ fn new_generation() -> u64 {
     NEXT_GENERATION.fetch_add(1, Ordering::Relaxed)
 }
 
-/// A module, owning its functions, globals and instructions.
+/// A module, as [`Context::module`](crate::Context::module) and
+/// [`Context::exclusive_module`](crate::Context::exclusive_module) give one.
 ///
-/// A value from a module borrows it, and deleting from it or running passes on it needs `&mut self`, so a value held
-/// across either doesn't compile (D11).
+/// A value from a module borrows it, and so the context, and deleting from it or running passes on it needs `&mut self`, so a
+/// value held across either doesn't compile (D11, D42).
 pub struct Module<'context> {
     pub(crate) raw: raw::LLVMModuleRef,
     pub(crate) generation: u64,
     owned: bool,
-    marker: Invariant<'context>,
+    context: Context<'context>,
+}
+
+// trace: D43
+/// A module you own. Its contents are only reachable through the context, with
+/// [`Context::module`](crate::Context::module) and [`Context::exclusive_module`](crate::Context::exclusive_module). Dropping it
+/// frees the module, and what takes a module over takes this by value.
+pub struct OwnedModule<'context> {
+    pub(crate) module: Module<'context>,
+}
+
+impl OwnedModule<'_> {
+    /// Takes ownership of a raw module.
+    ///
+    /// # Safety
+    /// `raw` must be a live module of this context that nothing else owns.
+    #[must_use]
+    pub unsafe fn from_raw(raw: raw::LLVMModuleRef) -> Self {
+        // SAFETY: the caller promises a live module of this context.
+        let context = unsafe { Context::from_raw(raw::LLVMGetModuleContext(raw)) };
+        OwnedModule { module: Module { raw, generation: new_generation(), owned: true, context } }
+    }
+
+    /// Gives up ownership of the raw module, for something that takes it over.
+    #[must_use]
+    pub fn into_raw(self) -> raw::LLVMModuleRef {
+        let raw = self.module.raw;
+        std::mem::forget(self);
+        raw
+    }
+
+    /// The raw module.
+    ///
+    /// # Safety
+    /// Raw calls can break what the safe API promises (D15).
+    #[must_use]
+    pub unsafe fn as_raw(&self) -> raw::LLVMModuleRef {
+        self.module.raw
+    }
 }
 
 impl Drop for Module<'_> {
@@ -109,29 +148,14 @@ impl<'context, T: ValueMarker> TrackedHandle<'context, T> {
 }
 
 impl<'context> Module<'context> {
-    /// Takes ownership of a raw module.
-    ///
-    /// # Safety
-    /// `raw` must be a live module of this context that nothing else owns.
-    #[must_use]
-    pub unsafe fn from_raw(raw: raw::LLVMModuleRef) -> Self {
-        Module { raw, generation: new_generation(), owned: true, marker: PhantomData }
-    }
-
     /// Wraps a raw module someone else owns, as a pass is given one.
     ///
     /// # Safety
     /// `raw` must be a live module of this context, and outlive the wrapper; nothing else may use it meanwhile.
     pub(crate) unsafe fn from_raw_borrowed(raw: raw::LLVMModuleRef) -> Self {
-        Module { raw, generation: new_generation(), owned: false, marker: PhantomData }
-    }
-
-    /// Gives up ownership of the raw module, for something that takes it over.
-    #[must_use]
-    pub(crate) fn into_raw(self) -> raw::LLVMModuleRef {
-        let raw = self.raw;
-        std::mem::forget(self);
-        raw
+        // SAFETY: the caller promises a live module of this context.
+        let context = unsafe { Context::from_raw(raw::LLVMGetModuleContext(raw)) };
+        Module { raw, generation: new_generation(), owned: false, context }
     }
 
     /// The raw module.
@@ -148,18 +172,17 @@ impl<'context> Module<'context> {
         self.generation = new_generation();
     }
 
-    /// The context this module belongs to.
+    /// The context this module belongs to. What it makes borrows this module, as anything else from it does.
     #[must_use]
-    pub fn context(&self) -> Context<'context> {
-        // SAFETY: the module's context is live for `'context`.
-        unsafe { Context::from_raw(raw::LLVMGetModuleContext(self.raw)) }
+    pub fn context(&self) -> &Context<'context> {
+        &self.context
     }
 
     /// A copy of this module, in the same context.
     #[must_use]
-    pub fn clone_module(&self) -> Module<'context> {
+    pub fn clone_module(&self) -> OwnedModule<'context> {
         // SAFETY: the module is live, and the copy is owned by the wrapper from here on.
-        unsafe { Module::from_raw(raw::LLVMCloneModule(self.raw)) }
+        unsafe { OwnedModule::from_raw(raw::LLVMCloneModule(self.raw)) }
     }
 
     /// The module's name.

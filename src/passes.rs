@@ -669,9 +669,6 @@ unsafe extern "C" fn run_module_pass<P: ModulePass>(
         let analyses =
             Analyses { raw: analyses, module, generation: Cell::new(wrapped.generation), marker: PhantomData };
         let result = pass.run(&mut wrapped, &analyses);
-        if wrapped.raw != module {
-            bad_call(format_args!("a module pass replaced its module with another"));
-        }
         // trace: D40
         if let Err(report) = wrapped.verify() {
             pass_left_invalid_ir(std::any::type_name::<P>(), report.message());

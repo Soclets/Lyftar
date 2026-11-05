@@ -14,6 +14,7 @@ type F64 = Float<Ieee754Binary<Bits<64>>>;
 fn main() {
     with_context(|first| {
         let module = first.create_module("m");
+        let module = first.module(&module);
         with_context(|second| {
             let _ = module.add_function("f", first.function_type(first.void_type(), &[], false));
             let _ = second.void_type();

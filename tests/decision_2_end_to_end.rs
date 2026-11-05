@@ -18,14 +18,14 @@ fn object_file_bytes() -> Vec<u8> {
     let machine = TargetMachine::for_host().expect("this machine has a target");
     with_context(|context| {
         let mut module = context.create_module("end_to_end");
-        module.set_target_machine(&machine);
+        context.module(&module).set_target_machine(&machine);
         {
             let i32_type = context.get_type::<I32>();
             let pointer = context.pointer_type(0);
             let printf_type = context.function_type(i32_type.to_dynamic(), &[pointer.to_dynamic()], true);
-            let printf = module.add_function("printf", printf_type);
+            let printf = context.module(&module).add_function("printf", printf_type);
             let main_type = context.function_type(i32_type.to_dynamic(), &[], false);
-            let main = module.add_function("main", main_type);
+            let main = context.module(&module).add_function("main", main_type);
             let entry = main.append_basic_block("entry");
             let header = main.append_basic_block("header");
             let body = main.append_basic_block("body");
@@ -58,14 +58,22 @@ fn object_file_bytes() -> Vec<u8> {
             builder.call(printf, &[format.to_dynamic(), total.to_dynamic()], "");
             builder.return_value(i32_type.constant_null());
         }
-        assert_eq!(module.verify(), Ok(()));
+        assert_eq!(context.module(&module).verify(), Ok(()));
         // The stack slots are gone once it is optimized, so this really changed the program.
-        assert!(module.print_to_string().contains("alloca"));
-        module.run_passes("default<O2>", Some(&machine), &PassOptions::default()).expect("the pipeline");
-        assert_eq!(module.verify(), Ok(()));
-        assert!(!module.print_to_string().contains("alloca"), "{}", module.print_to_string());
-        let buffer =
-            machine.emit_to_memory_buffer(&mut module, CodeGenerationFileType::Object).expect("code generation");
+        assert!(context.module(&module).print_to_string().contains("alloca"));
+        context
+            .exclusive_module(&mut module)
+            .run_passes("default<O2>", Some(&machine), &PassOptions::default())
+            .expect("the pipeline");
+        assert_eq!(context.module(&module).verify(), Ok(()));
+        assert!(
+            !context.module(&module).print_to_string().contains("alloca"),
+            "{}",
+            context.module(&module).print_to_string()
+        );
+        let buffer = machine
+            .emit_to_memory_buffer(context.exclusive_module(&mut module), CodeGenerationFileType::Object)
+            .expect("code generation");
         buffer.as_bytes().to_vec()
     })
 }

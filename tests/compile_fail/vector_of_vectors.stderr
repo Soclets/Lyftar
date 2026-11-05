@@ -24,5 +24,5 @@ help: the following other types implement trait `VectorElementType`
 note: required by a bound in `types::<impl lyftar::Context<'context>>::get_type`
   --> src/types.rs
    |
-   |     pub fn get_type<T: SpecificType>(self) -> Type<'context, T> {
+   |     pub fn get_type<T: SpecificType>(&self) -> Type<'context, T> {
    |                        ^^^^^^^^^^^^ required by this bound in `types::<impl Context<'context>>::get_type`

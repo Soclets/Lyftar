@@ -1,0 +1,9 @@
+error[E0382]: borrow of moved value: `second`
+  --> tests/compile_fail/module_linked_away_and_used.rs:17:32
+   |
+15 |         let mut second = context.create_module("second");
+   |             ---------- move occurs because `second` has type `OwnedModule<'_>`, which does not implement the `Copy` trait
+16 |         context.exclusive_module(&mut first).link_in(second).unwrap();
+   |                                                      ------ value moved here
+17 |         let _ = context.module(&second);
+   |                                ^^^^^^^ value borrowed here after move

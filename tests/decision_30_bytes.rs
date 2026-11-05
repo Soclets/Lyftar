@@ -55,6 +55,7 @@ fn decision_30_constants_keep_their_specific_type() {
 fn decision_30_a_byte_goes_through_memory_phis_and_selects_and_verifies() {
     with_context(|context| {
         let module = context.create_module("bytes");
+        let module = context.module(&module);
         let byte = context.get_type::<B8>();
         let pointer = context.pointer_type(0).to_dynamic();
         let condition_type = context.get_type::<Integer<Bits<1>>>();

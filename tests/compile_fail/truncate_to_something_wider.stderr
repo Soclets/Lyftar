@@ -20,7 +20,7 @@ note: erroneous constant encountered
   | |_________^
 
 note: the above error was encountered while instantiating `fn lyftar::Builder::<'_, '_>::truncate::<lyftar::Integer<lyftar::Bits<32>>, lyftar::Integer<lyftar::Bits<64>>>`
-  --> tests/compile_fail/truncate_to_something_wider.rs:23:17
+  --> tests/compile_fail/truncate_to_something_wider.rs:24:17
    |
-23 |         let _ = builder.truncate(i32_type.constant_integer(1, false), i64_type, "");
+24 |         let _ = builder.truncate(i32_type.constant_integer(1, false), i64_type, "");
    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -1,7 +1,7 @@
 error[E0277]: the trait bound `lyftar::Void: FirstClassType` is not satisfied
-  --> tests/compile_fail/function_of_void_parameter.rs:16:48
+  --> tests/compile_fail/function_of_void_parameter.rs:17:48
    |
-16 |         let _ = module.add_specific_function::<Function<Void, (Void,)>>("f");
+17 |         let _ = module.add_specific_function::<Function<Void, (Void,)>>("f");
    |                        ---------------------   ^^^^^^^^^^^^^^^^^^^^^^^ the trait `FirstClassType` is not implemented for `lyftar::Void`
    |                        |
    |                        required by a bound introduced by this call

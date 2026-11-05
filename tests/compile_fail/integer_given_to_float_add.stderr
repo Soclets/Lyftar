@@ -1,7 +1,7 @@
 error[E0277]: the trait bound `lyftar::Integer<lyftar::Bits<64>>: FloatOperand` is not satisfied
-  --> tests/compile_fail/integer_given_to_float_add.rs:23:25
+  --> tests/compile_fail/integer_given_to_float_add.rs:24:25
    |
-23 |         let _ = builder.float_add(i64_type.constant_integer(1, false), i64_type.constant_integer(2, false), "");
+24 |         let _ = builder.float_add(i64_type.constant_integer(1, false), i64_type.constant_integer(2, false), "");
    |                         ^^^^^^^^^ the trait `FloatOperand` is not implemented for `lyftar::Integer<lyftar::Bits<64>>`
    |
    = help: the following other types implement trait `FloatOperand`:

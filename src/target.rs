@@ -661,7 +661,7 @@ impl TargetData<'_> {
 
     /// The integer type as wide as a pointer in the default address space.
     #[must_use]
-    pub fn integer_pointer_type<'context>(&self, context: Context<'context>) -> Type<'context, Integer> {
+    pub fn integer_pointer_type<'context>(&self, context: &Context<'context>) -> Type<'context, Integer> {
         // SAFETY: both are live; the type belongs to the context.
         unsafe { Type::from_raw(raw::LLVMIntPtrTypeInContext(context.raw, self.raw)) }
     }
@@ -670,7 +670,7 @@ impl TargetData<'_> {
     #[must_use]
     pub fn integer_pointer_type_for_address_space<'context>(
         &self,
-        context: Context<'context>,
+        context: &Context<'context>,
         address_space: u32,
     ) -> Type<'context, Integer> {
         // SAFETY: both are live; the type belongs to the context.

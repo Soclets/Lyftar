@@ -1,7 +1,7 @@
 error[E0599]: no method named `constant_byte` found for struct `lyftar::Type<'_, lyftar::Integer<lyftar::Bits<8>>>` in the current scope
-  --> tests/compile_fail/integer_given_a_constant_byte_call.rs:22:25
+  --> tests/compile_fail/integer_given_a_constant_byte_call.rs:23:25
    |
-22 |         let _ = i8_type.constant_byte(1);
+23 |         let _ = i8_type.constant_byte(1);
    |                         ^^^^^^^^^^^^^
    |
 help: there is a method `constant_null` with a similar name, but with different arguments

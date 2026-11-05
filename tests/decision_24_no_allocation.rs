@@ -36,6 +36,7 @@ static COUNTING: Counting = Counting;
 fn decision_24_build_calls_allocate_nothing() {
     with_context(|context| {
         let module = context.create_module("allocations");
+        let module = context.module(&module);
         let i64_type = context.get_type::<I64>();
         let dynamic = i64_type.to_dynamic();
         let pointer_type = context.pointer_type(0).to_dynamic();

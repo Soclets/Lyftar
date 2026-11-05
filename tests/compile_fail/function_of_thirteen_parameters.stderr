@@ -1,7 +1,7 @@
 error[E0277]: the trait bound `(lyftar::Integer<lyftar::Bits<1>>, lyftar::Integer<lyftar::Bits<1>>, lyftar::Integer<lyftar::Bits<1>>, lyftar::Integer<lyftar::Bits<1>>, lyftar::Integer<lyftar::Bits<1>>, lyftar::Integer<lyftar::Bits<1>>, lyftar::Integer<lyftar::Bits<1>>, lyftar::Integer<lyftar::Bits<1>>, lyftar::Integer<lyftar::Bits<1>>, lyftar::Integer<lyftar::Bits<1>>, lyftar::Integer<lyftar::Bits<1>>, lyftar::Integer<lyftar::Bits<1>>, lyftar::Integer<lyftar::Bits<1>>): TypeTuple` is not satisfied
-  --> tests/compile_fail/function_of_thirteen_parameters.rs:17:48
+  --> tests/compile_fail/function_of_thirteen_parameters.rs:18:48
    |
-17 |         let _ = module.add_specific_function::<Function<Void, (T, T, T, T, T, T, T, T, T, T, T, T, T)>>("f");
+18 |         let _ = module.add_specific_function::<Function<Void, (T, T, T, T, T, T, T, T, T, T, T, T, T)>>("f");
    |                        ---------------------   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
    |                        |
    |                        required by a bound introduced by this call

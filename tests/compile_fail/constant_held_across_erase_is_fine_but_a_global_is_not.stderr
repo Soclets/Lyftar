@@ -1,10 +1,21 @@
-error[E0502]: cannot borrow `module` as mutable because it is also borrowed as immutable
+error[E0502]: cannot borrow `*context` as mutable because it is also borrowed as immutable
   --> tests/compile_fail/constant_held_across_erase_is_fine_but_a_global_is_not.rs:29:9
    |
-26 |         let global = module.add_global("g", i64_type);
-   |                      ------ immutable borrow occurs here
+26 |         let global = context.module(&module).add_global("g", i64_type);
+   |                      ------- immutable borrow occurs here
 ...
-29 |         module.erase(&chosen);
-   |         ^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+29 |         context.exclusive_module(&mut module).erase(&chosen);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+30 |         let _ = global.name();
+   |                 ------ immutable borrow later used here
+
+error[E0502]: cannot borrow `module` as mutable because it is also borrowed as immutable
+  --> tests/compile_fail/constant_held_across_erase_is_fine_but_a_global_is_not.rs:29:34
+   |
+26 |         let global = context.module(&module).add_global("g", i64_type);
+   |                                     ------- immutable borrow occurs here
+...
+29 |         context.exclusive_module(&mut module).erase(&chosen);
+   |                                  ^^^^^^^^^^^ mutable borrow occurs here
 30 |         let _ = global.name();
    |                 ------ immutable borrow later used here

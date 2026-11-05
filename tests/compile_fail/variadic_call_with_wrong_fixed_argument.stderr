@@ -1,7 +1,7 @@
 error[E0308]: mismatched types
-  --> tests/compile_fail/variadic_call_with_wrong_fixed_argument.rs:23:39
+  --> tests/compile_fail/variadic_call_with_wrong_fixed_argument.rs:24:39
    |
-23 |         let _ = builder.call(print, ((wide,), &[one.to_dynamic()]), "");
+24 |         let _ = builder.call(print, ((wide,), &[one.to_dynamic()]), "");
    |                                       ^^^^ expected `32`, found `64`
    |
    = note: expected struct `lyftar::Value<'_, '_, lyftar::Integer<lyftar::Bits<32>>>`

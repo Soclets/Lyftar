@@ -5,7 +5,7 @@ error: lifetime may not live long enough
    |                                  -------- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ returning this value requires that `'1` must outlive `'2`
    |                                  |      |
    |                                  |      return type of closure is lyftar::Value<'2, '_, lyftar::Integer<lyftar::Bits<64>>>
-   |                                  has type `lyftar::Context<'1>`
+   |                                  has type `&mut lyftar::Context<'1>`
    |
    = note: requirement occurs because of the type `lyftar::Value<'_, '_, lyftar::Integer<lyftar::Bits<64>>>`, which makes the generic argument `'_` invariant
    = note: the struct `lyftar::Value<'context, 'module, T>` is invariant over the parameter `'context`

@@ -77,6 +77,7 @@ fn decision_32_constants_and_memory_keep_their_specific_type() {
     with_context(|context| {
         type Pair = Struct<(I32, I32)>;
         let module = context.create_module("aggregates");
+        let module = context.module(&module);
         let pair = context.get_type::<Pair>();
         let function_type =
             context.function_type(pair.to_dynamic(), &[context.get_type::<Pointer>().to_dynamic()], false);
@@ -90,7 +91,7 @@ fn decision_32_constants_and_memory_keep_their_specific_type() {
         assert_eq!(module.verify(), Ok(()));
         let i32_type = context.get_type::<I32>();
         let one = i32_type.constant_integer(1, false);
-        let constant = i32_type.constant_array(&[one, one]).checked_cast::<Array<I32, Elements<2>>>();
+        let constant = context.constant_array(i32_type, &[one, one]).checked_cast::<Array<I32, Elements<2>>>();
         assert_eq!(constant.print_to_string(), "[2 x i32] [i32 1, i32 1]");
     });
 }
@@ -101,6 +102,7 @@ fn decision_32_vectors_are_operands_with_no_check_left_to_run() {
         type Four = Vector<I32, Elements<4>>;
         type FourFloats = Vector<F64, Elements<4>>;
         let module = context.create_module("vectors");
+        let module = context.module(&module);
         let four = context.get_type::<Four>();
         let floats = context.get_type::<FourFloats>();
         let parameters = [four.to_dynamic(), floats.to_dynamic()];
@@ -127,6 +129,7 @@ fn decision_32_scalable_vectors_are_operands_too() {
     with_context(|context| {
         type Scaled = ScalableVector<I32, MinimumElements<4>>;
         let module = context.create_module("vectors");
+        let module = context.module(&module);
         let scaled = context.get_type::<Scaled>();
         let function =
             module.add_function("f", context.function_type(scaled.to_dynamic(), &[scaled.to_dynamic()], false));
@@ -146,6 +149,7 @@ fn decision_32_a_struct_with_no_known_size_still_cant_be_loaded() {
     with_context(|context| {
         type NoSize = Struct<(ScalableVector<I32, MinimumElements<4>>, I32)>;
         let module = context.create_module("m");
+        let module = context.module(&module);
         let pointer = context.get_type::<Pointer>();
         let function =
             module.add_function("f", context.function_type(context.void_type(), &[pointer.to_dynamic()], false));

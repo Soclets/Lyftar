@@ -16,6 +16,9 @@ need `libclang` for it, and neither has been run yet.
 
 All work happens inside `with_context`, and nothing that belongs to the context can leave it. Plain data can.
 
+You own an `OwnedModule`, and reach what's in it through the context: `context.module(&m)` to read and build, and
+`context.exclusive_module(&mut m)` for what can delete things, such as running passes.
+
 ```rust
 use lyftar::target::{CodeGenerationFileType, TargetMachine};
 use lyftar::passes::PassOptions;
@@ -26,9 +29,10 @@ type I64 = Integer<Bits<64>>;
 fn object_file() -> Vec<u8> {
     let machine = TargetMachine::for_host().expect("this machine has a target");
     with_context(|context| {
-        let mut module = context.create_module("example");
-        module.set_target_machine(&machine);
+        let mut program = context.create_module("example");
         {
+            let module = context.module(&program);
+            module.set_target_machine(&machine);
             let i64_type = context.get_type::<I64>();
             let dynamic = i64_type.to_dynamic();
             let function = module.add_function("add_one", context.function_type(dynamic, &[dynamic], false));
@@ -36,10 +40,15 @@ fn object_file() -> Vec<u8> {
             let parameter = function.parameter(0).checked_cast::<I64>();
             let sum = builder.integer_add(parameter, i64_type.constant_integer(1, false), "sum");
             builder.return_value(sum);
+            module.verify().expect("valid IR");
         }
-        module.verify().expect("valid IR");
-        module.run_passes("default<O2>", Some(&machine), &PassOptions::default()).expect("the pipeline");
-        let buffer = machine.emit_to_memory_buffer(&mut module, CodeGenerationFileType::Object).expect("code generation");
+        context
+            .exclusive_module(&mut program)
+            .run_passes("default<O2>", Some(&machine), &PassOptions::default())
+            .expect("the pipeline");
+        let buffer = machine
+            .emit_to_memory_buffer(context.exclusive_module(&mut program), CodeGenerationFileType::Object)
+            .expect("code generation");
         buffer.as_bytes().to_vec()
     })
 }
@@ -55,7 +64,8 @@ use lyftar::{Bits, Builder, Function, Integer, Value, Void, with_context};
 type I32 = Integer<Bits<32>>;
 
 with_context(|context| {
-    let module = context.create_module("example");
+    let program = context.create_module("example");
+    let module = context.module(&program);
     let add = module.add_specific_function::<Function<I32, (I32, I32)>>("add");
     let caller = module.add_specific_function::<Function<Void, ()>>("caller");
     let builder = Builder::at_end_of(caller.append_basic_block("entry"));
@@ -67,7 +77,14 @@ with_context(|context| {
 ```
 
  A bad build call panics and names the problem, and what can really fail, such as reading a file,
-returns an error. A value borrows its module, so one held across a delete or a pass run doesn't compile.
+returns an error.
+
+Every value borrows the context, and an exclusive call needs the context to itself, so a value held across a delete or a pass
+run on any module doesn't compile. That's because LLVM's passes can delete a constant, and LLVM keeps one copy of an identical
+constant per context, so a pass on one module could otherwise delete what another module's code still holds. Types and plain data
+(integers, floats, null, undef, poison, zero, data arrays and vectors) borrow nothing and survive. Aggregates and constant
+expressions come from the context, as in `context.constant_struct(..)`, and can be shared across its modules. To keep a place in
+a module across an exclusive call, use a tracked handle from `module.track(value)`.
 
 ## Writing a pass
 
@@ -99,6 +116,7 @@ Linked into a compiler, it runs through `Module::run_passes_with`:
 #     }
 # }
 # fn run(module: &mut Module<'_>) -> Result<(), lyftar::error::Error> {
+// `module` is what `context.exclusive_module(&mut program)` gives.
 module.run_passes_with("count-functions", None, &PassOptions::default(), |builder| {
     builder.register_module_pass("count-functions", || CountFunctions);
 })?;
@@ -126,7 +144,7 @@ cargo run --manifest-path tools/coverage/Cargo.toml
 Run the AddressSanitizer and UBSan tests, which need nightly Rust:
 
 ```bash
-LYFTAR_SANITIZE=1 RUSTFLAGS="-Zsanitizer=address" cargo +nightly test --target aarch64-apple-darwin --target-dir target/sanitize --test decision_2_end_to_end --test decision_3_panics --test decision_3_pass_aborts --test decision_4_build_calls --test decision_10_jit --test decision_11_deletion --test decision_1_passes --test decision_16_modules --test decision_16_threads --test decision_30_bytes --test decision_31_pointers --test decision_32_aggregates --test decision_33_functions --test kayo_passes --no-fail-fast -- --skip plugin
+LYFTAR_SANITIZE=1 RUSTFLAGS="-Zsanitizer=address" cargo +nightly test --target aarch64-apple-darwin --target-dir target/sanitize --test decision_2_end_to_end --test decision_3_panics --test decision_3_pass_aborts --test decision_4_build_calls --test decision_10_jit --test decision_11_deletion --test decision_1_passes --test decision_16_modules --test decision_16_threads --test decision_30_bytes --test decision_31_pointers --test decision_32_aggregates --test decision_33_functions --test decision_43_modules --test kayo_passes --no-fail-fast -- --skip plugin
 ```
 
 Measure what Lyftar adds over raw LLVM calls, beside the saved table, and save a new one with `-- --save`:

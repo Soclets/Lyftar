@@ -1,0 +1,10 @@
+error[E0502]: cannot borrow `*context` as mutable because it is also borrowed as immutable
+  --> tests/compile_fail/constant_held_across_a_pass_on_another_module.rs:18:9
+   |
+16 |         let held = context.constant_struct(&[one, one], false);
+   |                    ------- immutable borrow occurs here
+17 |         context.module(&first).add_global("g", held.get_type()).set_initializer(held);
+18 |         context.exclusive_module(&mut second).run_passes("globaldce", None, &PassOptions::default()).unwrap();
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+19 |         let _ = held.print_to_string();
+   |                 ---- immutable borrow later used here

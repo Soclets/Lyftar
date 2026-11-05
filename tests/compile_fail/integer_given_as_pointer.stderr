@@ -1,7 +1,7 @@
 error[E0277]: the trait bound `lyftar::Integer<lyftar::Bits<64>>: PointerOperand` is not satisfied
-  --> tests/compile_fail/integer_given_as_pointer.rs:23:40
+  --> tests/compile_fail/integer_given_as_pointer.rs:24:40
    |
-23 |         let _ = builder.load(i64_type, i64_type.constant_integer(1, false), "");
+24 |         let _ = builder.load(i64_type, i64_type.constant_integer(1, false), "");
    |                         ----           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `FunctionMarker` is not implemented for `lyftar::Integer<lyftar::Bits<64>>`
    |                         |
    |                         required by a bound introduced by this call

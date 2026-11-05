@@ -14,6 +14,7 @@ type F64 = Float<Ieee754Binary<Bits<64>>>;
 fn decision_4_specific_integer_arithmetic_verifies() {
     with_context(|context| {
         let module = context.create_module("arithmetic");
+        let module = context.module(&module);
         let i64_type = context.get_type::<I64>();
         let function_type =
             context.function_type(i64_type.to_dynamic(), &[i64_type.to_dynamic(), i64_type.to_dynamic()], false);
@@ -56,6 +57,7 @@ fn decision_4_specific_integer_arithmetic_verifies() {
 fn decision_4_dynamic_float_compare_cast_and_control_flow_verify() {
     with_context(|context| {
         let module = context.create_module("flow");
+        let module = context.module(&module);
         let f64_type = context.get_type::<F64>();
         let i32_type = context.get_type::<I32>();
         let i64_type = context.get_type::<I64>();
@@ -100,6 +102,7 @@ fn decision_4_dynamic_float_compare_cast_and_control_flow_verify() {
 fn decision_4_memory_calls_and_atomics_verify() {
     with_context(|context| {
         let module = context.create_module("memory");
+        let module = context.module(&module);
         let i8_type = context.get_type::<I8>();
         let i64_type = context.get_type::<I64>();
         let pointer_type = context.pointer_type(0);
@@ -149,10 +152,11 @@ fn decision_4_memory_calls_and_atomics_verify() {
 fn decision_4_globals_and_aggregates_verify() {
     with_context(|context| {
         let module = context.create_module("globals");
+        let module = context.module(&module);
         let i32_type = context.get_type::<I32>();
         let array = i32_type.array_type(2);
         let two = [i32_type.constant_integer(1, false), i32_type.constant_integer(2, false)];
-        let initializer = i32_type.constant_array(&two);
+        let initializer = context.constant_array(i32_type, &two);
         let global = module.add_global("table", array);
         global.set_initializer(initializer);
         global.set_linkage(Linkage::Private);

@@ -11,6 +11,7 @@ type Space5 = Pointer<AddressSpace<5>>;
 fn main() {
     with_context(|context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let default_type = context.get_type::<Pointer>();
         let space_5_type = context.get_type::<Space5>();
         let function = module.add_function("f", context.function_type(context.void_type(), &[], false));

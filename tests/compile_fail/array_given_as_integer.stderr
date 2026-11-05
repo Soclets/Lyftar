@@ -1,7 +1,7 @@
 error[E0277]: the trait bound `lyftar::Array<lyftar::Integer<lyftar::Bits<32>>, lyftar::Elements<2>>: IntegerOperand` is not satisfied
-  --> tests/compile_fail/array_given_as_integer.rs:22:25
+  --> tests/compile_fail/array_given_as_integer.rs:23:25
    |
-22 |         let _ = builder.integer_add(array, array, "");
+23 |         let _ = builder.integer_add(array, array, "");
    |                         ^^^^^^^^^^^ the trait `IntegerOperand` is not implemented for `lyftar::Array<lyftar::Integer<lyftar::Bits<32>>, lyftar::Elements<2>>`
    |
    = help: the following other types implement trait `IntegerOperand`:

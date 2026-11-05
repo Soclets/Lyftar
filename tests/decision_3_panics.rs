@@ -60,15 +60,15 @@ fn function_in<'context, 'module>(
     (function, block, Builder::at_end_of(block))
 }
 
-fn dynamic_i64<'context>(context: Context<'context>) -> Value<'context, 'static> {
+fn dynamic_i64<'context>(context: &Context<'context>) -> Value<'context, 'static> {
     context.get_type::<I64>().constant_integer(1, false).to_dynamic()
 }
 
-fn dynamic_i32<'context>(context: Context<'context>) -> Value<'context, 'static> {
+fn dynamic_i32<'context>(context: &Context<'context>) -> Value<'context, 'static> {
     context.get_type::<I32>().constant_integer(1, false).to_dynamic()
 }
 
-fn i64_vector<'context>(context: Context<'context>) -> Type<'context> {
+fn i64_vector<'context>(context: &Context<'context>) -> Type<'context> {
     context.get_type::<I64>().vector_type(2)
 }
 
@@ -87,10 +87,10 @@ panics!(decision_3_a_kind_check_names_what_was_wanted, "is_variadic: i64 is not 
     let _ = context.get_type::<I64>().is_variadic();
 });
 panics!(decision_3_size_of_something_unsized_panics, "size_of: void has no size", |context| {
-    let _ = context.void_type().size_of();
+    let _ = context.size_of(context.void_type());
 });
 panics!(decision_3_alignment_of_something_unsized_panics, "alignment_of: void has no size", |context| {
-    let _ = context.void_type().alignment_of();
+    let _ = context.alignment_of(context.void_type());
 });
 panics!(
     decision_3_setting_a_struct_body_twice_panics,
@@ -189,7 +189,8 @@ panics!(
     "replace_all_uses_with: i64 %0 and i32 1 have different types",
     |context| {
         let module = context.create_module("m");
-        let (function, _, _) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, _) = function_in(module, "f");
         function.parameter(0).replace_all_uses_with(dynamic_i32(context));
     }
 );
@@ -205,7 +206,8 @@ panics!(
     "operand: index 2 is out of bounds for 2 operands",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let sum = builder.integer_add(function.parameter(0), function.parameter(0), "");
         let _ = sum.checked_cast::<Instruction>().operand(2);
     }
@@ -220,7 +222,8 @@ panics!(
     "set_operand: i32 1 doesn't have the type of operand 0",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let sum = builder.integer_add(function.parameter(0), function.parameter(0), "");
         sum.checked_cast::<Instruction>().set_operand(0, dynamic_i32(context));
     }
@@ -230,9 +233,11 @@ panics!(
     "set_operand: i64 %0 belongs to another module than",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
-        let (function, _, builder) = function_in(&module, "f");
-        let (elsewhere, _, _) = function_in(&other, "g");
+        let other = context.module(&other);
+        let (function, _, builder) = function_in(module, "f");
+        let (elsewhere, _, _) = function_in(other, "g");
         let sum = builder.integer_add(function.parameter(0), function.parameter(0), "");
         sum.checked_cast::<Instruction>().set_operand(0, elsewhere.parameter(0));
     }
@@ -242,7 +247,8 @@ panics!(
     "Linkage: LLVM's value 99 is one this Lyftar doesn't name",
     |context| {
         let module = context.create_module("m");
-        let (function, _, _) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, _) = function_in(module, "f");
         function.set_linkage(Linkage::Unknown(99));
     }
 );
@@ -254,14 +260,16 @@ panics!(
     "integer_add: the block already ends in a terminator, or the builder is before a phi",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         builder.return_void();
         let _ = builder.integer_add(function.parameter(0), function.parameter(0), "");
     }
 );
 panics!(decision_3_an_instruction_before_a_phi_panics, "the builder is before a phi", |context| {
     let module = context.create_module("m");
-    let (function, block, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (function, block, builder) = function_in(module, "f");
     let phi = builder.phi(context.get_type::<I64>(), "phi");
     builder.position(block, Some(phi));
     let _ = builder.integer_add(function.parameter(0), function.parameter(0), "");
@@ -271,7 +279,8 @@ panics!(
     "return_void: a terminator goes at the end of a block that doesn't have one yet",
     |context| {
         let module = context.create_module("m");
-        let (_, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, _, builder) = function_in(module, "f");
         builder.return_void();
         builder.return_void();
     }
@@ -281,9 +290,11 @@ panics!(
     "integer_add: i64 %0 belongs to another module than this builder's",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
-        let (function, _, builder) = function_in(&module, "f");
-        let (elsewhere, _, _) = function_in(&other, "g");
+        let other = context.module(&other);
+        let (function, _, builder) = function_in(module, "f");
+        let (elsewhere, _, _) = function_in(other, "g");
         let _ = builder.integer_add(function.parameter(0), elsewhere.parameter(0), "");
     }
 );
@@ -292,10 +303,12 @@ panics!(
     "belongs to another module than this builder's",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
-        let (_, _, builder) = function_in(&module, "f");
+        let other = context.module(&other);
+        let (_, _, builder) = function_in(module, "f");
         let global = other.add_global("g", context.get_type::<I64>());
-        let address = global.as_pointer().constant_pointer_to_integer(context.get_type::<I64>());
+        let address = context.constant_pointer_to_integer(global.as_pointer(), context.get_type::<I64>());
         let _ = builder.integer_add(address, address, "");
     }
 );
@@ -304,16 +317,19 @@ panics!(
     "position_at_end: block %entry belongs to another module than this builder's",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
-        let (_, _, builder) = function_in(&module, "f");
-        let (_, elsewhere, _) = function_in(&other, "g");
+        let other = context.module(&other);
+        let (_, _, builder) = function_in(module, "f");
+        let (_, elsewhere, _) = function_in(other, "g");
         builder.position_at_end(elsewhere);
     }
 );
 panics!(decision_3_a_branch_to_another_function_panics, "branch: block %entry is in another function", |context| {
     let module = context.create_module("m");
-    let (_, _, builder) = function_in(&module, "f");
-    let (_, elsewhere, _) = function_in(&module, "g");
+    let module = context.module(&module);
+    let (_, _, builder) = function_in(module, "f");
+    let (_, elsewhere, _) = function_in(module, "g");
     builder.branch(elsewhere);
 });
 panics!(
@@ -321,15 +337,18 @@ panics!(
     "branch: block %entry belongs to another module than this builder's",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
-        let (_, _, builder) = function_in(&module, "f");
-        let (_, elsewhere, _) = function_in(&other, "g");
+        let other = context.module(&other);
+        let (_, _, builder) = function_in(module, "f");
+        let (_, elsewhere, _) = function_in(other, "g");
         builder.branch(elsewhere);
     }
 );
 panics!(decision_3_positioning_at_an_instruction_outside_the_block_panics, "position: ", |context| {
     let module = context.create_module("m");
-    let (function, block, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (function, block, builder) = function_in(module, "f");
     let other = function.append_basic_block("other");
     let sum = builder.integer_add(function.parameter(0), function.parameter(0), "sum");
     builder.position(other, sum.as_kind::<Instruction>());
@@ -340,7 +359,8 @@ panics!(
     "position_before_debug_records: ",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let other = function.append_basic_block("other");
         let sum = builder.integer_add(function.parameter(0), function.parameter(0), "sum");
         builder.position_before_debug_records(other, sum.as_kind::<Instruction>());
@@ -354,7 +374,8 @@ panics!(
     "integer_add: the operands have different types, i64 and i32",
     |context| {
         let module = context.create_module("m");
-        let (_, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, _, builder) = function_in(module, "f");
         let _ = builder.integer_add(dynamic_i64(context), dynamic_i32(context), "");
     }
 );
@@ -363,7 +384,8 @@ panics!(
     "integer_add: ptr %1 is not an integer or a vector of integers",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let _ = builder.integer_add(function.parameter(1), function.parameter(1), "");
     }
 );
@@ -372,13 +394,15 @@ panics!(
     "float_add: i64 %0 is not a float or a vector of floats",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let _ = builder.float_add(function.parameter(0), function.parameter(0), "");
     }
 );
 panics!(decision_4_a_dynamic_integer_given_as_a_pointer_panics, "load: i64 %0 is not a pointer", |context| {
     let module = context.create_module("m");
-    let (function, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (function, _, builder) = function_in(module, "f");
     let _ = builder.load(context.get_type::<I64>(), function.parameter(0), "");
 });
 panics!(
@@ -386,7 +410,8 @@ panics!(
     "memory_set: <2 x i64> zeroinitializer is not a single integer",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let byte = context.get_type::<I8>().constant_integer(0, false);
         let _ = builder.memory_set(function.parameter(1), byte, i64_vector(context).constant_null(), 1);
     }
@@ -396,18 +421,21 @@ panics!(
     "conditional_branch: i64 %0 is not an i1",
     |context| {
         let module = context.create_module("m");
-        let (function, block, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, block, builder) = function_in(module, "f");
         let _ = builder.conditional_branch(function.parameter(0), block, block);
     }
 );
 panics!(decision_3_a_cast_llvm_forbids_panics, "zero_extend: can't cast i64 1 to i32", |context| {
     let module = context.create_module("m");
-    let (_, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (_, _, builder) = function_in(module, "f");
     let _ = builder.zero_extend(dynamic_i64(context), context.get_type::<I32>(), "");
 });
 panics!(decision_3_a_cast_opcode_that_isnt_a_cast_panics, "cast: can't cast i64 1 to i32", |context| {
     let module = context.create_module("m");
-    let (_, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (_, _, builder) = function_in(module, "f");
     let _ = builder.cast(Opcode::IntegerAdd, dynamic_i64(context), context.get_type::<I32>(), "");
 });
 panics!(
@@ -415,7 +443,8 @@ panics!(
     "binary_operation: FloatAdd doesn't take i64 1 and i64 1",
     |context| {
         let module = context.create_module("m");
-        let (_, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, _, builder) = function_in(module, "f");
         let _ = builder.binary_operation(Opcode::FloatAdd, dynamic_i64(context), dynamic_i64(context), "");
     }
 );
@@ -424,35 +453,41 @@ panics!(
     "pointer_difference: void has no size",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let pointer = function.parameter(1);
         let _ = builder.pointer_difference(context.void_type(), pointer, pointer, "");
     }
 );
 panics!(decision_3_an_either_cast_llvm_forbids_panics, "truncate_or_bit_cast: can't cast i32 1 to i64", |context| {
     let module = context.create_module("m");
-    let (_, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (_, _, builder) = function_in(module, "f");
     let _ = builder.truncate_or_bit_cast(dynamic_i32(context), context.get_type::<I64>().to_dynamic(), "");
 });
 panics!(decision_3_a_pointer_cast_llvm_forbids_panics, "pointer_cast: can't cast ptr %1 to float", |context| {
     let module = context.create_module("m");
-    let (function, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (function, _, builder) = function_in(module, "f");
     let _ = builder.pointer_cast(function.parameter(1), context.get_type::<F32>(), "");
 });
 panics!(decision_3_an_integer_cast_to_a_vector_panics, "integer_cast: can't cast i64 1 to <2 x i64>", |context| {
     let module = context.create_module("m");
-    let (_, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (_, _, builder) = function_in(module, "f");
     let _ = builder.integer_cast(dynamic_i64(context), i64_vector(context), false, "");
 });
 panics!(decision_3_a_float_cast_to_an_integer_panics, "float_cast: can't cast double 1.000000e+00 to i64", |context| {
     let module = context.create_module("m");
-    let (_, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (_, _, builder) = function_in(module, "f");
     let float = context.get_type::<F64>().constant_float(1.0).to_dynamic();
     let _ = builder.float_cast(float, context.get_type::<I64>().to_dynamic(), "");
 });
 panics!(decision_3_a_stack_allocation_of_something_unsized_panics, "stack_allocate: void has no size", |context| {
     let module = context.create_module("m");
-    let (_, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (_, _, builder) = function_in(module, "f");
     let _ = builder.stack_allocate(context.void_type(), "");
 });
 panics!(
@@ -460,19 +495,22 @@ panics!(
     "memory_set: 3 is not zero or a power of two",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let byte = context.get_type::<I8>().constant_integer(0, false);
         let _ = builder.memory_set(function.parameter(1), byte, dynamic_i64(context), 3);
     }
 );
 panics!(decision_3_a_load_of_a_function_type_panics, "load: void (i64, ptr) can't be loaded or stored", |context| {
     let module = context.create_module("m");
-    let (function, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (function, _, builder) = function_in(module, "f");
     let _ = builder.load(function.value_type(), function.parameter(1), "");
 });
 panics!(decision_3_a_phi_of_void_panics, "phi: void isn't a type a value can have here", |context| {
     let module = context.create_module("m");
-    let (_, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (_, _, builder) = function_in(module, "f");
     let _ = builder.phi(context.void_type(), "");
 });
 panics!(
@@ -480,7 +518,8 @@ panics!(
     "get_element_pointer: those indices don't fit { i64 }",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let pair = context.struct_type(&[context.get_type::<I64>().to_dynamic()], false);
         let _ =
             builder.get_element_pointer(pair, function.parameter(1), &[dynamic_i64(context), dynamic_i64(context)], "");
@@ -491,14 +530,16 @@ panics!(
     "struct_get_element_pointer: index 1 is out of bounds for { i64 }",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let pair = context.struct_type(&[context.get_type::<I64>().to_dynamic()], false);
         let _ = builder.struct_get_element_pointer(pair, function.parameter(1), 1, "");
     }
 );
 panics!(decision_3_a_phi_after_something_else_panics, "phi: phis must come first in a block", |context| {
     let module = context.create_module("m");
-    let (function, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (function, _, builder) = function_in(module, "f");
     let _ = builder.integer_add(function.parameter(0), function.parameter(0), "");
     let _ = builder.phi(context.get_type::<I64>(), "");
 });
@@ -507,7 +548,8 @@ panics!(
     "call_indirect: i64 is not a function type",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let _ = builder.call_indirect::<_, lyftar::Dynamic>(
             context.get_type::<I64>().to_dynamic(),
             function.parameter(1),
@@ -521,7 +563,8 @@ panics!(
     "call: void (i64, ptr) can't take 0 arguments",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let none: [Value<'_, '_>; 0] = [];
         let _ = builder.call(function, &none, "");
     }
@@ -531,28 +574,33 @@ panics!(
     "call: argument 1, i64 1, doesn't have the type",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let _ = builder.call(function, &[dynamic_i64(context), dynamic_i64(context)], "");
     }
 );
 panics!(decision_3_a_select_with_a_bad_condition_panics, "select: i64 1 can't pick between", |context| {
     let module = context.create_module("m");
-    let (_, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (_, _, builder) = function_in(module, "f");
     let _ = builder.select(dynamic_i64(context), dynamic_i64(context), dynamic_i64(context), "");
 });
 panics!(decision_3_an_element_of_a_scalar_panics, "extract_element: can't take element i64 1 of i64 1", |context| {
     let module = context.create_module("m");
-    let (_, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (_, _, builder) = function_in(module, "f");
     let _ = builder.extract_element(dynamic_i64(context), dynamic_i64(context), "");
 });
 panics!(decision_3_inserting_into_a_scalar_panics, "insert_element: can't put i64 1 in i64 1 at i64 1", |context| {
     let module = context.create_module("m");
-    let (_, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (_, _, builder) = function_in(module, "f");
     let _ = builder.insert_element(dynamic_i64(context), dynamic_i64(context), dynamic_i64(context), "");
 });
 panics!(decision_3_shuffling_scalars_panics, "shuffle_vector: can't shuffle i64 1 and i64 1 by i64 1", |context| {
     let module = context.create_module("m");
-    let (_, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (_, _, builder) = function_in(module, "f");
     let _ = builder.shuffle_vector(dynamic_i64(context), dynamic_i64(context), dynamic_i64(context), "");
 });
 panics!(
@@ -560,7 +608,8 @@ panics!(
     "extract_value: { i64 } zeroinitializer has no element 1",
     |context| {
         let module = context.create_module("m");
-        let (_, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, _, builder) = function_in(module, "f");
         let pair = context.struct_type(&[context.get_type::<I64>().to_dynamic()], false);
         let _ = builder.extract_value(pair.constant_null(), 1, "");
     }
@@ -570,7 +619,8 @@ panics!(
     "insert_value: i32 1 can't go at element 0 of { i64 } zeroinitializer",
     |context| {
         let module = context.create_module("m");
-        let (_, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, _, builder) = function_in(module, "f");
         let pair = context.struct_type(&[context.get_type::<I64>().to_dynamic()], false);
         let _ = builder.insert_value(pair.constant_null(), dynamic_i32(context), 0, "");
     }
@@ -580,7 +630,8 @@ panics!(
 
 panics!(decision_3_a_weak_atomicrmw_panics, "atomic_read_modify_write: an atomicrmw can't be Unordered", |context| {
     let module = context.create_module("m");
-    let (function, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (function, _, builder) = function_in(module, "f");
     let _ = builder.atomic_read_modify_write(
         AtomicReadModifyWriteOperation::Add,
         function.parameter(1),
@@ -594,7 +645,8 @@ panics!(
     "atomic_read_modify_write: FloatAdd doesn't take i64 1",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let _ = builder.atomic_read_modify_write(
             AtomicReadModifyWriteOperation::FloatAdd,
             function.parameter(1),
@@ -609,7 +661,8 @@ panics!(
     "atomic_compare_exchange: a cmpxchg can't be Monotonic then Release",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let _ = builder.atomic_compare_exchange(
             function.parameter(1),
             dynamic_i64(context),
@@ -625,7 +678,8 @@ panics!(
     "atomic_compare_exchange: double 1.000000e+00 isn't an integer or a pointer",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let float = context.get_type::<F64>().constant_float(1.0);
         let _ = builder.atomic_compare_exchange(
             function.parameter(1),
@@ -639,7 +693,8 @@ panics!(
 );
 panics!(decision_3_a_weak_fence_panics, "fence: a fence can't be Monotonic", |context| {
     let module = context.create_module("m");
-    let (_, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (_, _, builder) = function_in(module, "f");
     builder.fence(AtomicOrdering::Monotonic, false);
 });
 
@@ -650,6 +705,7 @@ panics!(
     "return_void: this function returns a value",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let i64_type = context.get_type::<I64>().to_dynamic();
         let function = module.add_function("f", context.function_type(i64_type, &[], false));
         let builder = Builder::at_end_of(function.append_basic_block("entry"));
@@ -658,7 +714,8 @@ panics!(
 );
 panics!(decision_3_returning_the_wrong_type_panics, "return_value: this function returns void, not i64 1", |context| {
     let module = context.create_module("m");
-    let (_, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (_, _, builder) = function_in(module, "f");
     builder.return_value(dynamic_i64(context));
 });
 panics!(
@@ -666,7 +723,8 @@ panics!(
     "aggregate_return: this function returns void, which 1 values don't make",
     |context| {
         let module = context.create_module("m");
-        let (_, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, _, builder) = function_in(module, "f");
         builder.aggregate_return(&[dynamic_i64(context)]);
     }
 );
@@ -699,7 +757,7 @@ panics!(
 );
 panics!(decision_3_a_constant_array_of_void_panics, "constant_array: void can't be an array's element", |context| {
     let none: [Value<'_, '_>; 0] = [];
-    let _ = context.void_type().constant_array(&none);
+    let _ = context.constant_array(context.void_type(), &none);
 });
 panics!(
     decision_22_data_that_doesnt_fill_its_elements_panics,
@@ -714,12 +772,12 @@ panics!(
     |context| {
         let pair = context.struct_type(&[context.get_type::<I64>().to_dynamic()], false);
         let none: [Value<'_, '_>; 0] = [];
-        let _ = pair.constant_named_struct(&none);
+        let _ = context.constant_named_struct(pair, &none);
     }
 );
 panics!(decision_3_a_named_struct_with_the_wrong_type_panics, "constant_named_struct: i32 1 is not a i64", |context| {
     let pair = context.struct_type(&[context.get_type::<I64>().to_dynamic()], false);
-    let _ = pair.constant_named_struct(&[dynamic_i32(context)]);
+    let _ = context.constant_named_struct(pair, &[dynamic_i32(context)]);
 });
 panics!(
     decision_3_inline_assembly_with_bad_constraints_panics,
@@ -758,12 +816,13 @@ panics!(
     "constant_array: i64 %0 is not a constant",
     |context| {
         let module = context.create_module("m");
-        let (function, _, _) = function_in(&module, "f");
-        let _ = context.get_type::<I64>().constant_array(&[function.parameter(0)]);
+        let module = context.module(&module);
+        let (function, _, _) = function_in(module, "f");
+        let _ = context.constant_array(context.get_type::<I64>(), &[function.parameter(0)]);
     }
 );
 panics!(decision_3_a_constant_array_of_another_type_panics, "constant_array: i32 1 is not a i64", |context| {
-    let _ = context.get_type::<I64>().constant_array(&[dynamic_i32(context)]);
+    let _ = context.constant_array(context.get_type::<I64>(), &[dynamic_i32(context)]);
 });
 panics!(
     decision_22_an_element_of_constant_data_out_of_bounds_panics,
@@ -775,7 +834,8 @@ panics!(
 );
 panics!(decision_3_the_entry_blocks_address_panics, "address: the entry block's address can't be taken", |context| {
     let module = context.create_module("m");
-    let (_, block, _) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (_, block, _) = function_in(module, "f");
     let _ = block.address();
 });
 panics!(
@@ -783,9 +843,10 @@ panics!(
     "constant_add: i64 %0 and i64 1 must both be constants",
     |context| {
         let module = context.create_module("m");
-        let (function, _, _) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, _) = function_in(module, "f");
         let parameter = function.parameter(0).checked_cast::<Integer>();
-        let _ = parameter.constant_add(dynamic_i64(context).checked_cast());
+        let _ = context.constant_add(parameter, dynamic_i64(context).checked_cast());
     }
 );
 panics!(
@@ -794,7 +855,7 @@ panics!(
     |context| {
         let left = dynamic_i64(context).checked_cast::<Integer>();
         let right = dynamic_i32(context).checked_cast::<Integer>();
-        let _ = left.constant_add(right);
+        let _ = context.constant_add(left, right);
     }
 );
 panics!(
@@ -802,8 +863,9 @@ panics!(
     "constant_negate: i64 %0 is not a constant",
     |context| {
         let module = context.create_module("m");
-        let (function, _, _) = function_in(&module, "f");
-        let _ = function.parameter(0).checked_cast::<Integer>().constant_negate();
+        let module = context.module(&module);
+        let (function, _, _) = function_in(module, "f");
+        let _ = context.constant_negate(function.parameter(0).checked_cast::<Integer>());
     }
 );
 panics!(
@@ -811,7 +873,7 @@ panics!(
     "constant_truncate: i64 is not narrower than 32 bits",
     |context| {
         let value = dynamic_i32(context).checked_cast::<Integer>();
-        let _ = value.constant_truncate(context.get_type::<I64>());
+        let _ = context.constant_truncate(value, context.get_type::<I64>());
     }
 );
 panics!(
@@ -819,8 +881,10 @@ panics!(
     "constant_pointer_to_integer: ptr %1 is not a constant",
     |context| {
         let module = context.create_module("m");
-        let (function, _, _) = function_in(&module, "f");
-        let _ = function.parameter(1).checked_cast::<Pointer>().constant_pointer_to_integer(context.get_type::<I64>());
+        let module = context.module(&module);
+        let (function, _, _) = function_in(module, "f");
+        let _ = context
+            .constant_pointer_to_integer(function.parameter(1).checked_cast::<Pointer>(), context.get_type::<I64>());
     }
 );
 panics!(
@@ -828,7 +892,8 @@ panics!(
     "constant_get_element_pointer: those indices don't fit void",
     |context| {
         let null = context.pointer_type(0).constant_null();
-        let _ = null.constant_get_element_pointer(
+        let _ = context.constant_get_element_pointer(
+            null,
             context.void_type(),
             &[dynamic_i64(context)],
             GetElementPointerFlags::NONE,
@@ -840,6 +905,7 @@ panics!(
     "constant_pointer_authentication: the key and discriminator must be constants",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let i64_type = context.get_type::<I64>().to_dynamic();
         let function = module.add_function(
             "f",
@@ -848,7 +914,8 @@ panics!(
         let null = context.pointer_type(0).constant_null();
         let _ = (
             i64_type,
-            null.constant_pointer_authentication(
+            context.constant_pointer_authentication(
+                null,
                 function.parameter(0).checked_cast(),
                 context.get_type::<I64>().constant_null(),
                 null,
@@ -857,20 +924,20 @@ panics!(
     }
 );
 panics!(decision_3_a_constant_bit_cast_llvm_forbids_panics, "constant_bit_cast: can't cast i64 1 to i32", |context| {
-    let _ = dynamic_i64(context).constant_bit_cast(context.get_type::<I32>().to_dynamic());
+    let _ = context.constant_bit_cast(dynamic_i64(context), context.get_type::<I32>().to_dynamic());
 });
 panics!(
     decision_3_a_constant_truncate_or_bit_cast_llvm_forbids_panics,
     "constant_truncate_or_bit_cast: can't cast i32 1 to i64",
     |context| {
-        let _ = dynamic_i32(context).constant_truncate_or_bit_cast(context.get_type::<I64>().to_dynamic());
+        let _ = context.constant_truncate_or_bit_cast(dynamic_i32(context), context.get_type::<I64>().to_dynamic());
     }
 );
 panics!(
     decision_3_a_constant_pointer_cast_of_an_integer_panics,
     "constant_pointer_cast: can't cast i64 1 to i64",
     |context| {
-        let _ = dynamic_i64(context).constant_pointer_cast(context.get_type::<I64>().to_dynamic());
+        let _ = context.constant_pointer_cast(dynamic_i64(context), context.get_type::<I64>().to_dynamic());
     }
 );
 panics!(
@@ -878,29 +945,30 @@ panics!(
     "constant_bit_cast: i64 %0 is not a constant",
     |context| {
         let module = context.create_module("m");
-        let (function, _, _) = function_in(&module, "f");
-        let _ = function.parameter(0).constant_bit_cast(context.get_type::<I64>().to_dynamic());
+        let module = context.module(&module);
+        let (function, _, _) = function_in(module, "f");
+        let _ = context.constant_bit_cast(function.parameter(0), context.get_type::<I64>().to_dynamic());
     }
 );
 panics!(
     decision_3_a_constant_element_of_a_scalar_panics,
     "constant_extract_element: can't take element i64 1 of i64 1",
     |context| {
-        let _ = dynamic_i64(context).constant_extract_element(dynamic_i64(context));
+        let _ = context.constant_extract_element(dynamic_i64(context), dynamic_i64(context));
     }
 );
 panics!(
     decision_3_a_constant_insert_into_a_scalar_panics,
     "constant_insert_element: can't put i64 1 in i64 1 at i64 1",
     |context| {
-        let _ = dynamic_i64(context).constant_insert_element(dynamic_i64(context), dynamic_i64(context));
+        let _ = context.constant_insert_element(dynamic_i64(context), dynamic_i64(context), dynamic_i64(context));
     }
 );
 panics!(
     decision_3_a_constant_shuffle_of_scalars_panics,
     "constant_shuffle_vector: can't shuffle i64 1 and i64 1 by i64 1",
     |context| {
-        let _ = dynamic_i64(context).constant_shuffle_vector(dynamic_i64(context), dynamic_i64(context));
+        let _ = context.constant_shuffle_vector(dynamic_i64(context), dynamic_i64(context), dynamic_i64(context));
     }
 );
 
@@ -931,7 +999,8 @@ panics!(
     "add_attribute: parameter 2 is out of bounds for 2 parameters",
     |context| {
         let module = context.create_module("m");
-        let (function, _, _) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, _) = function_in(module, "f");
         let kind = AttributeKind::for_name("noundef").expect("an attribute");
         function.add_attribute(AttributeLocation::Parameter(2), context.enum_attribute(kind, 0));
     }
@@ -941,7 +1010,8 @@ panics!(
     "add_attribute: parameter 0 is out of bounds for 0 arguments",
     |context| {
         let module = context.create_module("m");
-        let (_, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, _, builder) = function_in(module, "f");
         let function_type = context.function_type(context.void_type(), &[], false);
         let callee = module.add_function("g", function_type);
         let none: [Value<'_, '_>; 0] = [];
@@ -958,7 +1028,8 @@ panics!(
     "set_calling_convention: calling convention 1024 is past LLVM's 1023",
     |context| {
         let module = context.create_module("m");
-        let (function, _, _) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, _) = function_in(module, "f");
         function.set_calling_convention(CallingConvention(1024));
     }
 );
@@ -967,7 +1038,8 @@ panics!(
     "set_visibility: a local global can only have default visibility",
     |context| {
         let module = context.create_module("m");
-        let (function, _, _) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, _) = function_in(module, "f");
         function.set_linkage(Linkage::Internal);
         function.set_visibility(Visibility::Hidden);
     }
@@ -977,22 +1049,27 @@ panics!(
     "get_or_insert_function: g is already a global that isn't a function",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let _ = module.add_global("g", context.get_type::<I64>());
         let _ = module.get_or_insert_function("g", context.function_type(context.void_type(), &[], false));
     }
 );
 panics!(decision_3_a_global_of_void_panics, "add_global: void can't be a global's type", |context| {
     let module = context.create_module("m");
+    let module = context.module(&module);
     let _ = module.add_global("g", context.void_type());
 });
 panics!(decision_11_an_alias_of_another_modules_global_panics, "add_alias: @g belongs to another module", |context| {
     let module = context.create_module("m");
+    let module = context.module(&module);
     let other = context.create_module("other");
+    let other = context.module(&other);
     let global = other.add_global("g", context.get_type::<I64>());
     let _ = module.add_alias(context.get_type::<I64>().to_dynamic(), 0, global, "alias");
 });
 panics!(decision_3_a_function_of_a_non_function_type_panics, "add_function: i64 is not a function type", |context| {
     let module = context.create_module("m");
+    let module = context.module(&module);
     let _ = module.add_function("f", context.get_type::<I64>().to_dynamic());
 });
 panics!(
@@ -1000,13 +1077,15 @@ panics!(
     "add_alias: ptr %1 is not a constant pointer",
     |context| {
         let module = context.create_module("m");
-        let (function, _, _) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, _) = function_in(module, "f");
         let _ = module.add_alias(context.get_type::<I64>().to_dynamic(), 0, function.parameter(1), "alias");
     }
 );
 panics!(decision_3_an_initializer_that_isnt_constant_panics, "set_initializer: i64 %0 is not a constant", |context| {
     let module = context.create_module("m");
-    let (function, _, _) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (function, _, _) = function_in(module, "f");
     module.add_global("g", context.get_type::<I64>()).set_initializer(function.parameter(0));
 });
 panics!(
@@ -1014,6 +1093,7 @@ panics!(
     "set_initializer: i32 1 doesn't have the type of",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         module.add_global("g", context.get_type::<I64>()).set_initializer(dynamic_i32(context));
     }
 );
@@ -1022,7 +1102,9 @@ panics!(
     "set_initializer: @other_global belongs to another module",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
+        let other = context.module(&other);
         let elsewhere = other.add_global("other_global", context.get_type::<I64>());
         module.add_global("g", context.pointer_type(0)).set_initializer(elsewhere);
     }
@@ -1032,7 +1114,9 @@ panics!(
     "set_aliasee: @other_global belongs to another module",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
+        let other = context.module(&other);
         let here = module.add_global("here", context.get_type::<I64>());
         let elsewhere = other.add_global("other_global", context.get_type::<I64>());
         let alias = module.add_alias(context.get_type::<I64>().to_dynamic(), 0, here, "alias");
@@ -1044,7 +1128,9 @@ panics!(
     "set_resolver: @other_global belongs to another module",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
+        let other = context.module(&other);
         let function_type = context.function_type(context.void_type(), &[], false);
         let resolver = module.add_function("resolver", function_type);
         let elsewhere = other.add_global("other_global", context.get_type::<I64>());
@@ -1057,7 +1143,8 @@ panics!(
     "parameter: index 2 is out of bounds for a function of 2 parameters",
     |context| {
         let module = context.create_module("m");
-        let (function, _, _) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, _) = function_in(module, "f");
         let _ = function.parameter(2);
     }
 );
@@ -1066,14 +1153,17 @@ panics!(
     "set_personality: @other_global belongs to another module",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
-        let (function, _, _) = function_in(&module, "f");
+        let other = context.module(&other);
+        let (function, _, _) = function_in(module, "f");
         function.set_personality(other.add_global("other_global", context.get_type::<I64>()));
     }
 );
 panics!(decision_3_prefix_data_that_isnt_constant_panics, "set_prefix_data: i64 %0 is not a constant", |context| {
     let module = context.create_module("m");
-    let (function, _, _) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (function, _, _) = function_in(module, "f");
     function.set_prefix_data(function.parameter(0));
 });
 panics!(
@@ -1081,8 +1171,10 @@ panics!(
     "set_prologue_data: @other_global belongs to another module",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
-        let (function, _, _) = function_in(&module, "f");
+        let other = context.module(&other);
+        let (function, _, _) = function_in(module, "f");
         function.set_prologue_data(other.add_global("other_global", context.get_type::<I64>()));
     }
 );
@@ -1091,7 +1183,8 @@ panics!(
     "set_alignment_in_bytes: 3 is not a power of two",
     |context| {
         let module = context.create_module("m");
-        let (function, _, _) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, _) = function_in(module, "f");
         function.parameters()[1].set_alignment_in_bytes(3);
     }
 );
@@ -1110,7 +1203,8 @@ panics!(
     "has_no_signed_wrap: %2 = zext i64 %0 to i128 is not an add, subtract, multiply or shift left",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let zero =
             builder.zero_extend(function.parameter(0), context.integer_type(128), "").checked_cast::<Instruction>();
         let _ = zero.has_no_signed_wrap();
@@ -1121,7 +1215,8 @@ panics!(
     "set_fast_math_flags: %sum = add i64 %0, %0 can't have fast-math flags",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         add_in(function, &builder).set_fast_math_flags(FastMathFlags::ALL);
     }
 );
@@ -1130,20 +1225,23 @@ panics!(
     "set_alignment_in_bytes: 6 is not a power of two",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let loaded = builder.load(context.get_type::<I64>(), function.parameter(1), "");
         loaded.checked_cast::<LoadInstruction>().set_alignment_in_bytes(6);
     }
 );
 panics!(decision_3_a_release_load_panics, "set_ordering: a load can't be Release", |context| {
     let module = context.create_module("m");
-    let (function, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (function, _, builder) = function_in(module, "f");
     let loaded = builder.load(context.get_type::<I64>(), function.parameter(1), "");
     loaded.checked_cast::<LoadInstruction>().set_ordering(AtomicOrdering::Release);
 });
 panics!(decision_3_an_acquire_store_panics, "set_ordering: a store can't be Acquire", |context| {
     let module = context.create_module("m");
-    let (function, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (function, _, builder) = function_in(module, "f");
     let stored: Value<'_, '_, StoreInstruction> = builder.store(function.parameter(0), function.parameter(1));
     stored.set_ordering(AtomicOrdering::Acquire);
 });
@@ -1152,7 +1250,8 @@ panics!(
     "set_ordering: an atomicrmw can't be NotAtomic",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let change: Value<'_, '_, AtomicReadModifyWriteInstruction> = builder.atomic_read_modify_write(
             AtomicReadModifyWriteOperation::Add,
             function.parameter(1),
@@ -1168,7 +1267,8 @@ panics!(
     "set_success_ordering: a cmpxchg can't be Unordered",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let exchange: Value<'_, '_, AtomicCompareExchangeInstruction> = builder.atomic_compare_exchange(
             function.parameter(1),
             function.parameter(0),
@@ -1185,7 +1285,8 @@ panics!(
     "set_failure_ordering: a failed cmpxchg can't be Release",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let exchange: Value<'_, '_, AtomicCompareExchangeInstruction> = builder.atomic_compare_exchange(
             function.parameter(1),
             function.parameter(0),
@@ -1199,7 +1300,8 @@ panics!(
 );
 panics!(decision_3_setting_a_weak_fence_ordering_panics, "set_ordering: a fence can't be Unordered", |context| {
     let module = context.create_module("m");
-    let (_, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (_, _, builder) = function_in(module, "f");
     let fence: Value<'_, '_, FenceInstruction> = builder.fence(AtomicOrdering::Acquire, false);
     fence.set_ordering(AtomicOrdering::Unordered);
 });
@@ -1208,7 +1310,8 @@ panics!(
     "incoming_value: index 0 is out of bounds for 0 incoming values",
     |context| {
         let module = context.create_module("m");
-        let (_, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, _, builder) = function_in(module, "f");
         let _ = builder.phi(context.get_type::<I64>(), "").incoming_value(0);
     }
 );
@@ -1217,7 +1320,8 @@ panics!(
     "add_incoming: i32 1 doesn't have the type of",
     |context| {
         let module = context.create_module("m");
-        let (_, block, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, block, builder) = function_in(module, "f");
         let phi = builder.phi(context.get_type::<I64>().to_dynamic(), "");
         phi.add_incoming(&[(dynamic_i32(context), block)]);
     }
@@ -1227,9 +1331,11 @@ panics!(
     "add_incoming: i64 %0 belongs to another module",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
-        let (_, block, builder) = function_in(&module, "f");
-        let (elsewhere, _, _) = function_in(&other, "g");
+        let other = context.module(&other);
+        let (_, block, builder) = function_in(module, "f");
+        let (elsewhere, _, _) = function_in(other, "g");
         let phi = builder.phi(context.get_type::<I64>().to_dynamic(), "");
         phi.add_incoming(&[(elsewhere.parameter(0), block)]);
     }
@@ -1239,8 +1345,9 @@ panics!(
     "add_incoming: %entry is in another function",
     |context| {
         let module = context.create_module("m");
-        let (_, _, builder) = function_in(&module, "f");
-        let (_, elsewhere, _) = function_in(&module, "g");
+        let module = context.module(&module);
+        let (_, _, builder) = function_in(module, "f");
+        let (_, elsewhere, _) = function_in(module, "g");
         let phi = builder.phi(context.get_type::<I64>().to_dynamic(), "");
         phi.add_incoming(&[(dynamic_i64(context), elsewhere)]);
     }
@@ -1250,21 +1357,24 @@ panics!(
     "add_case: i32 1 is not a constant of the switch's type",
     |context| {
         let module = context.create_module("m");
-        let (function, block, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, block, builder) = function_in(module, "f");
         let switch: Value<'_, '_, SwitchInstruction> = builder.switch(function.parameter(0), block, 1);
         switch.add_case(dynamic_i32(context), block);
     }
 );
 panics!(decision_3_a_switch_case_in_another_function_panics, "add_case: %entry is in another function", |context| {
     let module = context.create_module("m");
-    let (function, block, builder) = function_in(&module, "f");
-    let (_, elsewhere, _) = function_in(&module, "g");
+    let module = context.module(&module);
+    let (function, block, builder) = function_in(module, "f");
+    let (_, elsewhere, _) = function_in(module, "g");
     let switch = builder.switch(function.parameter(0), block, 1);
     switch.add_case(dynamic_i64(context), elsewhere);
 });
 panics!(decision_22_a_case_index_out_of_bounds_panics, "case_value: index 0 is out of bounds for 0 cases", |context| {
     let module = context.create_module("m");
-    let (function, block, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (function, block, builder) = function_in(module, "f");
     let _ = builder.switch(function.parameter(0), block, 1).case_value(0);
 });
 panics!(
@@ -1272,7 +1382,8 @@ panics!(
     "set_case_value: index 0 is out of bounds for 0 cases",
     |context| {
         let module = context.create_module("m");
-        let (function, block, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, block, builder) = function_in(module, "f");
         builder.switch(function.parameter(0), block, 1).set_case_value(0, dynamic_i64(context));
     }
 );
@@ -1281,7 +1392,8 @@ panics!(
     "set_case_value: i32 1 is not a constant of the switch's type",
     |context| {
         let module = context.create_module("m");
-        let (function, block, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, block, builder) = function_in(module, "f");
         let switch = builder.switch(function.parameter(0), block, 1);
         switch.add_case(dynamic_i64(context), block);
         switch.set_case_value(0, dynamic_i32(context));
@@ -1292,8 +1404,9 @@ panics!(
     "add_destination: %entry is in another function",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
-        let (_, elsewhere, _) = function_in(&module, "g");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
+        let (_, elsewhere, _) = function_in(module, "g");
         let branch: Value<'_, '_, IndirectBranchInstruction> = builder.indirect_branch(function.parameter(1), 1);
         branch.add_destination(elsewhere);
     }
@@ -1303,9 +1416,11 @@ panics!(
     "set_condition: %test = icmp eq i64 %0, %0 belongs to another module",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
-        let (function, block, builder) = function_in(&module, "f");
-        let (elsewhere, _, other_builder) = function_in(&other, "g");
+        let other = context.module(&other);
+        let (function, block, builder) = function_in(module, "f");
+        let (elsewhere, _, other_builder) = function_in(other, "g");
         let i1_type = context.get_type::<I1>();
         let branch: Value<'_, '_, ConditionalBranchInstruction> =
             builder.conditional_branch(i1_type.constant_integer(1, false), block, block);
@@ -1324,7 +1439,8 @@ panics!(
     "successor: index 0 is out of bounds for 0 successors",
     |context| {
         let module = context.create_module("m");
-        let (_, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, _, builder) = function_in(module, "f");
         let _ = builder.return_void().successor(0);
     }
 );
@@ -1333,14 +1449,16 @@ panics!(
     "set_successor: index 0 is out of bounds for 0 successors",
     |context| {
         let module = context.create_module("m");
-        let (_, block, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, block, builder) = function_in(module, "f");
         builder.return_void().set_successor(0, block);
     }
 );
 panics!(decision_3_a_successor_in_another_function_panics, "set_successor: %entry is in another function", |context| {
     let module = context.create_module("m");
-    let (_, block, builder) = function_in(&module, "f");
-    let (_, elsewhere, _) = function_in(&module, "g");
+    let module = context.module(&module);
+    let (_, block, builder) = function_in(module, "f");
+    let (_, elsewhere, _) = function_in(module, "g");
     builder.branch(block).set_successor(0, elsewhere);
 });
 panics!(
@@ -1348,7 +1466,8 @@ panics!(
     "argument: index 0 is out of bounds for 0 arguments",
     |context| {
         let module = context.create_module("m");
-        let (_, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, _, builder) = function_in(module, "f");
         let callee = module.add_function("g", context.function_type(context.void_type(), &[], false));
         let none: [Value<'_, '_>; 0] = [];
         let _ = builder.call(callee, &none, "").argument(0);
@@ -1359,7 +1478,8 @@ panics!(
     "set_parameter_alignment_in_bytes: 3 is not a power of two",
     |context| {
         let module = context.create_module("m");
-        let (_, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, _, builder) = function_in(module, "f");
         let callee = module.add_function("g", context.function_type(context.void_type(), &[], false));
         let none: [Value<'_, '_>; 0] = [];
         builder.call(callee, &none, "").set_parameter_alignment_in_bytes(AttributeLocation::Return, 3);
@@ -1370,7 +1490,8 @@ panics!(
     "set_called_function: g2 doesn't have the type this call is made through",
     |context| {
         let module = context.create_module("m");
-        let (_, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, _, builder) = function_in(module, "f");
         let callee = module.add_function("g", context.function_type(context.void_type(), &[], false));
         let other =
             module.add_function("g2", context.function_type(context.get_type::<I64>().to_dynamic(), &[], false));
@@ -1383,8 +1504,10 @@ panics!(
     "set_called_function: elsewhere belongs to another module",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
-        let (_, _, builder) = function_in(&module, "f");
+        let other = context.module(&other);
+        let (_, _, builder) = function_in(module, "f");
         let function_type = context.function_type(context.void_type(), &[], false);
         let callee = module.add_function("g", function_type);
         let elsewhere = other.add_function("elsewhere", function_type);
@@ -1397,7 +1520,8 @@ panics!(
     "does_not_capture: index 0 is out of bounds for 0 arguments",
     |context| {
         let module = context.create_module("m");
-        let (_, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, _, builder) = function_in(module, "f");
         let callee = module.add_function("g", context.function_type(context.void_type(), &[], false));
         let none: [Value<'_, '_>; 0] = [];
         let _ = builder.call(callee, &none, "").does_not_capture(0);
@@ -1408,8 +1532,9 @@ panics!(
     "set_normal_destination: %entry is in another function",
     |context| {
         let module = context.create_module("m");
-        let (_, block, builder) = function_in(&module, "f");
-        let (_, elsewhere, _) = function_in(&module, "g");
+        let module = context.module(&module);
+        let (_, block, builder) = function_in(module, "f");
+        let (_, elsewhere, _) = function_in(module, "g");
         let function_type = context.function_type(context.void_type(), &[], false);
         let callee = module.add_function("h", function_type);
         let none: [Value<'_, '_>; 0] = [];
@@ -1422,7 +1547,8 @@ panics!(
     "indirect_destination: index 0 is out of bounds for 0 destinations",
     |context| {
         let module = context.create_module("m");
-        let (_, block, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, block, builder) = function_in(module, "f");
         let function_type = context.function_type(context.void_type(), &[], false);
         let assembly = function_type.inline_assembly("", "", false, false, InlineAssemblyDialect::Att, false);
         let none: [Value<'_, '_>; 0] = [];
@@ -1440,13 +1566,15 @@ panics!(
 );
 panics!(decision_22_a_clause_index_out_of_bounds_panics, "clause: index 0 is out of bounds for 0 clauses", |context| {
     let module = context.create_module("m");
-    let (_, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (_, _, builder) = function_in(module, "f");
     let pad: Value<'_, '_, LandingPadInstruction> = builder.landing_pad(context.struct_type(&[], false), None, 0, "");
     let _ = pad.clause(0);
 });
 panics!(decision_3_a_clause_that_isnt_constant_panics, "add_clause: i64 %0 is not a constant", |context| {
     let module = context.create_module("m");
-    let (function, _, builder) = function_in(&module, "f");
+    let module = context.module(&module);
+    let (function, _, builder) = function_in(module, "f");
     let pad = builder.landing_pad(context.struct_type(&[], false), None, 0, "");
     pad.add_clause(function.parameter(0));
 });
@@ -1455,8 +1583,10 @@ panics!(
     "add_clause: @other_global belongs to another module",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
-        let (_, _, builder) = function_in(&module, "f");
+        let other = context.module(&other);
+        let (_, _, builder) = function_in(module, "f");
         let pad = builder.landing_pad(context.struct_type(&[], false), None, 0, "");
         pad.add_clause(other.add_global("other_global", context.get_type::<I64>()));
     }
@@ -1466,7 +1596,8 @@ panics!(
     "argument: index 0 is out of bounds for 0 arguments",
     |context| {
         let module = context.create_module("m");
-        let (_, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, _, builder) = function_in(module, "f");
         let none: [Value<'_, '_>; 0] = [];
         let pad = builder.cleanup_pad::<_, lyftar::Dynamic>(None, &none, "");
         let _ = pad.checked_cast::<lyftar::values::FuncletPadInstruction>().argument(0);
@@ -1477,7 +1608,8 @@ panics!(
     "set_argument: index 0 is out of bounds for 0 arguments",
     |context| {
         let module = context.create_module("m");
-        let (_, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, _, builder) = function_in(module, "f");
         let none: [Value<'_, '_>; 0] = [];
         let pad = builder.cleanup_pad::<_, lyftar::Dynamic>(None, &none, "");
         pad.checked_cast::<lyftar::values::FuncletPadInstruction>().set_argument(0, dynamic_i64(context));
@@ -1488,9 +1620,11 @@ panics!(
     "set_argument: i64 %0 belongs to another module",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
-        let (_, _, builder) = function_in(&module, "f");
-        let (elsewhere, _, _) = function_in(&other, "g");
+        let other = context.module(&other);
+        let (_, _, builder) = function_in(module, "f");
+        let (elsewhere, _, _) = function_in(other, "g");
         let pad = builder.cleanup_pad::<_, lyftar::Dynamic>(None, &[dynamic_i64(context)], "");
         pad.checked_cast::<lyftar::values::FuncletPadInstruction>().set_argument(0, elsewhere.parameter(0));
     }
@@ -1500,7 +1634,8 @@ panics!(
     "mask_value: index 2 is out of bounds for 2 mask elements",
     |context| {
         let module = context.create_module("m");
-        let (function, _, builder) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (function, _, builder) = function_in(module, "f");
         let i32_type = context.get_type::<I32>();
         let vector_type = context.get_type::<I64>().vector_type(2);
         let phi = builder.phi(vector_type, "");
@@ -1514,8 +1649,9 @@ panics!(
     "move_before: %entry and %entry are in different functions",
     |context| {
         let module = context.create_module("m");
-        let (_, block, _) = function_in(&module, "f");
-        let (_, elsewhere, _) = function_in(&module, "g");
+        let module = context.module(&module);
+        let (_, block, _) = function_in(module, "f");
+        let (_, elsewhere, _) = function_in(module, "g");
         block.move_before(elsewhere);
     }
 );
@@ -1527,7 +1663,8 @@ panics!(
     "as_metadata: a block can't be wrapped as metadata",
     |context| {
         let module = context.create_module("m");
-        let (_, block, _) = function_in(&module, "f");
+        let module = context.module(&module);
+        let (_, block, _) = function_in(module, "f");
         let _ = block.as_value().as_metadata();
     }
 );
@@ -1548,6 +1685,7 @@ panics!(
 );
 panics!(decision_3_adding_a_metadata_string_to_named_metadata_panics, "is not a metadata node", |context| {
     let module = context.create_module("m");
+    let module = context.module(&module);
     let named = module.get_or_insert_named_metadata("list");
     named.add_operand(context.metadata_string("text").as_value(context));
 });
@@ -1556,15 +1694,17 @@ panics!(decision_3_adding_a_metadata_string_to_named_metadata_panics, "is not a 
 
 panics!(decision_3_debug_info_of_the_wrong_class_panics, "create_function: that metadata is not a file", |context| {
     let module = context.create_module("m");
-    let builder = DebugInfoBuilder::new(&module, true);
+    let module = context.module(&module);
+    let builder = DebugInfoBuilder::new(module, true);
     let file = builder.create_file("a", "b");
     let basic = builder.create_basic_type("int", 32, 5, DebugInfoFlags::ZERO);
     let _ = builder.create_function(file, "f", "f", basic, 1, basic, false, true, 1, DebugInfoFlags::ZERO, false);
 });
 panics!(decision_3_a_label_records_variable_panics, "variable: a label record has no variable", |context| {
     let module = context.create_module("m");
-    let (function, block, code) = function_in(&module, "f");
-    let builder = DebugInfoBuilder::new(&module, true);
+    let module = context.module(&module);
+    let (function, block, code) = function_in(module, "f");
+    let builder = DebugInfoBuilder::new(module, true);
     let file = builder.create_file("a", "b");
     let unit = builder.create_compile_unit(
         lyftar::debug_info::DwarfSourceLanguage::C,
@@ -1596,7 +1736,8 @@ panics!(
     "create_enumerator_of_arbitrary_precision: 128 bits needs 2 words, not 1",
     |context| {
         let module = context.create_module("m");
-        let builder = DebugInfoBuilder::new(&module, true);
+        let module = context.module(&module);
+        let builder = DebugInfoBuilder::new(module, true);
         let _ = builder.create_enumerator_of_arbitrary_precision("e", 128, &[1], false);
     }
 );
@@ -1605,8 +1746,9 @@ panics!(
     "create_static_member_type: i64 %0 isn't a constant",
     |context| {
         let module = context.create_module("m");
-        let (function, _, _) = function_in(&module, "f");
-        let builder = DebugInfoBuilder::new(&module, true);
+        let module = context.module(&module);
+        let (function, _, _) = function_in(module, "f");
+        let builder = DebugInfoBuilder::new(module, true);
         let file = builder.create_file("a", "b");
         let basic = builder.create_basic_type("int", 32, 5, DebugInfoFlags::ZERO);
         let _ = builder.create_static_member_type(
@@ -1626,7 +1768,8 @@ panics!(
     "create_parameter_variable: argument numbers start at 1",
     |context| {
         let module = context.create_module("m");
-        let builder = DebugInfoBuilder::new(&module, true);
+        let module = context.module(&module);
+        let builder = DebugInfoBuilder::new(module, true);
         let file = builder.create_file("a", "b");
         let unit = builder.create_compile_unit(
             lyftar::debug_info::DwarfSourceLanguage::C,
@@ -1669,6 +1812,7 @@ panics!(
     "intrinsic_declaration: llvm.sadd.with.overflow isn't overloaded on 1 types like those",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let intrinsic = Intrinsic::find("llvm.sadd.with.overflow").expect("an intrinsic");
         let _ = module.intrinsic_declaration(intrinsic, &[context.get_type::<F64>().to_dynamic()]);
     }
@@ -1695,7 +1839,7 @@ panics!(
     decision_3_removing_a_module_the_engine_doesnt_have_panics,
     "remove_module: this engine has no module nope",
     |context| {
-        let mut engine = ExecutionEngine::new(context.create_module("m")).expect("an engine");
+        let mut engine = ExecutionEngine::new(context, context.create_module("m")).expect("an engine");
         let _ = engine.remove_module("nope");
     }
 );
@@ -1714,17 +1858,20 @@ panics!(
     "get: this handle's value belongs to another module",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
-        let (function, _, _) = function_in(&module, "f");
+        let other = context.module(&other);
+        let (function, _, _) = function_in(module, "f");
         let handle = module.track(function);
-        let _ = handle.get(&other);
+        let _ = handle.get(other);
     }
 );
 panics!(decision_3_a_bad_data_layout_panics, "set_data_layout: LLVM can't parse", |context| {
-    context.create_module("m").set_data_layout("nonsense!");
+    context.module(&context.create_module("m")).set_data_layout("nonsense!");
 });
 panics!(decision_11_erasing_a_constant_panics, "value_to_erase: i64 1 is not an instruction", |context| {
     let module = context.create_module("m");
+    let module = context.module(&module);
     let _ = module.value_to_erase(dynamic_i64(context));
 });
 panics!(
@@ -1732,7 +1879,9 @@ panics!(
     "value_to_erase: @g belongs to another module",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let other = context.create_module("other");
+        let other = context.module(&other);
         let _ = module.value_to_erase(other.add_global("g", context.get_type::<I64>()));
     }
 );
@@ -1742,37 +1891,38 @@ panics!(
     |context| {
         let mut module = context.create_module("m");
         let (entry, other): (ValueToErase, ValueToErase) = {
-            let global = module.add_global("g", context.get_type::<I64>());
-            let second = module.add_global("h", context.get_type::<I64>());
-            (module.value_to_erase(global), module.value_to_erase(second))
+            let global = context.module(&module).add_global("g", context.get_type::<I64>());
+            let second = context.module(&module).add_global("h", context.get_type::<I64>());
+            (context.module(&module).value_to_erase(global), context.module(&module).value_to_erase(second))
         };
         // The first erase changes the module's generation, so what it did can't be known about `other`.
-        module.erase(&[entry]);
-        module.erase(&[other]);
+        context.exclusive_module(&mut module).erase(&[entry]);
+        context.exclusive_module(&mut module).erase(&[other]);
     }
 );
 panics!(decision_11_an_entry_used_twice_panics, "erase: this entry is stale", |context| {
     let mut module = context.create_module("m");
     let entry = {
-        let global = module.add_global("g", context.get_type::<I64>());
-        module.value_to_erase(global)
+        let global = context.module(&module).add_global("g", context.get_type::<I64>());
+        context.module(&module).value_to_erase(global)
     };
-    module.erase(&[entry]);
-    module.erase(&[entry]);
+    context.exclusive_module(&mut module).erase(&[entry]);
+    context.exclusive_module(&mut module).erase(&[entry]);
 });
 panics!(decision_11_an_entry_from_another_module_panics, "erase: this entry is stale", |context| {
     let mut module = context.create_module("m");
     let other = context.create_module("other");
+    let other = context.module(&other);
     let entry = other.value_to_erase(other.add_global("g", context.get_type::<I64>()));
-    module.erase(&[entry]);
+    context.exclusive_module(&mut module).erase(&[entry]);
 });
 panics!(decision_11_a_duplicate_entry_panics, "erase: the list has the same value twice", |context| {
     let mut module = context.create_module("m");
     let entry = {
-        let global = module.add_global("g", context.get_type::<I64>());
-        module.value_to_erase(global)
+        let global = context.module(&module).add_global("g", context.get_type::<I64>());
+        context.module(&module).value_to_erase(global)
     };
-    module.erase(&[entry, entry]);
+    context.exclusive_module(&mut module).erase(&[entry, entry]);
 });
 panics!(
     decision_11_erasing_something_still_used_panics,
@@ -1782,22 +1932,23 @@ panics!(
             .parse_ir_text("define void @f() { ret void }\ndefine void @g() { call void @f()\n ret void }")
             .expect("good IR");
         let entry = {
-            let function = module.get_function("f").expect("the function");
-            module.value_to_erase(function)
+            let function = context.module(&module).get_function("f").expect("the function");
+            context.module(&module).value_to_erase(function)
         };
-        module.erase(&[entry]);
+        context.exclusive_module(&mut module).erase(&[entry]);
     }
 );
 panics!(decision_11_erasing_a_global_an_initializer_uses_panics, "erase: @target", |context| {
     let mut module = context.parse_ir_text("@target = global i64 1\n@user = global ptr @target").expect("good IR");
     let entry = {
-        let global = module.get_global("target").expect("the global");
-        module.value_to_erase(global)
+        let global = context.module(&module).get_global("target").expect("the global");
+        context.module(&module).value_to_erase(global)
     };
-    module.erase(&[entry]);
+    context.exclusive_module(&mut module).erase(&[entry]);
 });
 panics!(decision_11_tracking_a_constant_panics, "track: i64 1 belongs to the context and needs no handle", |context| {
     let module = context.create_module("m");
+    let module = context.module(&module);
     let _ = module.track(dynamic_i64(context));
 });
 
@@ -1806,13 +1957,13 @@ panics!(decision_11_a_stale_inline_choice_panics, "inline_call: this choice is s
         .parse_ir_text("define void @f() { ret void }\ndefine void @g() { call void @f()\n ret void }")
         .expect("good IR");
     let choice = {
-        let g = module.get_function("g").expect("the function");
+        let g = context.module(&module).get_function("g").expect("the function");
         let call =
             g.function_instructions().find_map(|found| found.as_kind::<lyftar::values::CallBase>()).expect("a call");
-        module.call_to_inline(call)
+        context.module(&module).call_to_inline(call)
     };
-    module.strip_debug_info();
-    let _ = module.inline_call(choice);
+    context.exclusive_module(&mut module).strip_debug_info();
+    let _ = context.exclusive_module(&mut module).inline_call(choice);
 });
 
 // ---- Object files ----
@@ -1821,8 +1972,10 @@ fn empty_object() -> MemoryBuffer<'static> {
     let machine = TargetMachine::for_host().expect("a machine");
     with_context(|context| {
         let mut module = context.create_module("empty");
-        module.set_target_machine(&machine);
-        machine.emit_to_memory_buffer(&mut module, CodeGenerationFileType::Object).expect("code generation")
+        context.module(&module).set_target_machine(&machine);
+        machine
+            .emit_to_memory_buffer(context.exclusive_module(&mut module), CodeGenerationFileType::Object)
+            .expect("code generation")
     })
 }
 
@@ -1839,12 +1992,13 @@ fn decision_3_a_universal_binary_call_on_another_kind_panics() {
 fn decision_3_asking_ir_for_sections_panics() {
     with_context(|context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let bitcode = module.write_bitcode_to_memory_buffer();
         let bytes = bitcode.as_bytes().to_vec();
         let buffer = MemoryBuffer::from_bytes(&bytes, "ir");
         let leaked: &'static MemoryBuffer<'static> = Box::leak(Box::new(buffer));
         // A context can't outlive the closure, and a binary of IR wants one, so this one borrows the context's lifetime.
-        fn sections_of<'context>(buffer: &'context MemoryBuffer<'context>, context: Context<'context>) {
+        fn sections_of<'context>(buffer: &'context MemoryBuffer<'context>, context: &Context<'context>) {
             let binary = Binary::new(buffer, Some(context)).expect("a binary");
             let _ = binary.sections();
         }
@@ -1883,9 +2037,10 @@ fn decision_3_a_symbol_cursor_past_the_end_panics() {
 fn decision_11_replacing_a_global_a_constant_uses_panics() {
     with_context(|context| {
         let module = context.parse_ir_text("@first = global i64 0\n@second = global i64 0").expect("good IR");
+        let module = context.module(&module);
         let first = module.get_global("first").expect("the global");
         let second = module.get_global("second").expect("the global");
-        let held = first.as_pointer().constant_pointer_to_integer(context.get_type::<I64>());
+        let held = context.constant_pointer_to_integer(first.as_pointer(), context.get_type::<I64>());
         first.replace_all_uses_with(second);
         let _ = held.print_to_string();
     });
@@ -1897,6 +2052,7 @@ fn decision_11_replacing_a_value_wrapped_in_metadata_with_a_constant_panics() {
     with_context(|context| {
         let module =
             context.parse_ir_text("define i64 @f(i64 %a) {\n %x = add i64 %a, 1\n ret i64 %x\n}").expect("good IR");
+        let module = context.module(&module);
         let function = module.get_function("f").expect("the function");
         let x = function.function_instructions().next().expect("the add");
         let held = x.as_metadata();
@@ -1911,6 +2067,7 @@ fn decision_11_replacing_a_value_with_one_that_has_metadata_panics() {
     with_context(|context| {
         let module =
             context.parse_ir_text("define i64 @f(i64 %a) {\n %x = add i64 %a, 1\n ret i64 %x\n}").expect("good IR");
+        let module = context.module(&module);
         let function = module.get_function("f").expect("the function");
         let x = function.function_instructions().next().expect("the add");
         let a = function.parameter(0);
@@ -1942,6 +2099,7 @@ const TWO_FUNCTIONS: &str = "define i64 @f(i64 %x) {\n %y = add i64 %x, 1\n ret 
 fn decision_34_a_replacement_of_another_type_panics() {
     with_context(|context| {
         let module = context.parse_ir_text(TWO_FUNCTIONS).expect("good IR");
+        let module = context.module(&module);
         let x = module.get_function("f").expect("the function").parameter(0);
         let small = module.get_function("g").expect("the function").parameter(0);
         let _ = module.replacement_to_make(x, small);
@@ -1953,6 +2111,7 @@ fn decision_34_a_replacement_of_another_type_panics() {
 fn decision_34_replacing_a_value_with_itself_panics() {
     with_context(|context| {
         let module = context.parse_ir_text(TWO_FUNCTIONS).expect("good IR");
+        let module = context.module(&module);
         let x = module.get_function("f").expect("the function").parameter(0);
         let _ = module.replacement_to_make(x, x);
     });
@@ -1963,6 +2122,7 @@ fn decision_34_replacing_a_value_with_itself_panics() {
 fn decision_34_replacing_a_context_constant_panics() {
     with_context(|context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let i64_type = context.get_type::<I64>();
         let first = context.constant_struct(&[i64_type.constant_integer(1, false)], false);
         let second = context.constant_struct(&[i64_type.constant_integer(2, false)], false);
@@ -1976,12 +2136,12 @@ fn decision_34_a_stale_replacement_panics() {
     with_context(|context| {
         let mut module = context.parse_ir_text(TWO_FUNCTIONS).expect("good IR");
         let entry = {
-            let function = module.get_function("f").expect("the function");
+            let function = context.module(&module).get_function("f").expect("the function");
             let y = function.function_instructions().next().expect("the add");
-            module.replacement_to_make(y, function.parameter(0))
+            context.module(&module).replacement_to_make(y, function.parameter(0))
         };
-        module.replace(&[entry]);
-        module.replace(&[entry]);
+        context.exclusive_module(&mut module).replace(&[entry]);
+        context.exclusive_module(&mut module).replace(&[entry]);
     });
 }
 
@@ -1991,11 +2151,11 @@ fn decision_34_replacing_one_value_twice_panics() {
     with_context(|context| {
         let mut module = context.parse_ir_text(TWO_FUNCTIONS).expect("good IR");
         let entry = {
-            let function = module.get_function("f").expect("the function");
+            let function = context.module(&module).get_function("f").expect("the function");
             let y = function.function_instructions().next().expect("the add");
-            module.replacement_to_make(y, function.parameter(0))
+            context.module(&module).replacement_to_make(y, function.parameter(0))
         };
-        module.replace(&[entry, entry]);
+        context.exclusive_module(&mut module).replace(&[entry, entry]);
     });
 }
 
@@ -2005,14 +2165,17 @@ fn decision_34_a_constant_in_the_list_that_uses_a_replaced_value_panics() {
     with_context(|context| {
         let mut module = context.parse_ir_text("@first = global i64 0\n@second = global i64 0").expect("good IR");
         let (one, two) = {
-            let first = module.get_global("first").expect("the global");
-            let second = module.get_global("second").expect("the global");
+            let first = context.module(&module).get_global("first").expect("the global");
+            let second = context.module(&module).get_global("second").expect("the global");
             let i64_type = context.get_type::<I64>();
-            let of_first = first.as_pointer().constant_pointer_to_integer(i64_type);
-            let of_second = second.as_pointer().constant_pointer_to_integer(i64_type);
-            (module.replacement_to_make(first, second), module.replacement_to_make(of_first, of_second))
+            let of_first = context.constant_pointer_to_integer(first.as_pointer(), i64_type);
+            let of_second = context.constant_pointer_to_integer(second.as_pointer(), i64_type);
+            (
+                context.module(&module).replacement_to_make(first, second),
+                context.module(&module).replacement_to_make(of_first, of_second),
+            )
         };
-        module.replace(&[one, two]);
+        context.exclusive_module(&mut module).replace(&[one, two]);
     });
 }
 
@@ -2022,13 +2185,16 @@ fn decision_34_replacing_a_value_with_a_constant_that_uses_it_panics() {
     with_context(|context| {
         let mut module = context.parse_ir_text("@first = global ptr null").expect("good IR");
         let entry = {
-            let first = module.get_global("first").expect("the global");
+            let first = context.module(&module).get_global("first").expect("the global");
             let pointer = first.as_pointer();
             let i64_type = context.get_type::<I64>();
-            let cast = pointer.constant_pointer_to_integer(i64_type).constant_integer_to_pointer(pointer.get_type());
-            module.replacement_to_make(first, cast)
+            let cast = context.constant_integer_to_pointer(
+                context.constant_pointer_to_integer(pointer, i64_type),
+                pointer.get_type(),
+            );
+            context.module(&module).replacement_to_make(first, cast)
         };
-        module.replace(&[entry]);
+        context.exclusive_module(&mut module).replace(&[entry]);
     });
 }
 
@@ -2047,6 +2213,7 @@ panics!(
     "add_global: address space 16777216 is not below 2^24",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let _ = module.add_global_in_address_space("g", context.get_type::<I64>(), 16_777_216);
     }
 );
@@ -2056,6 +2223,7 @@ panics!(
     "add_alias: address space 16777216 is not below 2^24",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let target = module.add_global("g", context.get_type::<I64>());
         let _ = module.add_alias(context.get_type::<I64>().to_dynamic(), 16_777_216, target, "a");
     }
@@ -2066,6 +2234,7 @@ panics!(
     "add_global_indirect_function: address space 16777216 is not below 2^24",
     |context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let function_type = context.function_type(context.void_type(), &[], false);
         let resolver = module.add_function("r", function_type);
         let _ = module.add_global_indirect_function("i", function_type, 16_777_216, resolver);
@@ -2080,10 +2249,10 @@ panics!(
     decision_31_a_cast_to_an_integer_as_a_pointer_panics,
     "constant_integer_to_pointer: i64 is not a pointer type",
     |context| {
-        let _ = context
-            .get_type::<I64>()
-            .constant_integer(1, false)
-            .constant_integer_to_pointer(context.get_type::<I64>().to_dynamic());
+        let _ = context.constant_integer_to_pointer(
+            context.get_type::<I64>().constant_integer(1, false),
+            context.get_type::<I64>().to_dynamic(),
+        );
     }
 );
 
@@ -2092,7 +2261,7 @@ panics!(
     "constant_address_space_cast: i64 1 is not a pointer",
     |context| {
         let value = context.get_type::<I64>().constant_integer(1, false).to_dynamic();
-        let _ = value.constant_address_space_cast(context.get_type::<Pointer>());
+        let _ = context.constant_address_space_cast(value, context.get_type::<Pointer>());
     }
 );
 
@@ -2101,7 +2270,7 @@ panics!(
     "constant_address_space_cast: i64 is not a pointer type",
     |context| {
         let null = context.get_type::<Pointer>().constant_null();
-        let _ = null.constant_address_space_cast(context.get_type::<I64>().to_dynamic());
+        let _ = context.constant_address_space_cast(null, context.get_type::<I64>().to_dynamic());
     }
 );
 
@@ -2110,7 +2279,7 @@ panics!(
     "constant_address_space_cast: can't cast ptr null to ptr",
     |context| {
         let null = context.get_type::<Pointer>().constant_null();
-        let _ = null.constant_address_space_cast(context.get_type::<Pointer>());
+        let _ = context.constant_address_space_cast(null, context.get_type::<Pointer>());
     }
 );
 
@@ -2121,10 +2290,11 @@ panics!(
     "add_module: this module fails LLVM's verifier: Basic Block in function 'f' does not have terminator",
     |context| {
         let first = context.create_module("first");
-        let mut engine = ExecutionEngine::interpreter(first).expect("an engine");
+        let mut engine = ExecutionEngine::interpreter(context, first).expect("an engine");
         let module = context.create_module("second");
         {
-            let function = module.add_function("f", context.function_type(context.void_type(), &[], false));
+            let function =
+                context.module(&module).add_function("f", context.function_type(context.void_type(), &[], false));
             let _ = function.append_basic_block("entry");
         }
         engine.add_module(module);
@@ -2137,6 +2307,7 @@ fn lto_module() -> lyftar::lto::LtoModule {
     let machine = TargetMachine::for_host().expect("a machine");
     let bitcode = with_context(|context| {
         let module = context.create_module("lto");
+        let module = context.module(&module);
         module.set_target_machine(&machine);
         module.write_bitcode_to_memory_buffer().as_bytes().to_vec()
     });
@@ -2165,6 +2336,7 @@ fn decision_3_an_lto_interval_too_long_panics() {
 
 panics!(decision_3_cloning_a_declaration_panics, "clone_function: g has no body", |context| {
     let module = context.create_module("m");
+    let module = context.module(&module);
     let function = module.add_function("g", context.function_type(context.void_type(), &[], false));
     let _ = function.clone_function();
 });
@@ -2173,7 +2345,12 @@ panics!(
     "run_passes_on_function: this module has no function nope",
     |context| {
         let mut module = context.create_module("m");
-        let _ = module.run_passes_on_function("nope", "instcombine", None, &PassOptions::default());
+        let _ = context.exclusive_module(&mut module).run_passes_on_function(
+            "nope",
+            "instcombine",
+            None,
+            &PassOptions::default(),
+        );
     }
 );
 

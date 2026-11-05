@@ -1,5 +1,6 @@
-//! Constants. The ones made only from the context carry `'static` for their module borrow, so they can be used with any
-//! module of the context, and survive deletes and pass runs (D11). A constant made from a global borrows its module.
+//! Constants. Plain data borrows nothing: it carries `'static`, can be used with any module of the context, and survives deletes
+//! and pass runs. Anything built from values is a method on the context and borrows it, since LLVM's passes can delete those
+//! (D41, D43). Those can still be shared across the context's modules.
 
 use crate::bad_call::bad_call;
 use crate::basic_block::BasicBlock;
@@ -106,24 +107,6 @@ impl<'context, F> Type<'context, Float<F>> {
 }
 
 impl<'context, T> Type<'context, T> {
-    /// A constant array of this element type.
-    ///
-    /// # Panics
-    /// If a value has another type, or isn't a constant (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_array<'module, V>(self, values: &[Value<'context, 'module, V>]) -> Value<'context, 'module> {
-        // SAFETY: only reads the type.
-        if !unsafe { shim::lyftar_is_valid_array_element(self.raw) } {
-            bad_call(format_args!("constant_array: {} can't be an array's element", self.describe()));
-        }
-        check_constants("constant_array", values, Some(self.raw));
-        // SAFETY: LLVM only reads the values, which were just checked; `Value` has the layout of `LLVMValueRef`.
-        unsafe {
-            Value::from_raw(raw::LLVMConstArray2(self.raw, values.as_ptr().cast_mut().cast(), values.len() as u64))
-        }
-    }
-
     /// A constant array of this element type from raw data, `data.len()` bytes of it.
     ///
     /// # Panics
@@ -142,33 +125,6 @@ impl<'context, T> Type<'context, T> {
         }
         // SAFETY: LLVM reads `data.len()` bytes, and the element type was just checked.
         unsafe { Value::from_raw(raw::LLVMConstDataArray(self.raw, data.as_ptr().cast(), data.len())) }
-    }
-
-    /// A constant of this named struct type.
-    ///
-    /// # Panics
-    /// If this isn't a struct with that many elements of those types, or a value isn't a constant (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_named_struct<'module, V>(self, values: &[Value<'context, 'module, V>]) -> Value<'context, 'module> {
-        let elements = self.struct_element_types();
-        let count = length_as_u32(values.len(), "constant_named_struct");
-        if elements.len() != values.len() {
-            bad_call(format_args!(
-                "constant_named_struct: {} has {} elements, not {count}",
-                self.describe(),
-                elements.len()
-            ));
-        }
-        check_constants("constant_named_struct", values, None);
-        for (element, value) in elements.iter().zip(values) {
-            // SAFETY: the value is live.
-            if !checks::same_identity(element.raw as usize, unsafe { raw::LLVMTypeOf(value.raw) } as usize) {
-                bad_call(format_args!("constant_named_struct: {} is not a {}", value.describe(), element.describe()));
-            }
-        }
-        // SAFETY: LLVM only reads the values, which were just checked.
-        unsafe { Value::from_raw(raw::LLVMConstNamedStruct(self.raw, values.as_ptr().cast_mut().cast(), count)) }
     }
 
     /// Inline assembly of this function type.
@@ -217,7 +173,7 @@ impl<'context, T> Type<'context, T> {
 impl<'context> Context<'context> {
     /// A constant `[N x i8]` holding `bytes`, with a NUL at the end if `null_terminate` says so.
     #[must_use]
-    pub fn constant_string(self, bytes: &[u8], null_terminate: bool) -> Value<'context, 'static> {
+    pub fn constant_string(&self, bytes: &[u8], null_terminate: bool) -> Value<'context, 'static> {
         // SAFETY: LLVM reads `bytes.len()` bytes; the constant belongs to the context.
         unsafe {
             Value::from_raw(raw::LLVMConstStringInContext2(
@@ -236,7 +192,7 @@ impl<'context> Context<'context> {
     #[must_use]
     #[track_caller]
     pub fn constant_struct<'module, V>(
-        self,
+        &'module self,
         values: &[Value<'context, 'module, V>],
         is_packed: bool,
     ) -> Value<'context, 'module> {
@@ -265,7 +221,10 @@ impl<'context> Context<'context> {
     /// If there are no values, or they have different types, or one isn't a constant (D3).
     #[must_use]
     #[track_caller]
-    pub fn constant_vector<'module, V>(self, values: &[Value<'context, 'module, V>]) -> Value<'context, 'module> {
+    pub fn constant_vector<'module, V>(
+        &'module self,
+        values: &[Value<'context, 'module, V>],
+    ) -> Value<'context, 'module> {
         let Some(first) = values.first() else {
             bad_call(format_args!("constant_vector: a vector has at least one element"))
         };
@@ -278,6 +237,533 @@ impl<'context> Context<'context> {
         let count = length_as_u32(values.len(), "constant_vector");
         // SAFETY: LLVM only reads the values, which were just checked.
         unsafe { Value::from_raw(raw::LLVMConstVector(values.as_ptr().cast_mut().cast(), count)) }
+    }
+
+    /// A constant array of this element type. It borrows the context, as anything built from values does (D41).
+    ///
+    /// # Panics
+    /// If a value has another type, or isn't a constant (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_array<'module, T, V>(
+        &'module self,
+        element_type: Type<'context, T>,
+        values: &[Value<'context, 'module, V>],
+    ) -> Value<'context, 'module> {
+        // SAFETY: only reads the type.
+        if !unsafe { shim::lyftar_is_valid_array_element(element_type.raw) } {
+            bad_call(format_args!("constant_array: {} can't be an array's element", element_type.describe()));
+        }
+        check_constants("constant_array", values, Some(element_type.raw));
+        // SAFETY: LLVM only reads the values, which were just checked; `Value` has the layout of `LLVMValueRef`.
+        unsafe {
+            Value::from_raw(raw::LLVMConstArray2(
+                element_type.raw,
+                values.as_ptr().cast_mut().cast(),
+                values.len() as u64,
+            ))
+        }
+    }
+
+    /// A constant of this named struct type.
+    ///
+    /// # Panics
+    /// If this isn't a struct with that many elements of those types, or a value isn't a constant (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_named_struct<'module, T, V>(
+        &'module self,
+        struct_type: Type<'context, T>,
+        values: &[Value<'context, 'module, V>],
+    ) -> Value<'context, 'module> {
+        let elements = struct_type.struct_element_types();
+        let count = length_as_u32(values.len(), "constant_named_struct");
+        if elements.len() != values.len() {
+            bad_call(format_args!(
+                "constant_named_struct: {} has {} elements, not {count}",
+                struct_type.describe(),
+                elements.len()
+            ));
+        }
+        check_constants("constant_named_struct", values, None);
+        for (element, value) in elements.iter().zip(values) {
+            // SAFETY: the value is live.
+            if !checks::same_identity(element.raw as usize, unsafe { raw::LLVMTypeOf(value.raw) } as usize) {
+                bad_call(format_args!("constant_named_struct: {} is not a {}", value.describe(), element.describe()));
+            }
+        }
+        // SAFETY: LLVM only reads the values, which were just checked.
+        unsafe { Value::from_raw(raw::LLVMConstNamedStruct(struct_type.raw, values.as_ptr().cast_mut().cast(), count)) }
+    }
+
+    /// A pointer-sized integer constant holding this type's size in bytes, as a constant expression.
+    ///
+    /// # Panics
+    /// If the type has no size (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn size_of<T>(&self, of: Type<'context, T>) -> Value<'context, '_> {
+        if !of.is_sized() {
+            bad_call(format_args!("size_of: {} has no size", of.describe()));
+        }
+        // SAFETY: the type was just checked to be sized.
+        unsafe { Value::from_raw(raw::LLVMSizeOf(of.raw)) }
+    }
+
+    /// A pointer-sized integer constant holding this type's alignment in bytes, as a constant expression.
+    ///
+    /// # Panics
+    /// If the type has no size, so no alignment (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn alignment_of<T>(&self, of: Type<'context, T>) -> Value<'context, '_> {
+        if !of.is_sized() {
+            bad_call(format_args!("alignment_of: {} has no size", of.describe()));
+        }
+        // SAFETY: the type was just checked to be sized.
+        unsafe { Value::from_raw(raw::LLVMAlignOf(of.raw)) }
+    }
+
+    // trace: D41, D43
+    // Constant expressions, which LLVM's passes can delete, so these borrow the context.
+
+    /// `0 - value`, as a constant.
+    ///
+    /// # Panics
+    /// If it isn't a constant (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_negate<'module, W>(
+        &'module self,
+        value: Value<'context, 'module, Integer<W>>,
+    ) -> Value<'context, 'module, Integer<W>> {
+        value.check_constant("constant_negate");
+        // SAFETY: just checked to be a constant, of an integer type.
+        unsafe { Value::from_raw(raw::LLVMConstNeg(value.raw)) }
+    }
+    /// `0 - value`, promising no signed wrap, as a constant.
+    ///
+    /// # Panics
+    /// If it isn't a constant (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_negate_no_signed_wrap<'module, W>(
+        &'module self,
+        value: Value<'context, 'module, Integer<W>>,
+    ) -> Value<'context, 'module, Integer<W>> {
+        value.check_constant("constant_negate_no_signed_wrap");
+        // SAFETY: just checked to be a constant, of an integer type.
+        unsafe { Value::from_raw(raw::LLVMConstNSWNeg(value.raw)) }
+    }
+    /// `0 - value`, promising no unsigned wrap, as a constant.
+    ///
+    /// # Panics
+    /// If it isn't a constant (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_negate_no_unsigned_wrap<'module, W>(
+        &'module self,
+        value: Value<'context, 'module, Integer<W>>,
+    ) -> Value<'context, 'module, Integer<W>> {
+        value.check_constant("constant_negate_no_unsigned_wrap");
+        // SAFETY: just checked to be a constant, of an integer type.
+        unsafe { Value::from_raw(raw::LLVMConstNUWNeg(value.raw)) }
+    }
+    /// Every bit flipped, as a constant.
+    ///
+    /// # Panics
+    /// If it isn't a constant (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_not<'module, W>(
+        &'module self,
+        value: Value<'context, 'module, Integer<W>>,
+    ) -> Value<'context, 'module, Integer<W>> {
+        value.check_constant("constant_not");
+        // SAFETY: just checked to be a constant, of an integer type.
+        unsafe { Value::from_raw(raw::LLVMConstNot(value.raw)) }
+    }
+    /// `value + other`, as a constant.
+    ///
+    /// # Panics
+    /// If they aren't constants of one type (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_add<'module, W>(
+        &'module self,
+        value: Value<'context, 'module, Integer<W>>,
+        other: Value<'context, 'module, Integer<W>>,
+    ) -> Value<'context, 'module, Integer<W>> {
+        value.check_constant_pair("constant_add", other);
+        // SAFETY: just checked.
+        unsafe { Value::from_raw(raw::LLVMConstAdd(value.raw, other.raw)) }
+    }
+    /// `value + other`, promising no signed wrap, as a constant.
+    ///
+    /// # Panics
+    /// If they aren't constants of one type (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_add_no_signed_wrap<'module, W>(
+        &'module self,
+        value: Value<'context, 'module, Integer<W>>,
+        other: Value<'context, 'module, Integer<W>>,
+    ) -> Value<'context, 'module, Integer<W>> {
+        value.check_constant_pair("constant_add_no_signed_wrap", other);
+        // SAFETY: just checked.
+        unsafe { Value::from_raw(raw::LLVMConstNSWAdd(value.raw, other.raw)) }
+    }
+    /// `value + other`, promising no unsigned wrap, as a constant.
+    ///
+    /// # Panics
+    /// If they aren't constants of one type (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_add_no_unsigned_wrap<'module, W>(
+        &'module self,
+        value: Value<'context, 'module, Integer<W>>,
+        other: Value<'context, 'module, Integer<W>>,
+    ) -> Value<'context, 'module, Integer<W>> {
+        value.check_constant_pair("constant_add_no_unsigned_wrap", other);
+        // SAFETY: just checked.
+        unsafe { Value::from_raw(raw::LLVMConstNUWAdd(value.raw, other.raw)) }
+    }
+    /// `value - other`, as a constant.
+    ///
+    /// # Panics
+    /// If they aren't constants of one type (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_subtract<'module, W>(
+        &'module self,
+        value: Value<'context, 'module, Integer<W>>,
+        other: Value<'context, 'module, Integer<W>>,
+    ) -> Value<'context, 'module, Integer<W>> {
+        value.check_constant_pair("constant_subtract", other);
+        // SAFETY: just checked.
+        unsafe { Value::from_raw(raw::LLVMConstSub(value.raw, other.raw)) }
+    }
+    /// `value - other`, promising no signed wrap, as a constant.
+    ///
+    /// # Panics
+    /// If they aren't constants of one type (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_subtract_no_signed_wrap<'module, W>(
+        &'module self,
+        value: Value<'context, 'module, Integer<W>>,
+        other: Value<'context, 'module, Integer<W>>,
+    ) -> Value<'context, 'module, Integer<W>> {
+        value.check_constant_pair("constant_subtract_no_signed_wrap", other);
+        // SAFETY: just checked.
+        unsafe { Value::from_raw(raw::LLVMConstNSWSub(value.raw, other.raw)) }
+    }
+    /// `value - other`, promising no unsigned wrap, as a constant.
+    ///
+    /// # Panics
+    /// If they aren't constants of one type (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_subtract_no_unsigned_wrap<'module, W>(
+        &'module self,
+        value: Value<'context, 'module, Integer<W>>,
+        other: Value<'context, 'module, Integer<W>>,
+    ) -> Value<'context, 'module, Integer<W>> {
+        value.check_constant_pair("constant_subtract_no_unsigned_wrap", other);
+        // SAFETY: just checked.
+        unsafe { Value::from_raw(raw::LLVMConstNUWSub(value.raw, other.raw)) }
+    }
+    /// `value ^ other`, as a constant.
+    ///
+    /// # Panics
+    /// If they aren't constants of one type (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_exclusive_or<'module, W>(
+        &'module self,
+        value: Value<'context, 'module, Integer<W>>,
+        other: Value<'context, 'module, Integer<W>>,
+    ) -> Value<'context, 'module, Integer<W>> {
+        value.check_constant_pair("constant_exclusive_or", other);
+        // SAFETY: just checked.
+        unsafe { Value::from_raw(raw::LLVMConstXor(value.raw, other.raw)) }
+    }
+    /// The constant value integer cast to a pointer, as a constant.
+    ///
+    /// # Panics
+    /// If it isn't a constant, or the target isn't a pointer (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_integer_to_pointer<'module, W, D: PointerOperand + TypeMarker>(
+        &'module self,
+        value: Value<'context, 'module, Integer<W>>,
+        target: Type<'context, D>,
+    ) -> Value<'context, 'module, D> {
+        value.check_constant("constant_integer_to_pointer");
+        check_pointer_type("constant_integer_to_pointer", target);
+        // SAFETY: an integer constant and a pointer type.
+        unsafe { Value::from_raw(raw::LLVMConstIntToPtr(value.raw, target.raw)) }
+    }
+    /// The constant value integer cut to a narrower integer, as a constant.
+    ///
+    /// # Panics
+    /// If it isn't a constant, or the target isn't narrower (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_truncate<'module, W, V>(
+        &'module self,
+        value: Value<'context, 'module, Integer<W>>,
+        target: Type<'context, Integer<V>>,
+    ) -> Value<'context, 'module, Integer<V>> {
+        value.check_constant("constant_truncate");
+        if !checks::is_narrowing(value.width_in_bits(), target.width_in_bits()) {
+            bad_call(format_args!(
+                "constant_truncate: {} is not narrower than {} bits",
+                target.describe(),
+                value.width_in_bits()
+            ));
+        }
+        // SAFETY: an integer constant and a narrower integer type.
+        unsafe { Value::from_raw(raw::LLVMConstTrunc(value.raw, target.raw)) }
+    }
+    /// The constant value pointer cast to an integer, as a constant.
+    ///
+    /// # Panics
+    /// If it isn't a constant pointer (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_pointer_to_integer<'module, P: PointerOperand, W>(
+        &'module self,
+        value: Value<'context, 'module, P>,
+        target: Type<'context, Integer<W>>,
+    ) -> Value<'context, 'module, Integer<W>> {
+        value.check_constant_pointer("constant_pointer_to_integer");
+        // SAFETY: a pointer constant and an integer type.
+        unsafe { Value::from_raw(raw::LLVMConstPtrToInt(value.raw, target.raw)) }
+    }
+    /// The constant value pointer cast to another address space, as a constant.
+    ///
+    /// # Panics
+    /// If it isn't a constant pointer, or the target isn't a pointer in another address space (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_address_space_cast<'module, P: PointerOperand, D: PointerOperand + TypeMarker>(
+        &'module self,
+        value: Value<'context, 'module, P>,
+        target: Type<'context, D>,
+    ) -> Value<'context, 'module, D> {
+        value.check_constant_pointer("constant_address_space_cast");
+        check_pointer_type("constant_address_space_cast", target);
+        // SAFETY: both are live; the shim only reads them.
+        if !unsafe { shim::lyftar_cast_is_valid(raw::LLVMOpcode::LLVMAddrSpaceCast, value.raw, target.raw) } {
+            bad_call(format_args!(
+                "constant_address_space_cast: can't cast {} to {}",
+                value.describe(),
+                target.describe()
+            ));
+        }
+        // SAFETY: just checked what LLVM asserts.
+        unsafe { Value::from_raw(raw::LLVMConstAddrSpaceCast(value.raw, target.raw)) }
+    }
+    /// A `getelementptr` over this constant pointer, as a constant. The flags say whether it is `inbounds` and so on.
+    ///
+    /// # Panics
+    /// If this isn't a constant, an index isn't a constant integer, or the indices don't fit `element_type` (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_get_element_pointer<'module, P: PointerOperand, I>(
+        &'module self,
+        value: Value<'context, 'module, P>,
+        element_type: Type<'context>,
+        indices: &[Value<'context, 'module, I>],
+        flags: crate::instructions::GetElementPointerFlags,
+    ) -> Value<'context, 'module, P::GetElementPointerResult> {
+        value.check_constant_pointer("constant_get_element_pointer");
+        check_constants("constant_get_element_pointer", indices, None);
+        let count = length_as_u32(indices.len(), "constant_get_element_pointer");
+        // SAFETY: only reads them; `Value` has the layout of `LLVMValueRef`.
+        let valid = unsafe {
+            shim::lyftar_get_element_pointer_is_valid(element_type.raw, indices.as_ptr().cast(), count, false)
+        };
+        if !valid {
+            bad_call(format_args!("constant_get_element_pointer: those indices don't fit {}", element_type.describe()));
+        }
+        // SAFETY: just checked; LLVM only reads the indices.
+        unsafe {
+            Value::from_raw(raw::LLVMConstGEPWithNoWrapFlags(
+                element_type.raw,
+                value.raw,
+                indices.as_ptr().cast_mut().cast(),
+                count,
+                flags.0,
+            ))
+        }
+    }
+    /// The constant value pointer, signed for pointer authentication.
+    ///
+    /// # Panics
+    /// If any operand isn't a constant, the key isn't an `i32`, or the discriminator isn't an `i64` (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_pointer_authentication<'module, P: PointerOperand, A: PointerOperand>(
+        &'module self,
+        value: Value<'context, 'module, P>,
+        key: Value<'context, 'module, Integer<crate::types::Bits<32>>>,
+        discriminator: Value<'context, 'module, Integer<crate::types::Bits<64>>>,
+        address_discriminator: Value<'context, 'module, A>,
+    ) -> Value<'context, 'module, ConstantPointerAuthentication> {
+        value.check_constant_pointer("constant_pointer_authentication");
+        address_discriminator.check_constant_pointer("constant_pointer_authentication");
+        if !key.is_constant() || !discriminator.is_constant() {
+            bad_call(format_args!("constant_pointer_authentication: the key and discriminator must be constants"));
+        }
+        // SAFETY: all four were just checked to be constants of the right types.
+        unsafe {
+            Value::from_raw(raw::LLVMConstantPtrAuth(value.raw, key.raw, discriminator.raw, address_discriminator.raw))
+        }
+    }
+    /// The constant value cast to another type by LLVM's `bitcast`, as a constant.
+    ///
+    /// # Panics
+    /// If this isn't a constant, or LLVM's rules don't allow that cast (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_bit_cast<'module>(
+        &'module self,
+        value: Value<'context, 'module>,
+        target: Type<'context>,
+    ) -> Value<'context, 'module> {
+        value.check_constant_dynamic("constant_bit_cast");
+        // SAFETY: only reads them.
+        if !unsafe { shim::lyftar_cast_is_valid(raw::LLVMOpcode::LLVMBitCast, value.raw, target.raw) } {
+            bad_call(format_args!("constant_bit_cast: can't cast {} to {}", value.describe(), target.describe()));
+        }
+        // SAFETY: just checked.
+        unsafe { Value::from_raw(raw::LLVMConstBitCast(value.raw, target.raw)) }
+    }
+    /// The constant value cut or bit-cast to another type, as a constant.
+    ///
+    /// # Panics
+    /// If this isn't a constant, or LLVM's rules allow neither cast (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_truncate_or_bit_cast<'module>(
+        &'module self,
+        value: Value<'context, 'module>,
+        target: Type<'context>,
+    ) -> Value<'context, 'module> {
+        value.check_constant_dynamic("constant_truncate_or_bit_cast");
+        // SAFETY: only reads them.
+        let valid = unsafe {
+            shim::lyftar_cast_is_valid(raw::LLVMOpcode::LLVMBitCast, value.raw, target.raw)
+                || shim::lyftar_cast_is_valid(raw::LLVMOpcode::LLVMTrunc, value.raw, target.raw)
+        };
+        if !valid {
+            bad_call(format_args!(
+                "constant_truncate_or_bit_cast: can't cast {} to {}",
+                value.describe(),
+                target.describe()
+            ));
+        }
+        // SAFETY: just checked.
+        unsafe { Value::from_raw(raw::LLVMConstTruncOrBitCast(value.raw, target.raw)) }
+    }
+    /// The constant value cast by whichever pointer cast fits, as a constant.
+    ///
+    /// # Panics
+    /// If this isn't a constant pointer, or the target is neither a pointer nor an integer (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_pointer_cast<'module>(
+        &'module self,
+        value: Value<'context, 'module>,
+        target: Type<'context>,
+    ) -> Value<'context, 'module> {
+        use raw::LLVMTypeKind as K;
+        value.check_constant_dynamic("constant_pointer_cast");
+        if value.get_type().raw_kind() != K::LLVMPointerTypeKind
+            || !matches!(target.raw_kind(), K::LLVMPointerTypeKind | K::LLVMIntegerTypeKind)
+        {
+            bad_call(format_args!("constant_pointer_cast: can't cast {} to {}", value.describe(), target.describe()));
+        }
+        // SAFETY: just checked.
+        unsafe { Value::from_raw(raw::LLVMConstPointerCast(value.raw, target.raw)) }
+    }
+    /// The element of this constant vector at a constant index, as a constant.
+    ///
+    /// # Panics
+    /// If this isn't a constant vector, or the index isn't a constant integer (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_extract_element<'module, I>(
+        &'module self,
+        value: Value<'context, 'module>,
+        index: Value<'context, 'module, I>,
+    ) -> Value<'context, 'module> {
+        value.check_constant_dynamic("constant_extract_element");
+        // SAFETY: both live; only reads them.
+        if !unsafe { shim::lyftar_extract_element_is_valid(value.raw, index.raw) } || !index.is_constant() {
+            bad_call(format_args!(
+                "constant_extract_element: can't take element {} of {}",
+                index.describe(),
+                value.describe()
+            ));
+        }
+        // SAFETY: just checked.
+        unsafe { Value::from_raw(raw::LLVMConstExtractElement(value.raw, index.raw)) }
+    }
+    /// The constant value vector with one element replaced, as a constant.
+    ///
+    /// # Panics
+    /// If they aren't constants, the element's type isn't the vector's, or the index isn't an integer (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_insert_element<'module, E, I>(
+        &'module self,
+        value: Value<'context, 'module>,
+        element: Value<'context, 'module, E>,
+        index: Value<'context, 'module, I>,
+    ) -> Value<'context, 'module> {
+        value.check_constant_dynamic("constant_insert_element");
+        // SAFETY: all live; only reads them.
+        if !unsafe { shim::lyftar_insert_element_is_valid(value.raw, element.raw, index.raw) }
+            || !element.is_constant()
+            || !index.is_constant()
+        {
+            bad_call(format_args!(
+                "constant_insert_element: can't put {} in {} at {}",
+                element.describe(),
+                value.describe(),
+                index.describe()
+            ));
+        }
+        // SAFETY: just checked.
+        unsafe { Value::from_raw(raw::LLVMConstInsertElement(value.raw, element.raw, index.raw)) }
+    }
+    /// Two constant vectors shuffled by a constant mask, as a constant.
+    ///
+    /// # Panics
+    /// If they aren't constants, or LLVM's rules don't allow the shuffle (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_shuffle_vector<'module>(
+        &'module self,
+        value: Value<'context, 'module>,
+        other: Value<'context, 'module>,
+        mask: Value<'context, 'module>,
+    ) -> Value<'context, 'module> {
+        value.check_constant_dynamic("constant_shuffle_vector");
+        // SAFETY: all live; only reads them.
+        if !unsafe { shim::lyftar_shuffle_vector_is_valid(value.raw, other.raw, mask.raw) } || !other.is_constant() {
+            bad_call(format_args!(
+                "constant_shuffle_vector: can't shuffle {} and {} by {}",
+                value.describe(),
+                other.describe(),
+                mask.describe()
+            ));
+        }
+        // SAFETY: just checked.
+        unsafe { Value::from_raw(raw::LLVMConstShuffleVector(value.raw, other.raw, mask.raw)) }
     }
 }
 
@@ -527,7 +1013,7 @@ impl<'context, 'module> BasicBlock<'context, 'module> {
 }
 
 /// Constant expressions over integer constants.
-impl<'context, 'module, W> Value<'context, 'module, Integer<W>> {
+impl<W> Value<'_, '_, Integer<W>> {
     #[track_caller]
     fn check_constant_pair(self, operation: &str, other: Self) {
         if !self.is_constant() || !other.is_constant() {
@@ -547,173 +1033,6 @@ impl<'context, 'module, W> Value<'context, 'module, Integer<W>> {
             bad_call(format_args!("{operation}: {} is not a constant", self.describe()));
         }
     }
-
-    /// `0 - self`, as a constant.
-    ///
-    /// # Panics
-    /// If it isn't a constant (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_negate(self) -> Self {
-        self.check_constant("constant_negate");
-        // SAFETY: just checked to be a constant, of an integer type.
-        unsafe { Value::from_raw(raw::LLVMConstNeg(self.raw)) }
-    }
-
-    /// `0 - self`, promising no signed wrap, as a constant.
-    ///
-    /// # Panics
-    /// If it isn't a constant (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_negate_no_signed_wrap(self) -> Self {
-        self.check_constant("constant_negate_no_signed_wrap");
-        // SAFETY: just checked to be a constant, of an integer type.
-        unsafe { Value::from_raw(raw::LLVMConstNSWNeg(self.raw)) }
-    }
-
-    /// `0 - self`, promising no unsigned wrap, as a constant.
-    ///
-    /// # Panics
-    /// If it isn't a constant (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_negate_no_unsigned_wrap(self) -> Self {
-        self.check_constant("constant_negate_no_unsigned_wrap");
-        // SAFETY: just checked to be a constant, of an integer type.
-        unsafe { Value::from_raw(raw::LLVMConstNUWNeg(self.raw)) }
-    }
-
-    /// Every bit flipped, as a constant.
-    ///
-    /// # Panics
-    /// If it isn't a constant (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_not(self) -> Self {
-        self.check_constant("constant_not");
-        // SAFETY: just checked to be a constant, of an integer type.
-        unsafe { Value::from_raw(raw::LLVMConstNot(self.raw)) }
-    }
-
-    /// `self + other`, as a constant.
-    ///
-    /// # Panics
-    /// If they aren't constants of one type (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_add(self, other: Self) -> Self {
-        self.check_constant_pair("constant_add", other);
-        // SAFETY: just checked.
-        unsafe { Value::from_raw(raw::LLVMConstAdd(self.raw, other.raw)) }
-    }
-
-    /// `self + other`, promising no signed wrap, as a constant.
-    ///
-    /// # Panics
-    /// If they aren't constants of one type (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_add_no_signed_wrap(self, other: Self) -> Self {
-        self.check_constant_pair("constant_add_no_signed_wrap", other);
-        // SAFETY: just checked.
-        unsafe { Value::from_raw(raw::LLVMConstNSWAdd(self.raw, other.raw)) }
-    }
-
-    /// `self + other`, promising no unsigned wrap, as a constant.
-    ///
-    /// # Panics
-    /// If they aren't constants of one type (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_add_no_unsigned_wrap(self, other: Self) -> Self {
-        self.check_constant_pair("constant_add_no_unsigned_wrap", other);
-        // SAFETY: just checked.
-        unsafe { Value::from_raw(raw::LLVMConstNUWAdd(self.raw, other.raw)) }
-    }
-
-    /// `self - other`, as a constant.
-    ///
-    /// # Panics
-    /// If they aren't constants of one type (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_subtract(self, other: Self) -> Self {
-        self.check_constant_pair("constant_subtract", other);
-        // SAFETY: just checked.
-        unsafe { Value::from_raw(raw::LLVMConstSub(self.raw, other.raw)) }
-    }
-
-    /// `self - other`, promising no signed wrap, as a constant.
-    ///
-    /// # Panics
-    /// If they aren't constants of one type (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_subtract_no_signed_wrap(self, other: Self) -> Self {
-        self.check_constant_pair("constant_subtract_no_signed_wrap", other);
-        // SAFETY: just checked.
-        unsafe { Value::from_raw(raw::LLVMConstNSWSub(self.raw, other.raw)) }
-    }
-
-    /// `self - other`, promising no unsigned wrap, as a constant.
-    ///
-    /// # Panics
-    /// If they aren't constants of one type (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_subtract_no_unsigned_wrap(self, other: Self) -> Self {
-        self.check_constant_pair("constant_subtract_no_unsigned_wrap", other);
-        // SAFETY: just checked.
-        unsafe { Value::from_raw(raw::LLVMConstNUWSub(self.raw, other.raw)) }
-    }
-
-    /// `self ^ other`, as a constant.
-    ///
-    /// # Panics
-    /// If they aren't constants of one type (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_exclusive_or(self, other: Self) -> Self {
-        self.check_constant_pair("constant_exclusive_or", other);
-        // SAFETY: just checked.
-        unsafe { Value::from_raw(raw::LLVMConstXor(self.raw, other.raw)) }
-    }
-
-    /// This constant integer cast to a pointer, as a constant.
-    ///
-    /// # Panics
-    /// If it isn't a constant, or the target isn't a pointer (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_integer_to_pointer<D: PointerOperand + TypeMarker>(
-        self,
-        target: Type<'context, D>,
-    ) -> Value<'context, 'module, D> {
-        self.check_constant("constant_integer_to_pointer");
-        check_pointer_type("constant_integer_to_pointer", target);
-        // SAFETY: an integer constant and a pointer type.
-        unsafe { Value::from_raw(raw::LLVMConstIntToPtr(self.raw, target.raw)) }
-    }
-
-    /// This constant integer cut to a narrower integer, as a constant.
-    ///
-    /// # Panics
-    /// If it isn't a constant, or the target isn't narrower (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_truncate<V>(self, target: Type<'context, Integer<V>>) -> Value<'context, 'module, Integer<V>> {
-        self.check_constant("constant_truncate");
-        if !checks::is_narrowing(self.width_in_bits(), target.width_in_bits()) {
-            bad_call(format_args!(
-                "constant_truncate: {} is not narrower than {} bits",
-                target.describe(),
-                self.width_in_bits()
-            ));
-        }
-        // SAFETY: an integer constant and a narrower integer type.
-        unsafe { Value::from_raw(raw::LLVMConstTrunc(self.raw, target.raw)) }
-    }
 }
 
 /// Checks that a type is a pointer, if its marker doesn't already say so.
@@ -725,7 +1044,7 @@ fn check_pointer_type<D: TypeMarker>(operation: &str, target: Type<'_, D>) {
     }
 }
 
-impl<'context, 'module, P: PointerOperand> Value<'context, 'module, P> {
+impl<P: PointerOperand> Value<'_, '_, P> {
     #[track_caller]
     fn check_constant_pointer(self, operation: &str) {
         if !self.is_constant() {
@@ -733,240 +1052,13 @@ impl<'context, 'module, P: PointerOperand> Value<'context, 'module, P> {
         }
         P::check_pointer(operation, self.to_dynamic());
     }
-
-    /// This constant pointer cast to an integer, as a constant.
-    ///
-    /// # Panics
-    /// If it isn't a constant pointer (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_pointer_to_integer<W>(
-        self,
-        target: Type<'context, Integer<W>>,
-    ) -> Value<'context, 'module, Integer<W>> {
-        self.check_constant_pointer("constant_pointer_to_integer");
-        // SAFETY: a pointer constant and an integer type.
-        unsafe { Value::from_raw(raw::LLVMConstPtrToInt(self.raw, target.raw)) }
-    }
-
-    /// This constant pointer cast to another address space, as a constant.
-    ///
-    /// # Panics
-    /// If it isn't a constant pointer, or the target isn't a pointer in another address space (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_address_space_cast<D: PointerOperand + TypeMarker>(
-        self,
-        target: Type<'context, D>,
-    ) -> Value<'context, 'module, D> {
-        self.check_constant_pointer("constant_address_space_cast");
-        check_pointer_type("constant_address_space_cast", target);
-        // SAFETY: both are live; the shim only reads them.
-        if !unsafe { shim::lyftar_cast_is_valid(raw::LLVMOpcode::LLVMAddrSpaceCast, self.raw, target.raw) } {
-            bad_call(format_args!(
-                "constant_address_space_cast: can't cast {} to {}",
-                self.describe(),
-                target.describe()
-            ));
-        }
-        // SAFETY: just checked what LLVM asserts.
-        unsafe { Value::from_raw(raw::LLVMConstAddrSpaceCast(self.raw, target.raw)) }
-    }
-
-    /// A `getelementptr` over this constant pointer, as a constant. The flags say whether it is `inbounds` and so on.
-    ///
-    /// # Panics
-    /// If this isn't a constant, an index isn't a constant integer, or the indices don't fit `element_type` (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_get_element_pointer<I>(
-        self,
-        element_type: Type<'context>,
-        indices: &[Value<'context, 'module, I>],
-        flags: crate::instructions::GetElementPointerFlags,
-    ) -> Value<'context, 'module, P::GetElementPointerResult> {
-        self.check_constant_pointer("constant_get_element_pointer");
-        check_constants("constant_get_element_pointer", indices, None);
-        let count = length_as_u32(indices.len(), "constant_get_element_pointer");
-        // SAFETY: only reads them; `Value` has the layout of `LLVMValueRef`.
-        let valid = unsafe {
-            shim::lyftar_get_element_pointer_is_valid(element_type.raw, indices.as_ptr().cast(), count, false)
-        };
-        if !valid {
-            bad_call(format_args!("constant_get_element_pointer: those indices don't fit {}", element_type.describe()));
-        }
-        // SAFETY: just checked; LLVM only reads the indices.
-        unsafe {
-            Value::from_raw(raw::LLVMConstGEPWithNoWrapFlags(
-                element_type.raw,
-                self.raw,
-                indices.as_ptr().cast_mut().cast(),
-                count,
-                flags.0,
-            ))
-        }
-    }
-
-    /// This constant pointer, signed for pointer authentication.
-    ///
-    /// # Panics
-    /// If any operand isn't a constant, the key isn't an `i32`, or the discriminator isn't an `i64` (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_pointer_authentication<A: PointerOperand>(
-        self,
-        key: Value<'context, 'module, Integer<crate::types::Bits<32>>>,
-        discriminator: Value<'context, 'module, Integer<crate::types::Bits<64>>>,
-        address_discriminator: Value<'context, 'module, A>,
-    ) -> Value<'context, 'module, ConstantPointerAuthentication> {
-        self.check_constant_pointer("constant_pointer_authentication");
-        address_discriminator.check_constant_pointer("constant_pointer_authentication");
-        if !key.is_constant() || !discriminator.is_constant() {
-            bad_call(format_args!("constant_pointer_authentication: the key and discriminator must be constants"));
-        }
-        // SAFETY: all four were just checked to be constants of the right types.
-        unsafe {
-            Value::from_raw(raw::LLVMConstantPtrAuth(self.raw, key.raw, discriminator.raw, address_discriminator.raw))
-        }
-    }
 }
 
-impl<'context, 'module> Value<'context, 'module> {
-    /// This constant cast to another type by LLVM's `bitcast`, as a constant.
-    ///
-    /// # Panics
-    /// If this isn't a constant, or LLVM's rules don't allow that cast (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_bit_cast(self, target: Type<'context>) -> Value<'context, 'module> {
-        self.check_constant_dynamic("constant_bit_cast");
-        // SAFETY: only reads them.
-        if !unsafe { shim::lyftar_cast_is_valid(raw::LLVMOpcode::LLVMBitCast, self.raw, target.raw) } {
-            bad_call(format_args!("constant_bit_cast: can't cast {} to {}", self.describe(), target.describe()));
-        }
-        // SAFETY: just checked.
-        unsafe { Value::from_raw(raw::LLVMConstBitCast(self.raw, target.raw)) }
-    }
-
-    /// This constant cut or bit-cast to another type, as a constant.
-    ///
-    /// # Panics
-    /// If this isn't a constant, or LLVM's rules allow neither cast (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_truncate_or_bit_cast(self, target: Type<'context>) -> Value<'context, 'module> {
-        self.check_constant_dynamic("constant_truncate_or_bit_cast");
-        // SAFETY: only reads them.
-        let valid = unsafe {
-            shim::lyftar_cast_is_valid(raw::LLVMOpcode::LLVMBitCast, self.raw, target.raw)
-                || shim::lyftar_cast_is_valid(raw::LLVMOpcode::LLVMTrunc, self.raw, target.raw)
-        };
-        if !valid {
-            bad_call(format_args!(
-                "constant_truncate_or_bit_cast: can't cast {} to {}",
-                self.describe(),
-                target.describe()
-            ));
-        }
-        // SAFETY: just checked.
-        unsafe { Value::from_raw(raw::LLVMConstTruncOrBitCast(self.raw, target.raw)) }
-    }
-
-    /// This constant cast by whichever pointer cast fits, as a constant.
-    ///
-    /// # Panics
-    /// If this isn't a constant pointer, or the target is neither a pointer nor an integer (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_pointer_cast(self, target: Type<'context>) -> Value<'context, 'module> {
-        use raw::LLVMTypeKind as K;
-        self.check_constant_dynamic("constant_pointer_cast");
-        if self.get_type().raw_kind() != K::LLVMPointerTypeKind
-            || !matches!(target.raw_kind(), K::LLVMPointerTypeKind | K::LLVMIntegerTypeKind)
-        {
-            bad_call(format_args!("constant_pointer_cast: can't cast {} to {}", self.describe(), target.describe()));
-        }
-        // SAFETY: just checked.
-        unsafe { Value::from_raw(raw::LLVMConstPointerCast(self.raw, target.raw)) }
-    }
-
+impl Value<'_, '_> {
     #[track_caller]
     fn check_constant_dynamic(self, operation: &str) {
         if !self.is_constant() {
             bad_call(format_args!("{operation}: {} is not a constant", self.describe()));
         }
-    }
-
-    /// The element of this constant vector at a constant index, as a constant.
-    ///
-    /// # Panics
-    /// If this isn't a constant vector, or the index isn't a constant integer (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_extract_element<I>(self, index: Value<'context, 'module, I>) -> Value<'context, 'module> {
-        self.check_constant_dynamic("constant_extract_element");
-        // SAFETY: both live; only reads them.
-        if !unsafe { shim::lyftar_extract_element_is_valid(self.raw, index.raw) } || !index.is_constant() {
-            bad_call(format_args!(
-                "constant_extract_element: can't take element {} of {}",
-                index.describe(),
-                self.describe()
-            ));
-        }
-        // SAFETY: just checked.
-        unsafe { Value::from_raw(raw::LLVMConstExtractElement(self.raw, index.raw)) }
-    }
-
-    /// This constant vector with one element replaced, as a constant.
-    ///
-    /// # Panics
-    /// If they aren't constants, the element's type isn't the vector's, or the index isn't an integer (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_insert_element<E, I>(
-        self,
-        element: Value<'context, 'module, E>,
-        index: Value<'context, 'module, I>,
-    ) -> Value<'context, 'module> {
-        self.check_constant_dynamic("constant_insert_element");
-        // SAFETY: all live; only reads them.
-        if !unsafe { shim::lyftar_insert_element_is_valid(self.raw, element.raw, index.raw) }
-            || !element.is_constant()
-            || !index.is_constant()
-        {
-            bad_call(format_args!(
-                "constant_insert_element: can't put {} in {} at {}",
-                element.describe(),
-                self.describe(),
-                index.describe()
-            ));
-        }
-        // SAFETY: just checked.
-        unsafe { Value::from_raw(raw::LLVMConstInsertElement(self.raw, element.raw, index.raw)) }
-    }
-
-    /// Two constant vectors shuffled by a constant mask, as a constant.
-    ///
-    /// # Panics
-    /// If they aren't constants, or LLVM's rules don't allow the shuffle (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_shuffle_vector(
-        self,
-        other: Value<'context, 'module>,
-        mask: Value<'context, 'module>,
-    ) -> Value<'context, 'module> {
-        self.check_constant_dynamic("constant_shuffle_vector");
-        // SAFETY: all live; only reads them.
-        if !unsafe { shim::lyftar_shuffle_vector_is_valid(self.raw, other.raw, mask.raw) } || !other.is_constant() {
-            bad_call(format_args!(
-                "constant_shuffle_vector: can't shuffle {} and {} by {}",
-                self.describe(),
-                other.describe(),
-                mask.describe()
-            ));
-        }
-        // SAFETY: just checked.
-        unsafe { Value::from_raw(raw::LLVMConstShuffleVector(self.raw, other.raw, mask.raw)) }
     }
 }

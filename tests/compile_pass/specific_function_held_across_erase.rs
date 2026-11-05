@@ -13,9 +13,9 @@ type I64 = Integer<Bits<64>>;
 fn main() {
     with_context(|context| {
         let mut module = context.create_module("m");
-        let function = module.add_specific_function::<Function<Void, ()>>("f");
+        let function = context.module(&module).add_specific_function::<Function<Void, ()>>("f");
         let _ = function.as_function();
-        let entry = module.value_to_erase(function);
-        module.erase(&[entry]);
+        let entry = context.module(&module).value_to_erase(function);
+        context.exclusive_module(&mut module).erase(&[entry]);
     });
 }

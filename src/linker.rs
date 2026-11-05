@@ -1,7 +1,7 @@
 //! Linking modules together.
 
 use crate::error::Error;
-use crate::module::Module;
+use crate::module::{Module, OwnedModule};
 use crate::shim;
 
 impl<'context> Module<'context> {
@@ -11,7 +11,7 @@ impl<'context> Module<'context> {
     ///
     /// # Errors
     /// What the linker reported, such as two definitions of one symbol.
-    pub fn link_in(&mut self, source: Module<'context>) -> Result<(), Error> {
+    pub fn link_in(&mut self, source: OwnedModule<'context>) -> Result<(), Error> {
         self.bump_generation();
         let mut message = std::ptr::null_mut();
         // SAFETY: both are live in one context, since `'context` is invariant. The call owns `source` from here on, and

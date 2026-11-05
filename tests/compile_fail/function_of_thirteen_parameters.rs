@@ -13,6 +13,7 @@ type I64 = Integer<Bits<64>>;
 fn main() {
     with_context(|context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         type T = I1;
         let _ = module.add_specific_function::<Function<Void, (T, T, T, T, T, T, T, T, T, T, T, T, T)>>("f");
     });

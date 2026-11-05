@@ -1,10 +1,21 @@
-error[E0502]: cannot borrow `module` as mutable because it is also borrowed as immutable
+error[E0502]: cannot borrow `*context` as mutable because it is also borrowed as immutable
   --> tests/compile_fail/value_held_across_inlining.rs:30:17
    |
-19 |         let function = module.add_function("f", function_type);
-   |                        ------ immutable borrow occurs here
+19 |         let function = context.module(&module).add_function("f", function_type);
+   |                        ------- immutable borrow occurs here
 ...
-30 |         let _ = module.inline_call(choice);
-   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+30 |         let _ = context.exclusive_module(&mut module).inline_call(choice);
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+31 |         let _ = sum.print_to_string();
+   |                 --- immutable borrow later used here
+
+error[E0502]: cannot borrow `module` as mutable because it is also borrowed as immutable
+  --> tests/compile_fail/value_held_across_inlining.rs:30:42
+   |
+19 |         let function = context.module(&module).add_function("f", function_type);
+   |                                       ------- immutable borrow occurs here
+...
+30 |         let _ = context.exclusive_module(&mut module).inline_call(choice);
+   |                                          ^^^^^^^^^^^ mutable borrow occurs here
 31 |         let _ = sum.print_to_string();
    |                 --- immutable borrow later used here

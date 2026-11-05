@@ -16,7 +16,7 @@ fn main() {
         let mut module = context.create_module("m");
         let i64_type = context.get_type::<I64>();
         let function_type = context.function_type(i64_type.to_dynamic(), &[i64_type.to_dynamic()], false);
-        let function = module.add_function("f", function_type);
+        let function = context.module(&module).add_function("f", function_type);
         let block = function.append_basic_block("entry");
         let builder = Builder::at_end_of(block);
         let parameter = function.parameter(0);
@@ -25,9 +25,9 @@ fn main() {
         let _ = (sum, ret);
         let constant = i64_type.constant_integer(1, false);
         drop(builder);
-        let global = module.add_global("g", i64_type);
-        let chosen = [module.value_to_erase(global)];
-        module.erase(&chosen);
+        let global = context.module(&module).add_global("g", i64_type);
+        let chosen = [context.module(&module).value_to_erase(global)];
+        context.exclusive_module(&mut module).erase(&chosen);
         let _ = constant.print_to_string();
     });
 }

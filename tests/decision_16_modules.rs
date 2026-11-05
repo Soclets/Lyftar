@@ -31,14 +31,17 @@ fn add_answer_function(module: &Module<'_>) {
 fn decision_16_bitcode_round_trip_keeps_the_function() {
     with_context(|context| {
         let module = context.create_module("first");
-        add_answer_function(&module);
+        let module = context.module(&module);
+        add_answer_function(module);
         let buffer = module.write_bitcode_to_memory_buffer();
         assert!(!buffer.as_bytes().is_empty());
         let read = context.parse_bitcode(&buffer).expect("good bitcode");
+        let read = context.module(&read);
         assert!(read.get_function("answer").is_some());
         assert_eq!(read.verify(), Ok(()));
         let lazy =
             context.lazy_bitcode_module(MemoryBuffer::from_bytes(buffer.as_bytes(), "lazy")).expect("good bitcode");
+        let lazy = context.module(&lazy);
         assert!(lazy.get_function("answer").is_some());
     });
 }
@@ -59,12 +62,13 @@ fn decision_11_linking_moves_definitions_and_reports_conflicts() {
     with_context(|context| {
         let mut destination = context.create_module("destination");
         let source = context.create_module("source");
-        add_answer_function(&source);
-        destination.link_in(source).expect("the link");
-        assert!(destination.get_function("answer").is_some());
+        add_answer_function(context.module(&source));
+        context.exclusive_module(&mut destination).link_in(source).expect("the link");
+        assert!(context.module(&destination).get_function("answer").is_some());
         let conflicting = context.create_module("conflicting");
-        add_answer_function(&conflicting);
-        let error = destination.link_in(conflicting).expect_err("a duplicate definition");
+        add_answer_function(context.module(&conflicting));
+        let error =
+            context.exclusive_module(&mut destination).link_in(conflicting).expect_err("a duplicate definition");
         assert!(error.message().contains("answer"), "{}", error.message());
     });
 }
@@ -97,9 +101,11 @@ fn decision_16_object_files_are_read_back_and_disassembled() {
     let triple = machine.triple();
     let object = with_context(|context| {
         let mut module = context.create_module("object");
-        module.set_target_machine(&machine);
-        add_answer_function(&module);
-        machine.emit_to_memory_buffer(&mut module, CodeGenerationFileType::Object).expect("code generation")
+        context.module(&module).set_target_machine(&machine);
+        add_answer_function(context.module(&module));
+        machine
+            .emit_to_memory_buffer(context.exclusive_module(&mut module), CodeGenerationFileType::Object)
+            .expect("code generation")
     });
     let binary = Binary::new(&object, None).expect("an object file");
     assert!(matches!(binary.binary_type(), BinaryType::MachO64LittleEndian | BinaryType::Elf64LittleEndian));
@@ -131,10 +137,11 @@ fn decision_16_object_files_are_read_back_and_disassembled() {
 fn decision_16_debug_info_builds_and_verifies() {
     with_context(|context| {
         let module = context.create_module("debug");
+        let module = context.module(&module);
         let version =
             context.get_type::<I32>().constant_integer(u64::from(lyftar::support::debug_metadata_version()), false);
         module.add_module_flag(ModuleFlagBehavior::Warning, "Debug Info Version", version.as_metadata());
-        let builder = DebugInfoBuilder::new(&module, true);
+        let builder = DebugInfoBuilder::new(module, true);
         let file = builder.create_file("source.lang", "/tmp");
         let unit = builder.create_compile_unit(
             DwarfSourceLanguage::C,
@@ -215,6 +222,7 @@ fn decision_16_temporary_metadata_replaces_or_clears_its_uses() {
 fn decision_16_metadata_attributes_and_intrinsics_round_trip() {
     with_context(|context| {
         let module = context.create_module("flags");
+        let module = context.module(&module);
         let flag = context.metadata_string("value");
         module.add_module_flag(ModuleFlagBehavior::Override, "my flag", flag);
         assert!(module.module_flag("my flag").is_some());
@@ -301,8 +309,9 @@ fn decision_16_lto_reads_bitcode_and_makes_an_object() {
     let machine = TargetMachine::for_host().expect("a machine");
     let bitcode = with_context(|context| {
         let module = context.create_module("lto");
+        let module = context.module(&module);
         module.set_target_machine(&machine);
-        add_answer_function(&module);
+        add_answer_function(module);
         module.write_bitcode_to_memory_buffer().as_bytes().to_vec()
     });
     assert!(lyftar::lto::is_object_file_in_memory(&bitcode));
@@ -324,8 +333,9 @@ fn decision_16_lto_makes_an_object_after_the_bytes_it_read_are_gone() {
     let bitcode = || {
         with_context(|context| {
             let module = context.create_module("lto");
+            let module = context.module(&module);
             module.set_target_machine(&machine);
-            add_answer_function(&module);
+            add_answer_function(module);
             module.write_bitcode_to_memory_buffer().as_bytes().to_vec()
         })
     };
@@ -382,12 +392,20 @@ fn decision_11_running_llvm_passes_optimizes_real_code() {
              }",
             )
             .expect("good IR");
-        module.run_passes("default<O2>", Some(&machine), &PassOptions::default()).expect("the pipeline");
-        assert_eq!(module.verify(), Ok(()));
-        let function = module.get_function("f").expect("the function");
-        assert_eq!(function.instruction_count(), 1, "{}", module.print_to_string());
-        assert!(module.run_passes("no-such-pass", None, &PassOptions::default()).is_err());
-        module.run_passes_on_function("f", "instcombine", None, &PassOptions::default()).expect("the pipeline");
+        context
+            .exclusive_module(&mut module)
+            .run_passes("default<O2>", Some(&machine), &PassOptions::default())
+            .expect("the pipeline");
+        assert_eq!(context.module(&module).verify(), Ok(()));
+        let function = context.module(&module).get_function("f").expect("the function");
+        assert_eq!(function.instruction_count(), 1, "{}", context.module(&module).print_to_string());
+        assert!(
+            context.exclusive_module(&mut module).run_passes("no-such-pass", None, &PassOptions::default()).is_err()
+        );
+        context
+            .exclusive_module(&mut module)
+            .run_passes_on_function("f", "instcombine", None, &PassOptions::default())
+            .expect("the pipeline");
     });
 }
 
@@ -408,6 +426,7 @@ fn decision_38_good_text_with_debug_information_still_reads_and_verifies() {
     with_context(|context| {
         let good = format!("@named = global i32 0\n@llvm.used = appending global [1 x ptr] [ptr @named]\n{DEBUG_FLAG}");
         let module = context.parse_ir_text(&good).expect("good IR");
+        let module = context.module(&module);
         assert_eq!(module.verify(), Ok(()));
         assert_eq!(module.debug_metadata_version(), 3);
     });
@@ -429,6 +448,7 @@ fn decision_38_an_old_debug_version_is_still_upgraded_away() {
                    define void @f() !dbg !1 {\n ret void\n}\n\
                    !1 = distinct !{}\n";
         let module = context.parse_ir_text(old).expect("readable IR");
+        let module = context.module(&module);
         assert_eq!(module.verify(), Ok(()));
         assert!(!module.print_to_string().contains("!dbg"), "{}", module.print_to_string());
     });

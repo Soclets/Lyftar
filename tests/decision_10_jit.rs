@@ -5,12 +5,12 @@ use lyftar::{Bits, Builder, Integer, Value, with_context};
 
 type I64 = Integer<Bits<64>>;
 
-fn build_add_one<'context>(context: lyftar::Context<'context>) -> lyftar::Module<'context> {
+fn build_add_one<'context>(context: &lyftar::Context<'context>) -> lyftar::OwnedModule<'context> {
     let module = context.create_module("jit");
     {
         let i64_type = context.get_type::<I64>();
         let function_type = context.function_type(i64_type.to_dynamic(), &[i64_type.to_dynamic()], false);
-        let function = module.add_function("add_one", function_type);
+        let function = context.module(&module).add_function("add_one", function_type);
         let builder = Builder::at_end_of(function.append_basic_block("entry"));
         let parameter = function.parameter(0).checked_cast::<I64>();
         let sum = builder.integer_add(parameter, i64_type.constant_integer(1, false), "sum");
@@ -22,7 +22,7 @@ fn build_add_one<'context>(context: lyftar::Context<'context>) -> lyftar::Module
 #[test]
 fn decision_10_lljit_runs_code_from_a_fresh_context() {
     let jit = Jit::new().expect("a JIT");
-    jit.add_module(jit.main_dylib(), build_add_one).expect("adding the module");
+    jit.add_module(jit.main_dylib(), |context| build_add_one(context)).expect("adding the module");
     let address = jit.lookup("add_one").expect("the function");
     // SAFETY: this function has this signature, as built above.
     let add_one = unsafe { std::mem::transmute::<usize, extern "C" fn(i64) -> i64>(address as usize) };
@@ -51,8 +51,8 @@ fn decision_10_lljit_can_call_back_into_the_compiler_and_see_trackers_go() {
         {
             let i64_type = context.get_type::<I64>();
             let function_type = context.function_type(i64_type.to_dynamic(), &[i64_type.to_dynamic()], false);
-            let callee = module.add_function("from_the_compiler", function_type);
-            let function = module.add_function("twice", function_type);
+            let callee = context.module(&module).add_function("from_the_compiler", function_type);
+            let function = context.module(&module).add_function("twice", function_type);
             let builder = Builder::at_end_of(function.append_basic_block("entry"));
             let result = builder.call(callee, &[function.parameter(0)], "result");
             builder.return_value(result);
@@ -75,7 +75,7 @@ fn decision_10_a_module_the_verifier_rejects_comes_back_as_an_error() {
         let module = context.create_module("broken");
         {
             let function_type = context.function_type(context.void_type(), &[], false);
-            let function = module.add_function("broken", function_type);
+            let function = context.module(&module).add_function("broken", function_type);
             // A block with no terminator: the verifier's report comes back.
             let _ = function.append_basic_block("entry");
         }
@@ -88,21 +88,24 @@ fn decision_10_a_module_the_verifier_rejects_comes_back_as_an_error() {
 fn decision_10_the_execution_engine_runs_code_inside_with_context() {
     with_context(|context| {
         let engine_module = build_add_one(context);
-        let mut engine = ExecutionEngine::jit_compiler(engine_module, 2).expect("an engine");
+        let mut engine = ExecutionEngine::jit_compiler(context, engine_module, 2).expect("an engine");
         let address = engine.function_address("add_one");
         assert_ne!(address, 0);
         // SAFETY: this function has this signature, as built above.
         let add_one = unsafe { std::mem::transmute::<usize, extern "C" fn(i64) -> i64>(address as usize) };
         assert_eq!(add_one(1), 2);
 
-        assert_eq!(engine.remove_module("jit").map(|module| module.identifier()), Ok("jit".to_string()));
+        assert_eq!(
+            engine.remove_module("jit").map(|module| context.module(&module).identifier()),
+            Ok("jit".to_string())
+        );
     });
 }
 
 #[test]
 fn decision_10_the_interpreter_runs_a_function_with_arguments() {
     with_context(|context| {
-        let engine = ExecutionEngine::interpreter(build_add_one(context)).expect("an interpreter");
+        let engine = ExecutionEngine::interpreter(context, build_add_one(context)).expect("an interpreter");
         let i64_type = context.get_type::<I64>();
         let found: Value<'_, '_, lyftar::Function> = engine.find_function("add_one").expect("the function");
         // SAFETY: as built above, and the one argument is an `i64`.
@@ -116,10 +119,11 @@ fn decision_38_an_execution_engine_refuses_an_invalid_module() {
     lyftar::with_context(|context| {
         let module = context.create_module("invalid");
         {
-            let function = module.add_function("f", context.function_type(context.void_type(), &[], false));
+            let function =
+                context.module(&module).add_function("f", context.function_type(context.void_type(), &[], false));
             let _ = function.append_basic_block("entry");
         }
-        let error = lyftar::jit::ExecutionEngine::interpreter(module).err().expect("invalid");
+        let error = lyftar::jit::ExecutionEngine::interpreter(context, module).err().expect("invalid");
         assert!(
             error.message().starts_with("ExecutionEngine: this module fails LLVM's verifier"),
             "{}",

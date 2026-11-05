@@ -1,7 +1,7 @@
 error[E0308]: mismatched types
-  --> tests/compile_fail/mismatched_byte_widths.rs:22:69
+  --> tests/compile_fail/mismatched_byte_widths.rs:23:69
    |
-22 |         let _ = builder.select(condition, b8_type.constant_byte(1), b16_type.constant_byte(2), "");
+23 |         let _ = builder.select(condition, b8_type.constant_byte(1), b16_type.constant_byte(2), "");
    |                         ------                                      ^^^^^^^^^^^^^^^^^^^^^^^^^ expected `8`, found `16`
    |                         |
    |                         arguments to this method are incorrect

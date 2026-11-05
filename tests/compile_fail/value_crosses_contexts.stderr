@@ -1,12 +1,12 @@
 error[E0521]: borrowed data escapes outside of closure
-  --> tests/compile_fail/value_crosses_contexts.rs:22:21
+  --> tests/compile_fail/value_crosses_contexts.rs:23:21
    |
-19 |         let builder = Builder::at_end_of(function.append_basic_block("entry"));
+20 |         let builder = Builder::at_end_of(function.append_basic_block("entry"));
    |             ------- `builder` declared here, outside of the closure body
-20 |         with_context(|second| {
+21 |         with_context(|second| {
    |                       ------ `second` is a reference that is only valid in the closure body
-21 |             let from_second = second.get_type::<I64>().constant_integer(1, false);
-22 |             let _ = builder.integer_add(i64_first.constant_integer(1, false), from_second, "");
+22 |             let from_second = second.get_type::<I64>().constant_integer(1, false);
+23 |             let _ = builder.integer_add(i64_first.constant_integer(1, false), from_second, "");
    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `second` escapes the closure body here
    |
    = note: requirement occurs because of the type `lyftar::Builder<'_, '_>`, which makes the generic argument `'_` invariant
@@ -14,15 +14,15 @@ error[E0521]: borrowed data escapes outside of closure
    = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
 
 error[E0521]: borrowed data escapes outside of closure
-  --> tests/compile_fail/value_crosses_contexts.rs:21:31
+  --> tests/compile_fail/value_crosses_contexts.rs:22:31
    |
 15 |     with_context(|first| {
    |                   -----
    |                   |
    |                   `first` is a reference that is only valid in the closure body
-   |                   has type `lyftar::Context<'1>`
+   |                   has type `&mut lyftar::Context<'1>`
 ...
-21 |             let from_second = second.get_type::<I64>().constant_integer(1, false);
+22 |             let from_second = second.get_type::<I64>().constant_integer(1, false);
    |                               ^^^^^^^^^^^^^^^^^^^^^^^^
    |                               |
    |                               `first` escapes the closure body here

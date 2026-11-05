@@ -1,10 +1,21 @@
-error[E0502]: cannot borrow `module` as mutable because it is also borrowed as immutable
+error[E0502]: cannot borrow `*context` as mutable because it is also borrowed as immutable
   --> tests/compile_fail/block_held_across_erase.rs:27:9
    |
-19 |         let function = module.add_function("f", function_type);
-   |                        ------ immutable borrow occurs here
+19 |         let function = context.module(&module).add_function("f", function_type);
+   |                        ------- immutable borrow occurs here
 ...
-27 |         module.erase(&chosen);
-   |         ^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+27 |         context.exclusive_module(&mut module).erase(&chosen);
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+28 |         let _ = block.name();
+   |                 ----- immutable borrow later used here
+
+error[E0502]: cannot borrow `module` as mutable because it is also borrowed as immutable
+  --> tests/compile_fail/block_held_across_erase.rs:27:34
+   |
+19 |         let function = context.module(&module).add_function("f", function_type);
+   |                                       ------- immutable borrow occurs here
+...
+27 |         context.exclusive_module(&mut module).erase(&chosen);
+   |                                  ^^^^^^^^^^^ mutable borrow occurs here
 28 |         let _ = block.name();
    |                 ----- immutable borrow later used here

@@ -1,0 +1,9 @@
+error[E0502]: cannot borrow `*context` as mutable because it is also borrowed as immutable
+  --> tests/compile_fail/value_from_an_engine_across_a_pass.rs:18:9
+   |
+17 |         let engine = ExecutionEngine::interpreter(context, module).unwrap();
+   |                                                   ------- immutable borrow occurs here
+18 |         context.exclusive_module(&mut second).run_passes("globaldce", None, &PassOptions::default()).unwrap();
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+19 |         drop(engine);
+   |              ------ immutable borrow later used here

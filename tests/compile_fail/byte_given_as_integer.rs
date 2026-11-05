@@ -13,6 +13,7 @@ type I8 = Integer<Bits<8>>;
 fn main() {
     with_context(|context| {
         let module = context.create_module("m");
+        let module = context.module(&module);
         let b8_type = context.get_type::<B8>();
         let b16_type = context.get_type::<B16>();
         let i8_type = context.get_type::<I8>();

@@ -10,11 +10,11 @@ use crate::bad_call::bad_call;
 use crate::context::Context;
 use crate::error::Error;
 use crate::memory_buffer::MemoryBuffer;
-use crate::module::Module;
+use crate::module::{Module, OwnedModule};
 use crate::raw;
 use crate::target::{CodeModel, TargetData, TargetMachine};
 use crate::text::{c_string, from_borrowed, from_owned_message};
-use crate::types::{Float, Integer, Invariant, Type};
+use crate::types::{Float, Integer, Type};
 use crate::values::{Function, GlobalValueMarker, Value};
 
 /// A value passed to or from a function run by [`ExecutionEngine::run_function`].
@@ -99,13 +99,15 @@ impl GenericValue {
 }
 
 /// An execution engine: it owns its modules, and makes or interprets their code when asked.
-pub struct ExecutionEngine<'context> {
+pub struct ExecutionEngine<'context, 'borrow> {
     raw: raw::LLVMExecutionEngineRef,
     modules: Vec<raw::LLVMModuleRef>,
-    marker: Invariant<'context>,
+    // trace: D42
+    // What it gives back reads a module, so it borrows the context as `Context::module` does, and no pass can run meanwhile.
+    marker: PhantomData<&'borrow Context<'context>>,
 }
 
-impl Drop for ExecutionEngine<'_> {
+impl Drop for ExecutionEngine<'_, '_> {
     fn drop(&mut self) {
         // SAFETY: this wrapper owns the engine, which owns its modules.
         unsafe { raw::LLVMDisposeExecutionEngine(self.raw) };
@@ -136,7 +138,7 @@ impl Default for McjitOptions {
     }
 }
 
-impl<'context> ExecutionEngine<'context> {
+impl<'context, 'borrow> ExecutionEngine<'context, 'borrow> {
     /// The raw engine.
     ///
     /// # Safety
@@ -147,12 +149,13 @@ impl<'context> ExecutionEngine<'context> {
     }
 
     fn from_module(
-        module: Module<'context>,
+        _context: &'borrow Context<'context>,
+        module: OwnedModule<'context>,
         create: impl FnOnce(raw::LLVMModuleRef, *mut raw::LLVMExecutionEngineRef, *mut *mut c_char) -> i32,
     ) -> Result<Self, Error> {
         crate::target::initialize_native_target()?;
-        module.verify_before("ExecutionEngine")?;
-        module.check_can_make_code("ExecutionEngine", &crate::target::default_target_triple())?;
+        module.module.verify_before("ExecutionEngine")?;
+        module.module.check_can_make_code("ExecutionEngine", &crate::target::default_target_triple())?;
         let raw_module = module.into_raw();
         let mut engine = std::ptr::null_mut();
         let mut message = std::ptr::null_mut();
@@ -169,8 +172,8 @@ impl<'context> ExecutionEngine<'context> {
     ///
     /// # Errors
     /// What stopped it being made, or the verifier's report if the module is invalid, since LLVM would crash on it.
-    pub fn new(module: Module<'context>) -> Result<Self, Error> {
-        Self::from_module(module, |raw_module, engine, message| {
+    pub fn new(context: &'borrow Context<'context>, module: OwnedModule<'context>) -> Result<Self, Error> {
+        Self::from_module(context, module, |raw_module, engine, message| {
             // SAFETY: the pointers have room for what LLVM writes, and on success the engine owns the module.
             unsafe { raw::LLVMLinkInMCJIT() };
             // SAFETY: the same.
@@ -182,8 +185,8 @@ impl<'context> ExecutionEngine<'context> {
     ///
     /// # Errors
     /// What stopped it being made, or the verifier's report if the module is invalid, since LLVM would crash on it.
-    pub fn interpreter(module: Module<'context>) -> Result<Self, Error> {
-        Self::from_module(module, |raw_module, engine, message| {
+    pub fn interpreter(context: &'borrow Context<'context>, module: OwnedModule<'context>) -> Result<Self, Error> {
+        Self::from_module(context, module, |raw_module, engine, message| {
             // SAFETY: the pointers have room for what LLVM writes, and on success the engine owns the module.
             unsafe { raw::LLVMLinkInInterpreter() };
             // SAFETY: the same.
@@ -195,8 +198,12 @@ impl<'context> ExecutionEngine<'context> {
     ///
     /// # Errors
     /// What stopped it being made, or the verifier's report if the module is invalid, since LLVM would crash on it.
-    pub fn jit_compiler(module: Module<'context>, optimization_level: u32) -> Result<Self, Error> {
-        Self::from_module(module, |raw_module, engine, message| {
+    pub fn jit_compiler(
+        context: &'borrow Context<'context>,
+        module: OwnedModule<'context>,
+        optimization_level: u32,
+    ) -> Result<Self, Error> {
+        Self::from_module(context, module, |raw_module, engine, message| {
             // SAFETY: the pointers have room for what LLVM writes, and on success the engine owns the module.
             unsafe { raw::LLVMLinkInMCJIT() };
             // SAFETY: the same.
@@ -208,8 +215,12 @@ impl<'context> ExecutionEngine<'context> {
     ///
     /// # Errors
     /// What stopped it being made, or the verifier's report if the module is invalid, since LLVM would crash on it.
-    pub fn with_mcjit_options(module: Module<'context>, options: McjitOptions) -> Result<Self, Error> {
-        Self::from_module(module, |raw_module, engine, message| {
+    pub fn with_mcjit_options(
+        context: &'borrow Context<'context>,
+        module: OwnedModule<'context>,
+        options: McjitOptions,
+    ) -> Result<Self, Error> {
+        Self::from_module(context, module, |raw_module, engine, message| {
             // SAFETY: LLVM fills the struct with its defaults first, the size says which fields it may touch, and on
             // success the engine owns the module. There is no custom memory manager.
             unsafe {
@@ -231,8 +242,8 @@ impl<'context> ExecutionEngine<'context> {
     /// # Panics
     /// If the verifier refuses the module, since LLVM would crash on it (D3).
     #[track_caller]
-    pub fn add_module(&mut self, module: Module<'context>) {
-        if let Err(report) = module.verify_before("add_module") {
+    pub fn add_module(&mut self, module: OwnedModule<'context>) {
+        if let Err(report) = module.module.verify_before("add_module") {
             bad_call(format_args!("{}", report.message()));
         }
         let raw_module = module.into_raw();
@@ -249,7 +260,7 @@ impl<'context> ExecutionEngine<'context> {
     /// # Panics
     /// If this engine has no module with that name (D3).
     #[track_caller]
-    pub fn remove_module(&mut self, identifier: &str) -> Result<Module<'context>, Error> {
+    pub fn remove_module(&mut self, identifier: &str) -> Result<OwnedModule<'context>, Error> {
         let position = self.modules.iter().position(|found| {
             let mut length = 0;
             // SAFETY: the engine keeps its modules live; the text is copied right away.
@@ -269,7 +280,7 @@ impl<'context> ExecutionEngine<'context> {
             return Err(Error::from_owned_message(message));
         }
         // SAFETY: LLVM just gave the module back, for the caller to own.
-        Ok(unsafe { Module::from_raw(out) })
+        Ok(unsafe { OwnedModule::from_raw(out) })
     }
 
     /// The function with this name in any of this engine's modules.
@@ -683,7 +694,7 @@ impl Drop for Jit {
 /// Runs `make` with a fresh context, and wraps what it gives as ORC wants it. A module that doesn't verify would crash in the
 /// code generator, so it comes back as an error instead.
 fn thread_safe_module(
-    make: impl for<'context> FnOnce(Context<'context>) -> Module<'context>,
+    make: impl for<'context> FnOnce(&mut Context<'context>) -> OwnedModule<'context>,
 ) -> Result<raw::LLVMOrcThreadSafeModuleRef, Error> {
     // SAFETY: creating a context has no preconditions. ORC's thread-safe context owns it from here on, and the module with
     // its context goes into the thread-safe module; the thread-safe context handle is dropped afterwards, as ORC's C API
@@ -691,7 +702,7 @@ fn thread_safe_module(
     unsafe {
         let raw_context = raw::LLVMContextCreate();
         let thread_safe_context = raw::LLVMOrcCreateNewThreadSafeContextFromLLVMContext(raw_context);
-        let module = make(Context::from_raw(raw_context));
+        let module = make(&mut Context::from_raw(raw_context));
         let raw_module = module.into_raw();
         let verified = {
             let borrowed = Module::from_raw_borrowed(raw_module);
@@ -848,7 +859,7 @@ impl Jit {
     pub fn add_module(
         &self,
         library: JitDylib<'_>,
-        make: impl for<'context> FnOnce(Context<'context>) -> Module<'context>,
+        make: impl for<'context> FnOnce(&mut Context<'context>) -> OwnedModule<'context>,
     ) -> Result<(), Error> {
         let thread_safe = thread_safe_module(make)?;
         // SAFETY: both are live, and LLVM takes the module in every case.
@@ -863,7 +874,7 @@ impl Jit {
     pub fn add_module_with_tracker(
         &self,
         tracker: &ResourceTracker<'_>,
-        make: impl for<'context> FnOnce(Context<'context>) -> Module<'context>,
+        make: impl for<'context> FnOnce(&mut Context<'context>) -> OwnedModule<'context>,
     ) -> Result<(), Error> {
         let thread_safe = thread_safe_module(make)?;
         // SAFETY: both are live, and LLVM takes the module in every case.

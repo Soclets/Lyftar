@@ -1,7 +1,7 @@
 error[E0308]: mismatched types
-  --> tests/compile_fail/mismatched_address_spaces.rs:19:73
+  --> tests/compile_fail/mismatched_address_spaces.rs:20:73
    |
-19 |         let _ = builder.select(condition, default_type.constant_null(), space_5_type.constant_null(), "");
+20 |         let _ = builder.select(condition, default_type.constant_null(), space_5_type.constant_null(), "");
    |                         ------ arguments to this method are incorrect   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `0`, found `5`
    |
    = note: expected struct `lyftar::Value<'_, '_, lyftar::Pointer<lyftar::AddressSpace<0>>>`

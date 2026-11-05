@@ -25,7 +25,8 @@ declare void @nobody()
 fn run_module_pass<P: ModulePass + 'static>(make: fn() -> P) {
     with_context(|context| {
         let mut module = context.parse_ir_text(IR).expect("the test's IR");
-        module
+        context
+            .exclusive_module(&mut module)
             .run_passes_with("test-pass", None, &PassOptions::default(), |builder| {
                 builder.register_module_pass("test-pass", make);
             })
@@ -36,7 +37,8 @@ fn run_module_pass<P: ModulePass + 'static>(make: fn() -> P) {
 fn run_function_pass<P: FunctionPass + 'static>(make: fn() -> P) {
     with_context(|context| {
         let mut module = context.parse_ir_text(IR).expect("the test's IR");
-        module
+        context
+            .exclusive_module(&mut module)
             .run_passes_with("function(test-pass)", None, &PassOptions::default(), |builder| {
                 builder.register_function_pass("test-pass", move || Once { pass: make(), done: false });
             })
@@ -216,8 +218,9 @@ struct AnalysesForAnotherModule;
 impl ModulePass for AnalysesForAnotherModule {
     fn run<'context>(&mut self, module: &mut Module<'context>, analyses: &Analyses<'_>) -> PreservedAnalyses {
         let other = module.clone_module();
+        let other = module.context().module(&other);
         let function = other.get_function("f").expect("the function");
-        let _ = analyses.dominator_tree(&other, function);
+        let _ = analyses.dominator_tree(other, function);
         PreservedAnalyses::None
     }
 }
@@ -253,14 +256,6 @@ impl ModulePass for LoopForAnotherFunction {
     }
 }
 
-struct ReplacesItsModule;
-impl ModulePass for ReplacesItsModule {
-    fn run<'context>(&mut self, module: &mut Module<'context>, _analyses: &Analyses<'_>) -> PreservedAnalyses {
-        *module = module.context().create_module("replacement");
-        PreservedAnalyses::None
-    }
-}
-
 /// Runs case `name` in this process.
 fn run_case(name: &str) {
     match name {
@@ -279,7 +274,6 @@ fn run_case(name: &str) {
         "analyses_of_a_declaration" => run_module_pass(|| AnalysesOfADeclaration),
         "block_from_another_function" => run_module_pass(|| BlockFromAnotherFunction),
         "loop_for_another_function" => run_module_pass(|| LoopForAnotherFunction),
-        "replaces_its_module" => run_module_pass(|| ReplacesItsModule),
         _ => {}
     }
 }
@@ -364,11 +358,6 @@ fn decision_3_a_block_from_another_function_stops_a_dominator_tree() {
 #[test]
 fn decision_3_a_block_from_another_function_stops_loop_info() {
     aborts_with("loop_for_another_function", "isn't in this function");
-}
-
-#[test]
-fn decision_11_a_pass_that_replaces_its_module_stops() {
-    aborts_with("replaces_its_module", "a module pass replaced its module with another");
 }
 
 #[test]

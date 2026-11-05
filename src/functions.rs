@@ -6,7 +6,7 @@ use crate::attributes::{Attribute, AttributeKind, AttributeLocation};
 use crate::bad_call::bad_call;
 use crate::basic_block::BasicBlock;
 use crate::checks;
-use crate::context::Context;
+
 use crate::enums::{DllStorageClass, Linkage, ThreadLocalMode, UnnamedAddress, Visibility};
 use crate::module::Module;
 use crate::raw;
@@ -177,7 +177,7 @@ pub struct ModuleRef<'context, 'module> {
     marker: PhantomData<(Invariant<'context>, &'module ())>,
 }
 
-impl<'context> ModuleRef<'context, '_> {
+impl ModuleRef<'_, '_> {
     /// The raw module.
     ///
     /// # Safety
@@ -194,13 +194,6 @@ impl<'context> ModuleRef<'context, '_> {
         // SAFETY: the module lives for `'module`; the text is copied right away.
         let text = unsafe { raw::LLVMGetModuleIdentifier(self.raw, &raw mut length) };
         from_pointer_and_length(text, length)
-    }
-
-    /// The module's context.
-    #[must_use]
-    pub fn context(self) -> Context<'context> {
-        // SAFETY: the module's context lives for `'context`.
-        unsafe { Context::from_raw(raw::LLVMGetModuleContext(self.raw)) }
     }
 }
 

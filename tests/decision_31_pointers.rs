@@ -47,6 +47,7 @@ fn decision_31_a_pointer_of_unknown_space_is_dynamic_and_casts_check_the_space()
 fn decision_31_a_global_in_another_space_is_not_a_plain_pointer() {
     with_context(|context| {
         let module = context.create_module("spaces");
+        let module = context.module(&module);
         let i64_type = context.get_type::<I64>();
         let global = module.add_global_in_address_space("in_space_5", i64_type, 5);
         assert_eq!(global.get_type().address_space(), 5);
@@ -59,6 +60,7 @@ fn decision_31_a_global_in_another_space_is_not_a_plain_pointer() {
 fn decision_31_memory_works_in_any_space_and_a_get_element_pointer_keeps_its_space() {
     with_context(|context| {
         let module = context.create_module("spaces");
+        let module = context.module(&module);
         let i64_type = context.get_type::<I64>();
         let space_5 = context.get_type::<Space5>().to_dynamic();
         let function_type = context.function_type(i64_type.to_dynamic(), &[space_5], false);
@@ -85,13 +87,14 @@ fn decision_31_memory_works_in_any_space_and_a_get_element_pointer_keeps_its_spa
 fn decision_31_constants_cast_across_spaces() {
     with_context(|context| {
         let module = context.create_module("spaces");
+        let module = context.module(&module);
         let i64_type = context.get_type::<I64>();
         let global = module.add_global_in_address_space("in_space_5", i64_type, 5);
         let cast: Value<'_, '_, Pointer> =
-            global.as_pointer().constant_address_space_cast(context.get_type::<Pointer>());
+            context.constant_address_space_cast(global.as_pointer(), context.get_type::<Pointer>());
         assert_eq!(cast.print_to_string(), "ptr addrspacecast (ptr addrspace(5) @in_space_5 to ptr)");
-        let to_integer = cast.constant_pointer_to_integer(i64_type);
-        let back: Value<'_, '_, Space5> = to_integer.constant_integer_to_pointer(context.get_type::<Space5>());
+        let to_integer = context.constant_pointer_to_integer(cast, i64_type);
+        let back: Value<'_, '_, Space5> = context.constant_integer_to_pointer(to_integer, context.get_type::<Space5>());
         assert_eq!(back.get_type().address_space(), 5);
         assert_eq!(module.verify(), Ok(()));
     });

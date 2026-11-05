@@ -14,6 +14,7 @@ type F64 = Float<Ieee754Binary<Bits<64>>>;
 fn main() {
     with_context(|first| {
         let module = first.create_module("m");
+        let module = first.module(&module);
         let i64_first = first.get_type::<I64>();
         let function = module.add_function("f", first.function_type(first.void_type(), &[], false));
         let builder = Builder::at_end_of(function.append_basic_block("entry"));

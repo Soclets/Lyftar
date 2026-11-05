@@ -43,7 +43,7 @@ impl Intrinsic {
     #[track_caller]
     pub fn function_type<'context>(
         self,
-        context: Context<'context>,
+        context: &Context<'context>,
         overload_types: &[Type<'context>],
     ) -> Type<'context> {
         self.check_overloads("function_type", overload_types);

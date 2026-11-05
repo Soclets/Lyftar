@@ -14,8 +14,8 @@ error[E0505]: cannot move out of `module` because it is borrowed
 16 |         let mut module = context.create_module("m");
    |             ---------- binding `module` declared here
 ...
-19 |         let function = module.add_function("f", function_type);
-   |                        ------ borrow of `module` occurs here
+19 |         let function = context.module(&module).add_function("f", function_type);
+   |                                       ------- borrow of `module` occurs here
 ...
 27 |         drop(module);
    |              ^^^^^^ move out of `module` occurs here

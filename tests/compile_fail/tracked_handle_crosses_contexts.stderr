@@ -1,12 +1,12 @@
 error[E0521]: borrowed data escapes outside of closure
-  --> tests/compile_fail/tracked_handle_crosses_contexts.rs:21:21
+  --> tests/compile_fail/tracked_handle_crosses_contexts.rs:23:21
    |
-18 |         let handle = module.track(function);
+19 |         let handle = module.track(function);
    |             ------ `handle` declared here, outside of the closure body
-19 |         with_context(|second| {
+20 |         with_context(|second| {
    |                       ------ `second` is a reference that is only valid in the closure body
-20 |             let other = second.create_module("other");
-21 |             let _ = handle.get(&other);
+...
+23 |             let _ = handle.get(&other);
    |                     ^^^^^^^^^^^^^^^^^^ `second` escapes the closure body here
    |
    = note: requirement occurs because of the type `TrackedHandle<'_, lyftar::Function>`, which makes the generic argument `'_` invariant
@@ -14,16 +14,16 @@ error[E0521]: borrowed data escapes outside of closure
    = help: see <https://doc.rust-lang.org/nomicon/subtyping.html> for more information about variance
 
 error[E0521]: borrowed data escapes outside of closure
-  --> tests/compile_fail/tracked_handle_crosses_contexts.rs:20:25
+  --> tests/compile_fail/tracked_handle_crosses_contexts.rs:22:21
    |
 15 |     with_context(|first| {
    |                   -----
    |                   |
    |                   `first` is a reference that is only valid in the closure body
-   |                   has type `lyftar::Context<'1>`
+   |                   has type `&mut lyftar::Context<'1>`
 ...
-20 |             let other = second.create_module("other");
-   |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |                         |
-   |                         `first` escapes the closure body here
-   |                         argument requires that `'1` must outlive `'static`
+22 |         let other = second.module(&other);
+   |                     ^^^^^^^^^^^^^^^^^^^^^
+   |                     |
+   |                     `first` escapes the closure body here
+   |                     argument requires that `'1` must outlive `'static`

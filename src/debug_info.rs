@@ -341,7 +341,7 @@ impl Drop for TemporaryMetadata<'_, '_> {
 impl<'context, 'module> TemporaryMetadata<'context, 'module> {
     /// A new temporary node with these operands.
     #[must_use]
-    pub fn new(context: crate::Context<'context>, operands: &[Metadata<'context, 'module>]) -> Self {
+    pub fn new(context: &crate::Context<'context>, operands: &[Metadata<'context, 'module>]) -> Self {
         // SAFETY: LLVM only reads the operands, and `Metadata` has the layout of `LLVMMetadataRef`; the wrapper owns the node.
         let raw = unsafe { raw::LLVMTemporaryMDNode(context.raw, operands.as_ptr().cast_mut().cast(), operands.len()) };
         TemporaryMetadata { raw, marker: PhantomData }

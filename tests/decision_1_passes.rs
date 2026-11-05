@@ -96,7 +96,8 @@ fn decision_1_a_pass_can_ask_for_dominator_trees_and_loops() {
     with_context(|context| {
         let mut module = context.parse_ir_text(IR).expect("the test's IR");
         let report = RefCell::new(Vec::new());
-        module
+        context
+            .exclusive_module(&mut module)
             .run_passes_with("looks-at-loops", None, &PassOptions::default(), |builder| {
                 let report = &report;
                 builder.register_module_pass("looks-at-loops", move || LooksAtLoops { report });
@@ -143,12 +144,13 @@ fn decision_11_analyses_are_fresh_after_a_delete() {
         let mut module = context
             .parse_ir_text("define void @two_blocks() {\nfirst:\n br label %second\nsecond:\n ret void\n}")
             .expect("good IR");
-        module
+        context
+            .exclusive_module(&mut module)
             .run_passes_with("fresh", None, &PassOptions::default(), |builder| {
                 builder.register_module_pass("fresh", || FreshAfterErase);
             })
             .expect("the pipeline");
-        assert_eq!(module.verify(), Ok(()));
+        assert_eq!(context.module(&module).verify(), Ok(()));
     });
 }
 
@@ -185,15 +187,16 @@ impl ModulePass for InlinesAndClones {
 fn decision_1_a_pass_can_clone_and_inline() {
     with_context(|context| {
         let mut module = context.parse_ir_text(IR).expect("the test's IR");
-        module
+        context
+            .exclusive_module(&mut module)
             .run_passes_with("inlines", None, &PassOptions::default(), |builder| {
                 builder.register_module_pass("inlines", || InlinesAndClones);
             })
             .expect("the pipeline");
-        assert_eq!(module.verify(), Ok(()));
-        let caller = module.get_function("caller").expect("the function");
+        assert_eq!(context.module(&module).verify(), Ok(()));
+        let caller = context.module(&module).get_function("caller").expect("the function");
         assert_eq!(caller.function_instructions().filter(|found| found.as_kind::<CallBase>().is_some()).count(), 0);
-        assert!(module.get_function("callee.clone").is_some());
+        assert!(context.module(&module).get_function("callee.clone").is_some());
     });
 }
 
@@ -237,7 +240,8 @@ fn decision_1_each_extension_point_runs_a_rust_pass_in_a_default_pipeline() {
         let loop_late = Cell::new(0);
         let loop_end = Cell::new(0);
         let levels: RefCell<Vec<OptimizationLevel>> = RefCell::new(Vec::new());
-        module
+        context
+            .exclusive_module(&mut module)
             .run_passes_with("default<O3>", None, &PassOptions::default(), |builder| {
                 builder.at_peephole(|manager, level| {
                     levels.borrow_mut().push(level);
@@ -263,7 +267,7 @@ fn decision_1_each_extension_point_runs_a_rust_pass_in_a_default_pipeline() {
                 });
             })
             .expect("the pipeline");
-        assert_eq!(module.verify(), Ok(()));
+        assert_eq!(context.module(&module).verify(), Ok(()));
         for (name, count) in [
             ("peephole", &peephole),
             ("scalar", &scalar),
@@ -288,7 +292,8 @@ fn decision_1_link_time_extension_points_run() {
     with_context(|context| {
         let mut module = context.parse_ir_text(IR).expect("the test's IR");
         let (early, last) = (Cell::new(0), Cell::new(0));
-        module
+        context
+            .exclusive_module(&mut module)
             .run_passes_with("lto<O2>", None, &PassOptions::default(), |builder| {
                 builder.at_full_link_time_optimization_early(|manager, _| {
                     manager.add_module_pass(Counts { runs: &early })
@@ -305,7 +310,12 @@ fn decision_1_link_time_extension_points_run() {
 fn decision_3_a_bad_pipeline_comes_back_as_an_error() {
     with_context(|context| {
         let mut module = context.parse_ir_text(IR).expect("the test's IR");
-        let result = module.run_passes_with("no-such-pass", None, &PassOptions::default(), |_| {});
+        let result = context.exclusive_module(&mut module).run_passes_with(
+            "no-such-pass",
+            None,
+            &PassOptions::default(),
+            |_| {},
+        );
         assert!(result.is_err_and(|error| error.message().contains("no-such-pass")));
     });
 }
@@ -324,9 +334,12 @@ fn decision_1_pass_options_reach_the_pipeline() {
             alias_analysis_pipeline: Some("basic-aa".to_string()),
             ..PassOptions::default()
         };
-        module.run_passes_with("default<O2>", None, &options, |_| {}).expect("the pipeline");
-        assert_eq!(module.verify(), Ok(()));
-        module.run_passes("default<O1>", None, &options).expect("the pipeline");
+        context
+            .exclusive_module(&mut module)
+            .run_passes_with("default<O2>", None, &options, |_| {})
+            .expect("the pipeline");
+        assert_eq!(context.module(&module).verify(), Ok(()));
+        context.exclusive_module(&mut module).run_passes("default<O1>", None, &options).expect("the pipeline");
     });
 }
 
@@ -347,19 +360,31 @@ fn decision_38_what_llvm_would_end_the_process_over_comes_back_as_an_error() {
             ("function(free-machine-function)", "needs a machine function analysis"),
         ] {
             let mut module = context.parse_ir_text(IR).expect("the test's IR");
-            let error = module.run_passes(pipeline, None, &PassOptions::default()).expect_err(pipeline);
+            let error = context
+                .exclusive_module(&mut module)
+                .run_passes(pipeline, None, &PassOptions::default())
+                .expect_err(pipeline);
             assert!(error.message().contains(wanted), "{pipeline}: {}", error.message());
-            let error = module.run_passes_with(pipeline, None, &PassOptions::default(), |_| {}).expect_err(pipeline);
+            let error = context
+                .exclusive_module(&mut module)
+                .run_passes_with(pipeline, None, &PassOptions::default(), |_| {})
+                .expect_err(pipeline);
             assert!(error.message().contains(wanted), "{pipeline}: {}", error.message());
-            assert_eq!(module.verify(), Ok(()));
+            assert_eq!(context.module(&module).verify(), Ok(()));
         }
         // A pass of someone's own can take a parameter of that spelling, and a similar name is a different pass.
         let mut module = context.parse_ir_text(IR).expect("the test's IR");
-        let result = module.run_passes_with("own-pass<Os>", None, &PassOptions::default(), |_| {});
+        let result = context.exclusive_module(&mut module).run_passes_with(
+            "own-pass<Os>",
+            None,
+            &PassOptions::default(),
+            |_| {},
+        );
         assert!(result.is_err_and(|error| error.message().contains("own-pass")));
-        let result = module.run_passes("function-import-not", None, &PassOptions::default());
+        let result =
+            context.exclusive_module(&mut module).run_passes("function-import-not", None, &PassOptions::default());
         assert!(result.is_err_and(|error| error.message().contains("function-import-not")));
-        assert!(module.run_passes("default<O2>", None, &PassOptions::default()).is_ok());
+        assert!(context.exclusive_module(&mut module).run_passes("default<O2>", None, &PassOptions::default()).is_ok());
     });
 }
 
@@ -368,7 +393,8 @@ fn decision_38_what_an_extension_point_adds_is_checked_too() {
     with_context(|context| {
         let mut module = context.parse_ir_text(IR).expect("the test's IR");
         let found = RefCell::new(None);
-        module
+        context
+            .exclusive_module(&mut module)
             .run_passes_with("default<O1>", None, &PassOptions::default(), |builder| {
                 builder.at_pipeline_start(|manager, _| {
                     *found.borrow_mut() = Some(manager.add_pipeline("default<Oz>").expect_err("Oz"));
@@ -380,13 +406,14 @@ fn decision_38_what_an_extension_point_adds_is_checked_too() {
     });
 }
 
-fn with_unterminated_function(context: lyftar::Context<'_>, body: impl FnOnce(&mut Module<'_>)) {
+fn with_unterminated_function(context: &mut lyftar::Context<'_>, body: impl FnOnce(&mut Module<'_>)) {
     let mut module = context.create_module("invalid");
     {
-        let function = module.add_function("f", context.function_type(context.void_type(), &[], false));
+        let function =
+            context.module(&module).add_function("f", context.function_type(context.void_type(), &[], false));
         let _ = function.append_basic_block("entry");
     }
-    body(&mut module);
+    body(context.exclusive_module(&mut module));
 }
 
 // LLVM segfaults on each of these.
@@ -446,16 +473,22 @@ fn decision_38_a_malformed_debug_declare_cant_free_plain_data() {
         let data = i32_type.constant_data_array(&[1, 0, 0, 0, 2, 0, 0, 0]);
         let mut module = context.create_module("invalid");
         {
-            let declare = module.add_function(
+            let declare = context.module(&module).add_function(
                 "llvm.dbg.declare",
                 context.function_type(context.void_type(), &[data.get_type()], false),
             );
-            let user = module.add_function("user", context.function_type(context.void_type(), &[], false));
+            let user =
+                context.module(&module).add_function("user", context.function_type(context.void_type(), &[], false));
             let builder = Builder::at_end_of(user.append_basic_block("entry"));
             builder.call(declare, &[data], "");
             builder.return_void();
         }
-        assert!(module.run_passes("strip-debug-declare", None, &PassOptions::default()).is_err());
+        assert!(
+            context
+                .exclusive_module(&mut module)
+                .run_passes("strip-debug-declare", None, &PassOptions::default())
+                .is_err()
+        );
         assert_eq!(data.print_to_string(), "[2 x i32] [i32 1, i32 2]");
     });
 }
@@ -479,14 +512,15 @@ fn decision_38_a_ptrauth_constant_for_another_architecture_is_an_error() {
         let file_type = lyftar::target::CodeGenerationFileType::Object;
         let mut module = context.parse_ir_text(source).expect("good IR");
         let x86 = machine_for("x86_64-unknown-linux-gnu");
-        module.set_target_machine(&x86);
-        let error = x86.emit_to_memory_buffer(&mut module, file_type).err().expect("an error");
+        context.module(&module).set_target_machine(&x86);
+        let error =
+            x86.emit_to_memory_buffer(context.exclusive_module(&mut module), file_type).err().expect("an error");
         assert!(error.message().contains("only AArch64 can make code for one, not x86_64"), "{}", error.message());
 
         let mut module = context.parse_ir_text(source).expect("good IR");
         let aarch64 = machine_for("aarch64-apple-darwin");
-        module.set_target_machine(&aarch64);
-        assert!(aarch64.emit_to_memory_buffer(&mut module, file_type).is_ok());
+        context.module(&module).set_target_machine(&aarch64);
+        assert!(aarch64.emit_to_memory_buffer(context.exclusive_module(&mut module), file_type).is_ok());
     });
 }
 
@@ -506,7 +540,14 @@ fn decision_38_a_module_with_no_ptrauth_constant_emits_for_any_architecture() {
             lyftar::target::RelocationMode::Default,
             lyftar::target::CodeModel::Default,
         );
-        module.set_target_machine(&machine);
-        assert!(machine.emit_to_memory_buffer(&mut module, lyftar::target::CodeGenerationFileType::Object).is_ok());
+        context.module(&module).set_target_machine(&machine);
+        assert!(
+            machine
+                .emit_to_memory_buffer(
+                    context.exclusive_module(&mut module),
+                    lyftar::target::CodeGenerationFileType::Object
+                )
+                .is_ok()
+        );
     });
 }

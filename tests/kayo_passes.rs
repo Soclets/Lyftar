@@ -122,14 +122,14 @@ fn run_recursive_inline(module: &mut Module<'_>, depth: u32, max_size: u32) -> u
 fn decision_1_recursive_inline_does_what_kayos_test_asks() {
     with_context(|context| {
         let mut module = context.parse_ir_text(RECURSIVE_INLINE_IR).expect("the test's IR");
-        let inlined = run_recursive_inline(&mut module, 3, 1000);
-        assert_eq!(module.verify(), Ok(()));
-        let fib = function_named(&module, "fib");
-        let countdown = function_named(&module, "countdown");
-        let say = function_named(&module, "say");
-        let kept = function_named(&module, "kept");
-        let even = function_named(&module, "even");
-        let odd = function_named(&module, "odd");
+        let inlined = run_recursive_inline(context.exclusive_module(&mut module), 3, 1000);
+        assert_eq!(context.module(&module).verify(), Ok(()));
+        let fib = function_named(context.module(&module), "fib");
+        let countdown = function_named(context.module(&module), "countdown");
+        let say = function_named(context.module(&module), "say");
+        let kept = function_named(context.module(&module), "kept");
+        let even = function_named(context.module(&module), "even");
+        let odd = function_named(context.module(&module), "odd");
         // Three levels of two calls each: 2 + 4 + 8 inlined, 16 calls left.
         assert_eq!(calls_to(fib, fib), 16);
         assert_eq!(calls_to(countdown, countdown), 1);
@@ -142,7 +142,7 @@ fn decision_1_recursive_inline_does_what_kayos_test_asks() {
         assert_eq!(calls_to(even, even), 1);
         assert_eq!(calls_to(odd, odd), 1);
         assert_eq!(inlined, 2 + 4 + 8 + 3 + 2 + 3 + 3);
-        assert_eq!(module.functions().count(), 6);
+        assert_eq!(context.module(&module).functions().count(), 6);
     });
 }
 
@@ -150,9 +150,9 @@ fn decision_1_recursive_inline_does_what_kayos_test_asks() {
 fn decision_1_recursive_inline_holds_the_size_limit() {
     with_context(|context| {
         let mut module = context.parse_ir_text(RECURSIVE_INLINE_IR).expect("the test's IR");
-        let inlined = run_recursive_inline(&mut module, 3, 10);
+        let inlined = run_recursive_inline(context.exclusive_module(&mut module), 3, 10);
         assert_eq!(inlined, 0);
-        let fib = function_named(&module, "fib");
+        let fib = function_named(context.module(&module), "fib");
         assert_eq!(calls_to(fib, fib), 2);
     });
 }
@@ -245,28 +245,29 @@ fn count_calls(function: Value<'_, '_, Function>, name: &str) -> usize {
 fn decision_1_heap_to_stack_moves_what_stays_and_leaves_the_rest() {
     with_context(|context| {
         let mut module = context.parse_ir_text(HEAP_TO_STACK_IR).expect("the test's IR");
-        module
+        context
+            .exclusive_module(&mut module)
             .run_passes_with("function(heap-to-stack)", None, &PassOptions::default(), |builder| {
                 builder.register_function_pass("heap-to-stack", || HeapToStack);
             })
             .expect("the pipeline");
-        assert_eq!(module.verify(), Ok(()));
-        let stays_here = function_named(&module, "stays_here");
+        assert_eq!(context.module(&module).verify(), Ok(()));
+        let stays_here = function_named(context.module(&module), "stays_here");
         assert_eq!(count_calls(stays_here, "cyborg_alloc"), 0);
         assert_eq!(count_calls(stays_here, "cyborg_free"), 0);
         assert!(stays_here.print_to_string().contains("%on_stack = alloca [16 x i8], align 16"));
         for kept in ["leaves", "too_big", "zero_bytes"] {
-            let function = function_named(&module, kept);
+            let function = function_named(context.module(&module), kept);
             assert_eq!(count_calls(function, "cyborg_alloc"), 1, "{kept}");
             assert_eq!(count_calls(function, "cyborg_free"), 1, "{kept}");
         }
-        assert_eq!(count_calls(function_named(&module, "static_text"), "cyborg_str_free"), 0);
-        assert_eq!(count_calls(function_named(&module, "owned_text"), "cyborg_str_free"), 1);
+        assert_eq!(count_calls(function_named(context.module(&module), "static_text"), "cyborg_str_free"), 0);
+        assert_eq!(count_calls(function_named(context.module(&module), "owned_text"), "cyborg_str_free"), 1);
         // One 4000-byte allocation fits the frame's 4096 bytes, and the second stays on the heap.
-        let frame = function_named(&module, "frame_budget");
+        let frame = function_named(context.module(&module), "frame_budget");
         assert_eq!(count_calls(frame, "cyborg_alloc"), 1);
         assert_eq!(count_calls(frame, "cyborg_free"), 1);
-        assert_eq!(count_calls(function_named(&module, "lender"), "cyborg_alloc"), 0);
+        assert_eq!(count_calls(function_named(context.module(&module), "lender"), "cyborg_alloc"), 0);
     });
 }
 
@@ -321,7 +322,8 @@ fn decision_1_recursive_inline_runs_through_opt_as_a_plugin() {
     let printed = opt_with_plugin("recursive-inline", RECURSIVE_INLINE_IR);
     with_context(|context| {
         let module = context.parse_ir_text(&printed).expect("what opt printed");
-        let fib = function_named(&module, "fib");
+        let module = context.module(&module);
+        let fib = function_named(module, "fib");
         assert_eq!(calls_to(fib, fib), 16);
     });
 }
