@@ -116,7 +116,7 @@ pub fn is_object_file(path: &Path) -> Result<bool, Error> {
     let _lock = lock_lto();
     let path = c_path(path)?;
     // SAFETY: a valid C string for the call.
-    Ok(unsafe { raw::lto_module_is_object_file(path.as_ptr()) })
+    Ok(raw::lto_bool_to_bool(unsafe { raw::lto_module_is_object_file(path.as_ptr()) }))
 }
 
 /// Whether a file is an object file `libLTO` can read, for a target whose triple starts with this.
@@ -132,7 +132,9 @@ pub fn is_object_file_for_target(path: &Path, triple_prefix: &str) -> Result<boo
     let path = c_path(path)?;
     let triple_prefix = c_string(triple_prefix, "is_object_file_for_target");
     // SAFETY: valid C strings for the call.
-    Ok(unsafe { raw::lto_module_is_object_file_for_target(path.as_ptr(), triple_prefix.as_ptr()) })
+    Ok(raw::lto_bool_to_bool(unsafe {
+        raw::lto_module_is_object_file_for_target(path.as_ptr(), triple_prefix.as_ptr())
+    }))
 }
 
 /// Whether these bytes are an object file `libLTO` can read.
@@ -140,7 +142,7 @@ pub fn is_object_file_for_target(path: &Path, triple_prefix: &str) -> Result<boo
 pub fn is_object_file_in_memory(bytes: &[u8]) -> bool {
     let _lock = lock_lto();
     // SAFETY: LLVM reads the length given.
-    unsafe { raw::lto_module_is_object_file_in_memory(bytes.as_ptr().cast(), bytes.len()) }
+    raw::lto_bool_to_bool(unsafe { raw::lto_module_is_object_file_in_memory(bytes.as_ptr().cast(), bytes.len()) })
 }
 
 /// Whether these bytes are an object file `libLTO` can read, for a target whose triple starts with this.
@@ -153,9 +155,9 @@ pub fn is_object_file_in_memory_for_target(bytes: &[u8], triple_prefix: &str) ->
     let _lock = lock_lto();
     let triple_prefix = c_string(triple_prefix, "is_object_file_in_memory_for_target");
     // SAFETY: LLVM reads the length given, and the prefix is a valid C string.
-    unsafe {
+    raw::lto_bool_to_bool(unsafe {
         raw::lto_module_is_object_file_in_memory_for_target(bytes.as_ptr().cast(), bytes.len(), triple_prefix.as_ptr())
-    }
+    })
 }
 
 /// Whether these bytes hold an Objective-C category.
@@ -163,7 +165,7 @@ pub fn is_object_file_in_memory_for_target(bytes: &[u8], triple_prefix: &str) ->
 pub fn has_objective_c_category(bytes: &[u8]) -> bool {
     let _lock = lock_lto();
     // SAFETY: LLVM reads the length given.
-    unsafe { raw::lto_module_has_objc_category(bytes.as_ptr().cast(), bytes.len()) }
+    raw::lto_bool_to_bool(unsafe { raw::lto_module_has_objc_category(bytes.as_ptr().cast(), bytes.len()) })
 }
 
 /// An object file read by `libLTO`.
@@ -189,54 +191,54 @@ impl LtoSymbolAttributes {
     /// The symbol's alignment, as a power of two.
     #[must_use]
     pub fn alignment_as_power_of_two(self) -> u32 {
-        self.0 & raw::lto_symbol_attributes::LTO_SYMBOL_ALIGNMENT_MASK.0
+        self.0 & raw::enum_bits(raw::lto_symbol_attributes::LTO_SYMBOL_ALIGNMENT_MASK.0)
     }
 
     /// Whether the symbol is code.
     #[must_use]
     pub fn is_code(self) -> bool {
-        self.0 & raw::lto_symbol_attributes::LTO_SYMBOL_PERMISSIONS_MASK.0
-            == raw::lto_symbol_attributes::LTO_SYMBOL_PERMISSIONS_CODE.0
+        self.0 & raw::enum_bits(raw::lto_symbol_attributes::LTO_SYMBOL_PERMISSIONS_MASK.0)
+            == raw::enum_bits(raw::lto_symbol_attributes::LTO_SYMBOL_PERMISSIONS_CODE.0)
     }
 
     /// Whether the symbol is undefined here.
     #[must_use]
     pub fn is_undefined(self) -> bool {
-        self.0 & raw::lto_symbol_attributes::LTO_SYMBOL_DEFINITION_MASK.0
-            == raw::lto_symbol_attributes::LTO_SYMBOL_DEFINITION_UNDEFINED.0
+        self.0 & raw::enum_bits(raw::lto_symbol_attributes::LTO_SYMBOL_DEFINITION_MASK.0)
+            == raw::enum_bits(raw::lto_symbol_attributes::LTO_SYMBOL_DEFINITION_UNDEFINED.0)
     }
 
     /// Whether the symbol is weak.
     #[must_use]
     pub fn is_weak(self) -> bool {
-        self.0 & raw::lto_symbol_attributes::LTO_SYMBOL_DEFINITION_MASK.0
-            == raw::lto_symbol_attributes::LTO_SYMBOL_DEFINITION_WEAK.0
+        self.0 & raw::enum_bits(raw::lto_symbol_attributes::LTO_SYMBOL_DEFINITION_MASK.0)
+            == raw::enum_bits(raw::lto_symbol_attributes::LTO_SYMBOL_DEFINITION_WEAK.0)
     }
 
     /// Whether the symbol is only seen inside its file.
     #[must_use]
     pub fn is_internal(self) -> bool {
-        self.0 & raw::lto_symbol_attributes::LTO_SYMBOL_SCOPE_MASK.0
-            == raw::lto_symbol_attributes::LTO_SYMBOL_SCOPE_INTERNAL.0
+        self.0 & raw::enum_bits(raw::lto_symbol_attributes::LTO_SYMBOL_SCOPE_MASK.0)
+            == raw::enum_bits(raw::lto_symbol_attributes::LTO_SYMBOL_SCOPE_INTERNAL.0)
     }
 
     /// Whether the symbol is visible everywhere.
     #[must_use]
     pub fn is_default_scope(self) -> bool {
-        self.0 & raw::lto_symbol_attributes::LTO_SYMBOL_SCOPE_MASK.0
-            == raw::lto_symbol_attributes::LTO_SYMBOL_SCOPE_DEFAULT.0
+        self.0 & raw::enum_bits(raw::lto_symbol_attributes::LTO_SYMBOL_SCOPE_MASK.0)
+            == raw::enum_bits(raw::lto_symbol_attributes::LTO_SYMBOL_SCOPE_DEFAULT.0)
     }
 
     /// Whether the symbol is in a COMDAT.
     #[must_use]
     pub fn is_comdat(self) -> bool {
-        self.0 & raw::lto_symbol_attributes::LTO_SYMBOL_COMDAT.0 != 0
+        self.0 & raw::enum_bits(raw::lto_symbol_attributes::LTO_SYMBOL_COMDAT.0) != 0
     }
 
     /// Whether the symbol is an alias.
     #[must_use]
     pub fn is_alias(self) -> bool {
-        self.0 & raw::lto_symbol_attributes::LTO_SYMBOL_ALIAS.0 != 0
+        self.0 & raw::enum_bits(raw::lto_symbol_attributes::LTO_SYMBOL_ALIAS.0) != 0
     }
 }
 
@@ -365,7 +367,7 @@ impl LtoModule {
             bad_call(format_args!("symbol_attributes: index {index} is out of bounds for {count} symbols"));
         }
         // SAFETY: the index was just checked.
-        LtoSymbolAttributes(unsafe { raw::lto_module_get_symbol_attribute(self.raw, index) }.0)
+        LtoSymbolAttributes(raw::enum_bits(unsafe { raw::lto_module_get_symbol_attribute(self.raw, index) }.0))
     }
 
     /// The undefined symbols its module-level assembly uses.
@@ -396,7 +398,9 @@ impl LtoModule {
         let _lock = lock_lto();
         let (mut cpu_type, mut cpu_subtype) = (0, 0);
         // SAFETY: the module is live, and LLVM writes two numbers.
-        let failed = unsafe { raw::lto_module_get_macho_cputype(self.raw, &raw mut cpu_type, &raw mut cpu_subtype) };
+        let failed = raw::lto_bool_to_bool(unsafe {
+            raw::lto_module_get_macho_cputype(self.raw, &raw mut cpu_type, &raw mut cpu_subtype)
+        });
         if failed { Err(last_error()) } else { Ok((cpu_type, cpu_subtype)) }
     }
 
@@ -405,7 +409,7 @@ impl LtoModule {
     pub fn has_constructors_or_destructors(&self) -> bool {
         let _lock = lock_lto();
         // SAFETY: the module is live.
-        unsafe { raw::lto_module_has_ctor_dtor(self.raw) }
+        raw::lto_bool_to_bool(unsafe { raw::lto_module_has_ctor_dtor(self.raw) })
     }
 
     /// Whether this is bitcode for `ThinLTO`.
@@ -413,7 +417,7 @@ impl LtoModule {
     pub fn is_thin(&self) -> bool {
         let _lock = lock_lto();
         // SAFETY: the module is live.
-        unsafe { raw::lto_module_is_thinlto(self.raw) }
+        raw::lto_bool_to_bool(unsafe { raw::lto_module_is_thinlto(self.raw) })
     }
 }
 
@@ -509,7 +513,7 @@ impl<'handler> LtoCodeGenerator<'handler> {
         let _lock = lock_lto();
         let module = self.read_into_context(bytes, path, "add_module")?;
         // SAFETY: both are live, in one context, and the module stays so as long as the generator.
-        let failed = unsafe { raw::lto_codegen_add_module(self.raw, module.raw) };
+        let failed = raw::lto_bool_to_bool(unsafe { raw::lto_codegen_add_module(self.raw, module.raw) });
         self.read_modules.push(module);
         if failed { Err(last_error()) } else { Ok(()) }
     }
@@ -544,7 +548,11 @@ impl<'handler> LtoCodeGenerator<'handler> {
             LtoDebugModel::Dwarf => raw::lto_debug_model::LTO_DEBUG_MODEL_DWARF,
         };
         // SAFETY: the generator is live.
-        if unsafe { raw::lto_codegen_set_debug_model(self.raw, raw_model) } { Err(last_error()) } else { Ok(()) }
+        if raw::lto_bool_to_bool(unsafe { raw::lto_codegen_set_debug_model(self.raw, raw_model) }) {
+            Err(last_error())
+        } else {
+            Ok(())
+        }
     }
 
     /// Sets how it makes position-dependent code.
@@ -554,7 +562,11 @@ impl<'handler> LtoCodeGenerator<'handler> {
     pub fn set_position_model(&mut self, model: LtoPositionModel) -> Result<(), Error> {
         let _lock = lock_lto();
         // SAFETY: the generator is live.
-        if unsafe { raw::lto_codegen_set_pic_model(self.raw, model.to_raw()) } { Err(last_error()) } else { Ok(()) }
+        if raw::lto_bool_to_bool(unsafe { raw::lto_codegen_set_pic_model(self.raw, model.to_raw()) }) {
+            Err(last_error())
+        } else {
+            Ok(())
+        }
     }
 
     /// Sets the processor.
@@ -615,7 +627,7 @@ impl<'handler> LtoCodeGenerator<'handler> {
         let _lock = lock_lto();
         let path = c_path(path)?;
         // SAFETY: the generator is live, and the path is a valid C string for the call.
-        if unsafe { raw::lto_codegen_write_merged_modules(self.raw, path.as_ptr()) } {
+        if raw::lto_bool_to_bool(unsafe { raw::lto_codegen_write_merged_modules(self.raw, path.as_ptr()) }) {
             Err(last_error())
         } else {
             Ok(())
@@ -650,7 +662,7 @@ impl<'handler> LtoCodeGenerator<'handler> {
         let _lock = lock_lto();
         let mut name = std::ptr::null();
         // SAFETY: the generator is live, and LLVM writes the name, copied right away.
-        if unsafe { raw::lto_codegen_compile_to_file(self.raw, &raw mut name) } {
+        if raw::lto_bool_to_bool(unsafe { raw::lto_codegen_compile_to_file(self.raw, &raw mut name) }) {
             return Err(last_error());
         }
         Ok(from_borrowed(name))
@@ -663,7 +675,7 @@ impl<'handler> LtoCodeGenerator<'handler> {
     pub fn optimize(&mut self) -> Result<(), Error> {
         let _lock = lock_lto();
         // SAFETY: the generator is live.
-        if unsafe { raw::lto_codegen_optimize(self.raw) } { Err(last_error()) } else { Ok(()) }
+        if raw::lto_bool_to_bool(unsafe { raw::lto_codegen_optimize(self.raw) }) { Err(last_error()) } else { Ok(()) }
     }
 
     /// Makes one object from what [`LtoCodeGenerator::optimize`] did.
@@ -713,14 +725,14 @@ impl<'handler> LtoCodeGenerator<'handler> {
     pub fn set_should_internalize(&mut self, should: bool) {
         let _lock = lock_lto();
         // SAFETY: the generator is live.
-        unsafe { raw::lto_codegen_set_should_internalize(self.raw, should) };
+        unsafe { raw::lto_codegen_set_should_internalize(self.raw, raw::bool_to_lto_bool(should)) };
     }
 
     /// Sets whether it should keep use lists in bitcode.
     pub fn set_should_embed_use_lists(&mut self, should: bool) {
         let _lock = lock_lto();
         // SAFETY: the generator is live.
-        unsafe { raw::lto_codegen_set_should_embed_uselists(self.raw, should) };
+        unsafe { raw::lto_codegen_set_should_embed_uselists(self.raw, raw::bool_to_lto_bool(should)) };
     }
 
     /// Sets what happens to a diagnostic `libLTO` reports. A panic in it aborts, since it is running inside LLVM (D3).
@@ -905,7 +917,11 @@ impl ThinLtoCodeGenerator {
     pub fn set_position_model(&mut self, model: LtoPositionModel) -> Result<(), Error> {
         let _lock = lock_lto();
         // SAFETY: the generator is live.
-        if unsafe { raw::thinlto_codegen_set_pic_model(self.raw, model.to_raw()) } { Err(last_error()) } else { Ok(()) }
+        if raw::lto_bool_to_bool(unsafe { raw::thinlto_codegen_set_pic_model(self.raw, model.to_raw()) }) {
+            Err(last_error())
+        } else {
+            Ok(())
+        }
     }
 
     /// Sets where it keeps its intermediate files.
@@ -948,14 +964,14 @@ impl ThinLtoCodeGenerator {
     pub fn disable_code_generation(&mut self, disable: bool) {
         let _lock = lock_lto();
         // SAFETY: the generator is live.
-        unsafe { raw::thinlto_codegen_disable_codegen(self.raw, disable) };
+        unsafe { raw::thinlto_codegen_disable_codegen(self.raw, raw::bool_to_lto_bool(disable)) };
     }
 
     /// Sets whether it only makes code, from modules already optimized.
     pub fn set_code_generation_only(&mut self, code_generation_only: bool) {
         let _lock = lock_lto();
         // SAFETY: the generator is live.
-        unsafe { raw::thinlto_codegen_set_codegen_only(self.raw, code_generation_only) };
+        unsafe { raw::thinlto_codegen_set_codegen_only(self.raw, raw::bool_to_lto_bool(code_generation_only)) };
     }
 
     #[track_caller]

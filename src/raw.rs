@@ -12,3 +12,57 @@ include!("raw/macos.rs");
 
 #[cfg(not(target_os = "macos"))]
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
+
+// C leaves an enum's underlying type to the compiler. MSVC always picks `int`, and the others pick `unsigned int` for
+// LLVM's enums, none of which has a negative value. Lyftar's own numbers stay `u32` on every platform, and these two
+// keep the bits as they are.
+
+/// The bits of a C enum's value, as Lyftar holds them.
+#[cfg(target_env = "msvc")]
+pub(crate) const fn enum_bits(value: std::os::raw::c_int) -> u32 {
+    value.cast_unsigned()
+}
+
+/// A C enum's value, from the bits Lyftar holds.
+#[cfg(target_env = "msvc")]
+pub(crate) const fn enum_from_bits(bits: u32) -> std::os::raw::c_int {
+    bits.cast_signed()
+}
+
+/// The bits of a C enum's value, as Lyftar holds them.
+#[cfg(not(target_env = "msvc"))]
+pub(crate) const fn enum_bits(value: std::os::raw::c_uint) -> u32 {
+    value
+}
+
+/// A C enum's value, from the bits Lyftar holds.
+#[cfg(not(target_env = "msvc"))]
+pub(crate) const fn enum_from_bits(bits: u32) -> std::os::raw::c_uint {
+    bits
+}
+
+// `lto.h` has no C `bool` on MSVC, so its `lto_bool_t` is a byte there, with the same size.
+
+/// What `libLTO` answered, as a `bool`.
+#[cfg(target_env = "msvc")]
+pub(crate) const fn lto_bool_to_bool(value: lto_bool_t) -> bool {
+    value != 0
+}
+
+/// A `bool`, as `libLTO` takes it.
+#[cfg(target_env = "msvc")]
+pub(crate) const fn bool_to_lto_bool(value: bool) -> lto_bool_t {
+    value as lto_bool_t
+}
+
+/// What `libLTO` answered, as a `bool`.
+#[cfg(not(target_env = "msvc"))]
+pub(crate) const fn lto_bool_to_bool(value: lto_bool_t) -> bool {
+    value
+}
+
+/// A `bool`, as `libLTO` takes it.
+#[cfg(not(target_env = "msvc"))]
+pub(crate) const fn bool_to_lto_bool(value: bool) -> lto_bool_t {
+    value
+}

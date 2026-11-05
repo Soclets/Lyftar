@@ -111,7 +111,7 @@ impl<'data> Binary<'data> {
             T::LLVMBinaryTypeWasm => BinaryType::WebAssembly,
             T::LLVMBinaryTypeOffload => BinaryType::Offload,
             T::LLVMBinaryTypeDXcontainer => BinaryType::DirectXContainer,
-            T(other) => BinaryType::Unknown(other),
+            T(other) => BinaryType::Unknown(raw::enum_bits(other)),
         }
     }
 

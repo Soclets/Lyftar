@@ -2,7 +2,8 @@
 # Linux and Windows generate their bindings during the build; macOS checks that the committed ones are current.
 #
 # Rust is pinned to the version the compile-fail tests' exact error text was written with, since each release words them a little
-# differently. Moving it means regenerating those with `TRYBUILD=overwrite`.
+# differently. Moving it means regenerating those with `TRYBUILD=overwrite`. `rust-src` is there because that text quotes the
+# standard library's source, which the compiler leaves out without it.
 name: ci
 
 on:
@@ -19,6 +20,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.96.1
+        with:
+          components: rustfmt, rust-src
       - name: Install LLVM
         run: |
           curl -fsSL https://apt.llvm.org/llvm.sh -o llvm.sh
@@ -36,6 +39,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.96.1
+        with:
+          components: rustfmt, rust-src
       - name: Install LLVM
         shell: bash
         run: |
@@ -56,6 +61,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.96.1
+        with:
+          components: rustfmt, rust-src
       - run: brew install llvm
       - name: The committed bindings are current
         run: |

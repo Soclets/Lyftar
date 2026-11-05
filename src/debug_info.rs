@@ -279,42 +279,43 @@ pub struct DebugInfoFlags(pub u32);
 
 impl DebugInfoFlags {
     /// No flags.
-    pub const ZERO: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagZero.0);
+    pub const ZERO: Self = DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagZero.0));
     /// Private.
-    pub const PRIVATE: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagPrivate.0);
+    pub const PRIVATE: Self = DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagPrivate.0));
     /// Protected.
-    pub const PROTECTED: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagProtected.0);
+    pub const PROTECTED: Self = DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagProtected.0));
     /// Public.
-    pub const PUBLIC: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagPublic.0);
+    pub const PUBLIC: Self = DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagPublic.0));
     /// Only declared.
-    pub const FORWARD_DECLARATION: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagFwdDecl.0);
+    pub const FORWARD_DECLARATION: Self = DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagFwdDecl.0));
     /// Virtual.
-    pub const VIRTUAL: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagVirtual.0);
+    pub const VIRTUAL: Self = DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagVirtual.0));
     /// Made by the compiler.
-    pub const ARTIFICIAL: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagArtificial.0);
+    pub const ARTIFICIAL: Self = DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagArtificial.0));
     /// Explicit.
-    pub const EXPLICIT: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagExplicit.0);
+    pub const EXPLICIT: Self = DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagExplicit.0));
     /// Prototyped.
-    pub const PROTOTYPED: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagPrototyped.0);
+    pub const PROTOTYPED: Self = DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagPrototyped.0));
     /// `this`, or the like.
-    pub const OBJECT_POINTER: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagObjectPointer.0);
+    pub const OBJECT_POINTER: Self = DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagObjectPointer.0));
     /// A vector.
-    pub const VECTOR: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagVector.0);
+    pub const VECTOR: Self = DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagVector.0));
     /// A static member.
-    pub const STATIC_MEMBER: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagStaticMember.0);
+    pub const STATIC_MEMBER: Self = DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagStaticMember.0));
     /// A bit field.
-    pub const BIT_FIELD: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagBitField.0);
+    pub const BIT_FIELD: Self = DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagBitField.0));
     /// Never returns.
-    pub const NO_RETURN: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagNoReturn.0);
+    pub const NO_RETURN: Self = DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagNoReturn.0));
     /// Passed by value.
-    pub const TYPE_PASS_BY_VALUE: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagTypePassByValue.0);
+    pub const TYPE_PASS_BY_VALUE: Self = DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagTypePassByValue.0));
     /// Passed by reference.
-    pub const TYPE_PASS_BY_REFERENCE: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagTypePassByReference.0);
+    pub const TYPE_PASS_BY_REFERENCE: Self =
+        DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagTypePassByReference.0));
     /// A thunk.
-    pub const THUNK: Self = DebugInfoFlags(raw::LLVMDIFlags::LLVMDIFlagThunk.0);
+    pub const THUNK: Self = DebugInfoFlags(raw::enum_bits(raw::LLVMDIFlags::LLVMDIFlagThunk.0));
 
     fn to_raw(self) -> raw::LLVMDIFlags {
-        raw::LLVMDIFlags(self.0)
+        raw::LLVMDIFlags(raw::enum_from_bits(self.0))
     }
 }
 
@@ -672,7 +673,7 @@ impl<'context, 'module> Metadata<'context, 'module> {
     pub fn type_flags(self) -> DebugInfoFlags {
         check("type_flags", self, Class::Type);
         // SAFETY: just checked.
-        DebugInfoFlags(unsafe { raw::LLVMDITypeGetFlags(self.raw) }.0)
+        DebugInfoFlags(raw::enum_bits(unsafe { raw::LLVMDITypeGetFlags(self.raw) }.0))
     }
 
     /// The variable of this global variable expression.

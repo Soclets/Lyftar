@@ -24,11 +24,11 @@ pub struct CallingConvention(pub u32);
 
 impl CallingConvention {
     /// `ccc`.
-    pub const C: Self = CallingConvention(raw::LLVMCallConv::LLVMCCallConv.0);
+    pub const C: Self = CallingConvention(raw::enum_bits(raw::LLVMCallConv::LLVMCCallConv.0));
     /// `fastcc`.
-    pub const FAST: Self = CallingConvention(raw::LLVMCallConv::LLVMFastCallConv.0);
+    pub const FAST: Self = CallingConvention(raw::enum_bits(raw::LLVMCallConv::LLVMFastCallConv.0));
     /// `coldcc`.
-    pub const COLD: Self = CallingConvention(raw::LLVMCallConv::LLVMColdCallConv.0);
+    pub const COLD: Self = CallingConvention(raw::enum_bits(raw::LLVMCallConv::LLVMColdCallConv.0));
     /// `tailcc`, which LLVM numbers 18.
     pub const TAIL: Self = CallingConvention(18);
 
@@ -239,7 +239,7 @@ impl Comdat<'_> {
             K::LLVMLargestComdatSelectionKind => ComdatSelectionKind::Largest,
             K::LLVMNoDeduplicateComdatSelectionKind => ComdatSelectionKind::NoDeduplicate,
             K::LLVMSameSizeComdatSelectionKind => ComdatSelectionKind::SameSize,
-            K(other) => ComdatSelectionKind::Unknown(other),
+            K(other) => ComdatSelectionKind::Unknown(raw::enum_bits(other)),
         }
     }
 
@@ -252,7 +252,7 @@ impl Comdat<'_> {
             ComdatSelectionKind::Largest => K::LLVMLargestComdatSelectionKind,
             ComdatSelectionKind::NoDeduplicate => K::LLVMNoDeduplicateComdatSelectionKind,
             ComdatSelectionKind::SameSize => K::LLVMSameSizeComdatSelectionKind,
-            ComdatSelectionKind::Unknown(other) => K(other),
+            ComdatSelectionKind::Unknown(other) => K(raw::enum_from_bits(other)),
         };
         // SAFETY: the COMDAT lives as long as its module.
         unsafe { raw::LLVMSetComdatSelectionKind(self.raw, raw_kind) };

@@ -36,7 +36,7 @@ macro_rules! llvm_enum {
             pub(crate) fn from_raw(value: raw::$raw) -> Self {
                 match value {
                     $(raw::$raw::$raw_variant => Self::$variant,)*
-                    raw::$raw(other) => Self::Unknown(other),
+                    raw::$raw(other) => Self::Unknown(raw::enum_bits(other)),
                 }
             }
         }
