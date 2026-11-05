@@ -21,8 +21,9 @@ changes, `DECISIONS.md` gets a new entry and this file is updated to match. Noth
 7. **`unsafe`.** Only where Rust calls LLVM or the shim, each block saying why it is sound. Everything else is safe code.
 8. **Verus.** Lyftar's own checks before an `unsafe` LLVM call are proven. What LLVM does is assumed, and those assumptions
    are written down in one place. `extern` declarations stay outside `verus!` blocks. (D21, D22)
-9. **C++.** Small, and only behind `extern "C"` functions, each with a written contract: who owns each pointer, how long it
-   lives, and which values are allowed. Rust wraps each one once, in a safe function that checks the contract. A Rust panic
+9. **C++.** C++23 with libc++ hardening on, built with Clang on macOS (D25). Small, and only behind `extern "C"` functions, each
+   with a written contract: who owns each pointer, how long it lives, and which values are allowed. The function checks its
+   contract at the top, and Rust wraps each one once, in a safe function that checks it too. A Rust panic
    never crosses into C++. Banned: raw `new` and `delete`, C-style casts, `reinterpret_cast`, unions, pointer arithmetic,
    uninitialised variables, `goto` and variadic functions, except where LLVM's own API requires one, with a comment saying so.
 10. **Commits.** `kind.folder.narrowing: sentence (owner: "their words"; D1)`. Kinds: `decision`, `design`, `feature`, `fix`,
@@ -60,6 +61,5 @@ A check fails on a tag that names no decision, and lists the decisions nothing t
 
 ## Not decided yet
 
-- Which C++ version the shim uses, since LLVM's flags here say C++17 and Radium's rule says C++23.
 - Whether C++ runs under sanitizers, and `clang-tidy` and `clang-format`.
 - The build session's name, whether it works in its own clone, and when anything is pushed.

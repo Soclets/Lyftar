@@ -124,3 +124,10 @@ it: "yea". (Owner, 2026-11-05)
 Lyftar's own overhead on top of LLVM: no runtime check a specific type makes unnecessary, no avoidable allocation on a
 build call, and a benchmark tracking what Lyftar adds over raw LLVM calls. Claude proposed carrying over Cyborg's rule; the
 owner chose it: "yea". (Owner, 2026-11-05)
+
+**D25. The shim is C++23, built with Clang on macOS.** The shim uses C++23 with libc++ hardening on. GCC can't build it on
+this Mac, because a GCC plugin crashed Homebrew's `opt`, most likely from mixing libstdc++ with LLVM's libc++. C++ contracts
+therefore wait until Clang has them: a shim function's contract is a comment, an ordinary check at the top of the function,
+and a check in its Rust wrapper, which Verus proves (D22). Building LLVM itself with GCC was started as an experiment and
+stopped before it built anything, so it is untested. Other platforms are not settled here. Claude proposed Clang and C++23;
+the owner chose: "Nah, thought again. Probably too impractical". (Owner, 2026-11-05)
