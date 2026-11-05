@@ -167,3 +167,8 @@ body can come later. Lyftar impl asked; Claude proposed it; the owner chose it: 
 checked at `cargo build`. Plain `Function` is dynamic. Specific calls go up to a fixed number of arguments, and longer ones
 use the dynamic form. A variadic function is `VariadicFunction<R, (A, B)>`, where only the fixed arguments are checked.
 Lyftar impl asked; Claude proposed it; the owner chose it: "yea". (Owner, 2026-11-05)
+
+**D34. An exclusive form of replacement.** Where `replace_all_uses_with` would let LLVM delete something a `Value` could still
+point at, it panics and names this form: `module.replacement_to_make(old, new)` gives an entry and `module.replace(&[entry])`
+takes exclusive access, as erase does (D11), so nothing can be held across it. The everyday `replace_all_uses_with` stays for
+the safe case. Lyftar impl found the gap and proposed it; Claude recommended it; the owner chose it: "yea". (Owner, 2026-11-05)
