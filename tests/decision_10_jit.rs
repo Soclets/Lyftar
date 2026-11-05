@@ -110,3 +110,20 @@ fn decision_10_the_interpreter_runs_a_function_with_arguments() {
         assert_eq!(result.to_integer(true), 42);
     });
 }
+
+#[test]
+fn decision_38_an_execution_engine_refuses_an_invalid_module() {
+    lyftar::with_context(|context| {
+        let module = context.create_module("invalid");
+        {
+            let function = module.add_function("f", context.function_type(context.void_type(), &[], false));
+            let _ = function.append_basic_block("entry");
+        }
+        let error = lyftar::jit::ExecutionEngine::interpreter(module).err().expect("invalid");
+        assert!(
+            error.message().starts_with("ExecutionEngine: this module fails LLVM's verifier"),
+            "{}",
+            error.message()
+        );
+    });
+}

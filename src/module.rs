@@ -267,6 +267,15 @@ impl<'context> Module<'context> {
         (!found.is_null()).then(|| unsafe { Type::from_raw(found) })
     }
 
+    // trace: D3, D38
+    /// LLVM's passes and code generators assume a valid module, and crash on one that isn't, such as a block with no terminator.
+    /// A module can really be invalid when it was read from a file, so this is an error rather than a panic.
+    pub(crate) fn verify_before(&self, operation: &str) -> Result<(), Error> {
+        self.verify().map_err(|report| {
+            Error::new(format!("{operation}: this module fails LLVM's verifier: {}", report.message()))
+        })
+    }
+
     /// Runs LLVM's module verifier, and gives back its report if the module is invalid.
     ///
     /// # Errors

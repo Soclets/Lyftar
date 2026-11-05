@@ -151,6 +151,7 @@ impl<'context> ExecutionEngine<'context> {
         create: impl FnOnce(raw::LLVMModuleRef, *mut raw::LLVMExecutionEngineRef, *mut *mut c_char) -> i32,
     ) -> Result<Self, Error> {
         crate::target::initialize_native_target()?;
+        module.verify_before("ExecutionEngine")?;
         let raw_module = module.into_raw();
         let mut engine = std::ptr::null_mut();
         let mut message = std::ptr::null_mut();
@@ -166,7 +167,7 @@ impl<'context> ExecutionEngine<'context> {
     /// An engine for this module: a JIT if this machine has one, and otherwise an interpreter.
     ///
     /// # Errors
-    /// What stopped it being made.
+    /// What stopped it being made, or the verifier's report if the module is invalid, since LLVM would crash on it.
     pub fn new(module: Module<'context>) -> Result<Self, Error> {
         Self::from_module(module, |raw_module, engine, message| {
             // SAFETY: the pointers have room for what LLVM writes, and on success the engine owns the module.
@@ -179,7 +180,7 @@ impl<'context> ExecutionEngine<'context> {
     /// An interpreter for this module.
     ///
     /// # Errors
-    /// What stopped it being made.
+    /// What stopped it being made, or the verifier's report if the module is invalid, since LLVM would crash on it.
     pub fn interpreter(module: Module<'context>) -> Result<Self, Error> {
         Self::from_module(module, |raw_module, engine, message| {
             // SAFETY: the pointers have room for what LLVM writes, and on success the engine owns the module.
@@ -192,7 +193,7 @@ impl<'context> ExecutionEngine<'context> {
     /// A JIT for this module, optimizing to a level from 0 to 3.
     ///
     /// # Errors
-    /// What stopped it being made.
+    /// What stopped it being made, or the verifier's report if the module is invalid, since LLVM would crash on it.
     pub fn jit_compiler(module: Module<'context>, optimization_level: u32) -> Result<Self, Error> {
         Self::from_module(module, |raw_module, engine, message| {
             // SAFETY: the pointers have room for what LLVM writes, and on success the engine owns the module.
@@ -205,7 +206,7 @@ impl<'context> ExecutionEngine<'context> {
     /// A JIT for this module, set up by options.
     ///
     /// # Errors
-    /// What stopped it being made.
+    /// What stopped it being made, or the verifier's report if the module is invalid, since LLVM would crash on it.
     pub fn with_mcjit_options(module: Module<'context>, options: McjitOptions) -> Result<Self, Error> {
         Self::from_module(module, |raw_module, engine, message| {
             // SAFETY: LLVM fills the struct with its defaults first, the size says which fields it may touch, and on
@@ -225,7 +226,14 @@ impl<'context> ExecutionEngine<'context> {
     }
 
     /// Gives this engine another module.
+    ///
+    /// # Panics
+    /// If the verifier refuses the module, since LLVM would crash on it (D3).
+    #[track_caller]
     pub fn add_module(&mut self, module: Module<'context>) {
+        if let Err(report) = module.verify_before("add_module") {
+            bad_call(format_args!("{}", report.message()));
+        }
         let raw_module = module.into_raw();
         // SAFETY: the engine is live, and owns the module from here on.
         unsafe { raw::LLVMAddModule(self.raw, raw_module) };
@@ -644,7 +652,7 @@ impl JitBuilder {
     /// Makes the JIT.
     ///
     /// # Errors
-    /// What stopped it being made.
+    /// What stopped it being made, or the verifier's report if the module is invalid, since LLVM would crash on it.
     pub fn build(mut self) -> Result<Jit, Error> {
         crate::target::initialize_native_target()?;
         let mut jit = std::ptr::null_mut();
@@ -703,7 +711,7 @@ impl Jit {
     /// A JIT for the computer this is running on.
     ///
     /// # Errors
-    /// What stopped it being made.
+    /// What stopped it being made, or the verifier's report if the module is invalid, since LLVM would crash on it.
     pub fn new() -> Result<Jit, Error> {
         JitBuilder::new().build()
     }

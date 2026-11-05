@@ -2114,6 +2114,23 @@ panics!(
     }
 );
 
+// ---- What LLVM would crash on (D38) ----
+
+panics!(
+    decision_38_adding_an_invalid_module_to_an_engine_panics,
+    "add_module: this module fails LLVM's verifier: Basic Block in function 'f' does not have terminator",
+    |context| {
+        let first = context.create_module("first");
+        let mut engine = ExecutionEngine::interpreter(first).expect("an engine");
+        let module = context.create_module("second");
+        {
+            let function = module.add_function("f", context.function_type(context.void_type(), &[], false));
+            let _ = function.append_basic_block("entry");
+        }
+        engine.add_module(module);
+    }
+);
+
 // ---- LTO ----
 
 fn lto_module() -> lyftar::lto::LtoModule {

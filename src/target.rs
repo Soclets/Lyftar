@@ -529,7 +529,8 @@ impl TargetMachine {
     /// Code generation runs passes that can change the module, so this needs exclusive access, as running passes does.
     ///
     /// # Errors
-    /// What stopped the code being made or written.
+    /// What stopped the code being made or written, or the verifier's report if the module is invalid, since LLVM would crash on
+    /// it.
     pub fn emit_to_file(
         &self,
         module: &mut Module<'_>,
@@ -537,6 +538,7 @@ impl TargetMachine {
         file_type: CodeGenerationFileType,
     ) -> Result<(), Error> {
         let path = c_path(path)?;
+        module.verify_before("emit_to_file")?;
         module.bump_generation();
         let mut message = std::ptr::null_mut();
         // SAFETY: both are live, the module exclusively; `LLVMTargetMachineEmitToFile` takes a non-const path only by
@@ -556,12 +558,13 @@ impl TargetMachine {
     /// Code generation runs passes that can change the module, so this needs exclusive access, as running passes does.
     ///
     /// # Errors
-    /// What stopped the code being made.
+    /// What stopped the code being made, or the verifier's report if the module is invalid, since LLVM would crash on it.
     pub fn emit_to_memory_buffer(
         &self,
         module: &mut Module<'_>,
         file_type: CodeGenerationFileType,
     ) -> Result<MemoryBuffer<'static>, Error> {
+        module.verify_before("emit_to_memory_buffer")?;
         module.bump_generation();
         let mut message = std::ptr::null_mut();
         let mut buffer = std::ptr::null_mut();

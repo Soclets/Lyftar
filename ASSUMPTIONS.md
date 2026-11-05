@@ -59,6 +59,13 @@ If one turns out false, the safety promise named beside it falls with it.
 - **LLVM has no other global state that safe Lyftar calls change.** The calls that set LLVM's command-line options do change
   some, and are `unsafe` for that reason.
 
+## What LLVM needs from a module
+
+- **LLVM's passes and code generators assume a valid module**, and crash on one that isn't: seen against the real library, a
+  block with no terminator segfaults both `default<O2>` and object emission. So they are given only a module the verifier
+  passes, which also closes `strip-debug-declare` freeing plain data, since that took a malformed `llvm.dbg.declare`. A Rust pass
+  could still leave a module invalid for the next pass in a pipeline. That is not closed, and is with the owner.
+
 ## What ends the process
 
 - **LLVM's `report_fatal_error` can't be caught.** Its handler must not return, and a panic can't cross C++. So Lyftar turns into

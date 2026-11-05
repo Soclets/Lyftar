@@ -1196,7 +1196,7 @@ impl Module<'_> {
     /// Passes can delete anything, so this needs exclusive access: a value held across it doesn't compile.
     ///
     /// # Errors
-    /// What is wrong with the text.
+    /// What is wrong with the text, or the verifier's report if the module is invalid, since LLVM would crash on it.
     ///
     /// # Panics
     /// If `pipeline` has a NUL byte inside it (D3).
@@ -1208,6 +1208,7 @@ impl Module<'_> {
         options: &PassOptions,
     ) -> Result<(), Error> {
         check_pipeline_text(pipeline)?;
+        self.verify_before("run_passes")?;
         let pipeline = c_string(pipeline, "run_passes");
         let raw_options = options.to_raw()?;
         self.bump_generation();
@@ -1224,7 +1225,7 @@ impl Module<'_> {
     /// LLVM may delete instructions there, so this needs exclusive access: a value held across it doesn't compile.
     ///
     /// # Errors
-    /// What is wrong with the text.
+    /// What is wrong with the text, or the verifier's report if the module is invalid, since LLVM would crash on it.
     ///
     /// # Panics
     /// If this module has no such function, or the text has a NUL byte inside it (D3).
@@ -1237,6 +1238,7 @@ impl Module<'_> {
         options: &PassOptions,
     ) -> Result<(), Error> {
         check_pipeline_text(pipeline)?;
+        self.verify_before("run_passes_on_function")?;
         let pipeline = c_string(pipeline, "run_passes_on_function");
         let raw_options = options.to_raw()?;
         let Some(function) = self.get_function(function_name) else {
@@ -1258,7 +1260,7 @@ impl Module<'_> {
     /// Passes can delete anything, so this needs exclusive access: a value held across it doesn't compile.
     ///
     /// # Errors
-    /// What is wrong with the text.
+    /// What is wrong with the text, or the verifier's report if the module is invalid, since LLVM would crash on it.
     pub fn run_passes_with<'pipeline>(
         &mut self,
         pipeline: &str,
@@ -1286,6 +1288,7 @@ impl Module<'_> {
             (std::ptr::from_mut(register).cast(), call::<'pipeline, F>)
         }
         check_pipeline_text(pipeline)?;
+        self.verify_before("run_passes_with")?;
         self.bump_generation();
         let (alias_pipeline, alias_length) = options
             .alias_analysis_pipeline

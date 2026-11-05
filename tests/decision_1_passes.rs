@@ -379,3 +379,83 @@ fn decision_38_what_an_extension_point_adds_is_checked_too() {
         assert!(found.message().contains("\"Oz\" is no longer supported"), "{}", found.message());
     });
 }
+
+fn with_unterminated_function(context: lyftar::Context<'_>, body: impl FnOnce(&mut Module<'_>)) {
+    let mut module = context.create_module("invalid");
+    {
+        let function = module.add_function("f", context.function_type(context.void_type(), &[], false));
+        let _ = function.append_basic_block("entry");
+    }
+    body(&mut module);
+}
+
+// LLVM segfaults on each of these.
+#[test]
+fn decision_38_an_invalid_module_is_an_error_rather_than_a_crash() {
+    with_context(|context| {
+        let wanted = "fails LLVM's verifier: Basic Block in function 'f' does not have terminator";
+        with_unterminated_function(context, |module| {
+            let error = module.run_passes("default<O2>", None, &PassOptions::default()).expect_err("invalid");
+            assert!(
+                error.message().contains(wanted) && error.message().starts_with("run_passes:"),
+                "{}",
+                error.message()
+            );
+            let error =
+                module.run_passes_with("default<O2>", None, &PassOptions::default(), |_| {}).expect_err("invalid");
+            assert!(
+                error.message().contains(wanted) && error.message().starts_with("run_passes_with:"),
+                "{}",
+                error.message()
+            );
+            let error = module
+                .run_passes_on_function("f", "function(sroa)", None, &PassOptions::default())
+                .expect_err("invalid");
+            assert!(
+                error.message().contains(wanted) && error.message().starts_with("run_passes_on_function:"),
+                "{}",
+                error.message()
+            );
+        });
+        let machine = lyftar::target::TargetMachine::for_host().expect("this machine");
+        with_unterminated_function(context, |module| {
+            let file_type = lyftar::target::CodeGenerationFileType::Object;
+            let error = machine.emit_to_memory_buffer(module, file_type).err().expect("invalid");
+            assert!(
+                error.message().contains(wanted) && error.message().starts_with("emit_to_memory_buffer:"),
+                "{}",
+                error.message()
+            );
+            let path = std::env::temp_dir().join(format!("lyftar-invalid-{}.o", std::process::id()));
+            let error = machine.emit_to_file(module, &path, file_type).expect_err("invalid");
+            assert!(
+                error.message().contains(wanted) && error.message().starts_with("emit_to_file:"),
+                "{}",
+                error.message()
+            );
+            assert!(!path.exists());
+        });
+    });
+}
+
+// A `llvm.dbg.declare` taking a data array made `strip-debug-declare` free plain data, which D37 says survives.
+#[test]
+fn decision_38_a_malformed_debug_declare_cant_free_plain_data() {
+    with_context(|context| {
+        let i32_type = context.get_type::<lyftar::Integer<lyftar::Bits<32>>>();
+        let data = i32_type.constant_data_array(&[1, 0, 0, 0, 2, 0, 0, 0]);
+        let mut module = context.create_module("invalid");
+        {
+            let declare = module.add_function(
+                "llvm.dbg.declare",
+                context.function_type(context.void_type(), &[data.get_type()], false),
+            );
+            let user = module.add_function("user", context.function_type(context.void_type(), &[], false));
+            let builder = Builder::at_end_of(user.append_basic_block("entry"));
+            builder.call(declare, &[data], "");
+            builder.return_void();
+        }
+        assert!(module.run_passes("strip-debug-declare", None, &PassOptions::default()).is_err());
+        assert_eq!(data.print_to_string(), "[2 x i32] [i32 1, i32 2]");
+    });
+}
