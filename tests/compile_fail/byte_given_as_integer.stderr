@@ -1,0 +1,33 @@
+error[E0277]: the trait bound `lyftar::Byte<lyftar::Bits<8>>: IntegerOperand` is not satisfied
+  --> tests/compile_fail/byte_given_as_integer.rs:22:25
+   |
+22 |         let _ = builder.integer_add(b8_type.constant_byte(1), b8_type.constant_byte(2), "");
+   |                         ^^^^^^^^^^^ the trait `IntegerOperand` is not implemented for `lyftar::Byte<lyftar::Bits<8>>`
+   |
+help: the following other types implement trait `IntegerOperand`
+  --> src/builder.rs
+   |
+   | impl<const N: u32> IntegerOperand for Integer<Bits<N>> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `lyftar::Integer<lyftar::Bits<N>>`
+...
+   | impl IntegerOperand for Integer<Dynamic> {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `lyftar::Integer`
+...
+   | impl IntegerOperand for Dynamic {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `lyftar::Dynamic`
+note: required by a bound in `lyftar::Builder::<'context, 'module>::integer_add`
+  --> src/builder.rs
+   |
+   |               pub fn $name<T: IntegerOperand>(
+   |                               ^^^^^^^^^^^^^^ required by this bound in `Builder::<'context, 'module>::integer_add`
+...
+   | /     integer_binary! {
+   | |         /// Adds two integers, wrapping on overflow.
+   | |         integer_add = LLVMBuildAdd;
+   | |         ----------- required by a bound in this associated function
+   | |         /// Adds two integers, promising no signed wrap.
+...  |
+   | |         exclusive_or = LLVMBuildXor;
+   | |     }
+   | |_____- in this macro invocation
+   = note: this error originates in the macro `integer_binary` (in Nightly builds, run with -Z macro-backtrace for more info)

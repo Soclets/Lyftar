@@ -1,4 +1,4 @@
-//! LLVM types, and how Rust says what is known about them (D4, D6, D7, D9).
+//! LLVM types, and how Rust says what is known about them (D4, D6, D7, D9, D30).
 
 use std::ffi::c_uint;
 use std::marker::PhantomData;
@@ -27,6 +27,12 @@ pub struct Bits<const N: u32>;
 #[derive(Clone, Copy, Debug)]
 // trace: D7
 pub struct Integer<Width = Dynamic>(PhantomData<fn() -> Width>);
+
+/// LLVM 23's byte type, which holds raw memory in a value: `Byte<Bits<8>>` when the width is known, and `Byte` (of
+/// [`Dynamic`] width) when it isn't.
+#[derive(Clone, Copy, Debug)]
+// trace: D30
+pub struct Byte<Width = Dynamic>(PhantomData<fn() -> Width>);
 
 /// A floating-point type, which says its format, as in `Float<Ieee754Binary<Bits<64>>>` (D9).
 #[derive(Clone, Copy, Debug)]
@@ -167,6 +173,35 @@ impl<const N: u32> SpecificType for Integer<Bits<N>> {
         const { assert!(N >= 1 && N <= (1 << 23), "an LLVM integer is between 1 and 2^23 bits wide") };
         // SAFETY: the context is live, as it is a `Context`, and N was just checked.
         unsafe { raw::LLVMIntTypeInContext(context.raw, N) }
+    }
+}
+
+impl Sealed for Byte<Dynamic> {}
+impl TypeMarker for Byte<Dynamic> {
+    const EXACT: bool = false;
+    unsafe fn accepts_type(raw: raw::LLVMTypeRef) -> bool {
+        // SAFETY: the caller promises a live type.
+        unsafe { raw::LLVMGetTypeKind(raw) == raw::LLVMTypeKind::LLVMByteTypeKind }
+    }
+}
+
+impl<const N: u32> Sealed for Byte<Bits<N>> {}
+impl<const N: u32> TypeMarker for Byte<Bits<N>> {
+    const EXACT: bool = true;
+    unsafe fn accepts_type(raw: raw::LLVMTypeRef) -> bool {
+        // SAFETY: the caller promises a live type, and the width is only asked of a byte type.
+        unsafe {
+            raw::LLVMGetTypeKind(raw) == raw::LLVMTypeKind::LLVMByteTypeKind && raw::LLVMGetByteTypeWidth(raw) == N
+        }
+    }
+}
+// trace: D30
+impl<const N: u32> SpecificType for Byte<Bits<N>> {
+    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+        // LLVM's byte widths run from 1 to 2^23 bits, so this fails at `cargo build` when written wrong.
+        const { assert!(N >= 1 && N <= (1 << 23), "an LLVM byte is between 1 and 2^23 bits wide") };
+        // SAFETY: the context is live, as it is a `Context`, and N was just checked.
+        unsafe { raw::LLVMByteTypeInContext(context.raw, N) }
     }
 }
 
@@ -512,61 +547,6 @@ impl<'context, T> Type<'context, T> {
 
     // ---- Arrays and vectors ----
 
-    /// This byte type's width.
-    ///
-    /// # Panics
-    /// If this isn't a byte type (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn byte_width_in_bits(self) -> u32 {
-        self.require_kind(raw::LLVMTypeKind::LLVMByteTypeKind, "byte_width_in_bits", "a byte type");
-        // SAFETY: just checked to be a byte type.
-        unsafe { raw::LLVMGetByteTypeWidth(self.raw) }
-    }
-
-    /// A constant of this byte type.
-    ///
-    /// # Panics
-    /// If this isn't a byte type (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_byte(self, value: u64) -> Value<'context, 'static, T> {
-        self.require_kind(raw::LLVMTypeKind::LLVMByteTypeKind, "constant_byte", "a byte type");
-        // SAFETY: just checked to be a byte type; the constant belongs to the context.
-        unsafe { Value::from_raw(raw::LLVMConstByte(self.raw, value)) }
-    }
-
-    /// A constant of this byte type wider than 64 bits, from little-endian 64-bit words.
-    ///
-    /// # Panics
-    /// If this isn't a byte type, or there are no words (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_byte_from_words(self, words: &[u64]) -> Value<'context, 'static, T> {
-        self.require_kind(raw::LLVMTypeKind::LLVMByteTypeKind, "constant_byte_from_words", "a byte type");
-        if words.is_empty() {
-            bad_call(format_args!("constant_byte_from_words: there must be at least one word"));
-        }
-        let count = length_as_u32(words.len(), "constant_byte_from_words");
-        // SAFETY: just checked; LLVM reads `count` words, and the constant belongs to the context.
-        unsafe { Value::from_raw(raw::LLVMConstByteOfArbitraryPrecision(self.raw, count, words.as_ptr())) }
-    }
-
-    /// A constant of this byte type from text, in the given radix.
-    ///
-    /// # Panics
-    /// If this isn't a byte type, or the text isn't a number in that radix (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn constant_byte_from_string(self, text: &str, radix: u8) -> Value<'context, 'static, T> {
-        self.require_kind(raw::LLVMTypeKind::LLVMByteTypeKind, "constant_byte_from_string", "a byte type");
-        if !checks::integer_text_is_valid(text.as_bytes(), radix) {
-            bad_call(format_args!("constant_byte_from_string: {text:?} is not a number in radix {radix}"));
-        }
-        // SAFETY: just checked; LLVM reads the length given, and the constant belongs to the context.
-        unsafe { Value::from_raw(raw::LLVMConstByteOfStringAndSize(self.raw, text.as_ptr().cast(), text.len(), radix)) }
-    }
-
     /// The element type of this array or vector.
     ///
     /// # Panics
@@ -779,6 +759,53 @@ impl<W> Type<'_, Integer<W>> {
     }
 }
 
+// trace: D24, D30
+// The marker guarantees a byte type, so none of these has to check for one when the line runs.
+impl<'context, W> Type<'context, Byte<W>> {
+    /// This byte type's width.
+    #[must_use]
+    pub fn width_in_bits(self) -> u32 {
+        // SAFETY: `Byte` guarantees a byte type.
+        unsafe { raw::LLVMGetByteTypeWidth(self.raw) }
+    }
+
+    /// A constant of this byte type.
+    #[must_use]
+    pub fn constant_byte(self, value: u64) -> Value<'context, 'static, Byte<W>> {
+        // SAFETY: `Byte` guarantees a byte type; the constant belongs to the context.
+        unsafe { Value::from_raw(raw::LLVMConstByte(self.raw, value)) }
+    }
+
+    /// A constant of this byte type wider than 64 bits, from little-endian 64-bit words.
+    ///
+    /// # Panics
+    /// If there are no words (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_byte_from_words(self, words: &[u64]) -> Value<'context, 'static, Byte<W>> {
+        if words.is_empty() {
+            bad_call(format_args!("constant_byte_from_words: there must be at least one word"));
+        }
+        let count = length_as_u32(words.len(), "constant_byte_from_words");
+        // SAFETY: `Byte` guarantees a byte type; LLVM reads `count` words.
+        unsafe { Value::from_raw(raw::LLVMConstByteOfArbitraryPrecision(self.raw, count, words.as_ptr())) }
+    }
+
+    /// A constant of this byte type from text, in the given radix.
+    ///
+    /// # Panics
+    /// If the radix isn't 2, 8, 10, 16 or 36, or `text` isn't a number in it (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn constant_byte_from_string(self, text: &str, radix: u8) -> Value<'context, 'static, Byte<W>> {
+        if !checks::integer_text_is_valid(text.as_bytes(), radix) {
+            bad_call(format_args!("constant_byte_from_string: {text:?} is not a number in radix {radix}"));
+        }
+        // SAFETY: `Byte` guarantees a byte type, LLVM reads `text.len()` bytes, and the text was just checked.
+        unsafe { Value::from_raw(raw::LLVMConstByteOfStringAndSize(self.raw, text.as_ptr().cast(), text.len(), radix)) }
+    }
+}
+
 impl<'context> Context<'context> {
     /// The type `T`, when the Rust code spells it out.
     #[must_use]
@@ -800,13 +827,14 @@ impl<'context> Context<'context> {
         Type { raw: unsafe { raw::LLVMIntTypeInContext(self.raw, width_in_bits) }, marker: PhantomData }
     }
 
-    /// LLVM 23's byte type of a width. Its specific spelling is waiting on the owner, so this is dynamic.
+    /// A byte type whose width is only known when the line runs. `get_type::<Byte<Bits<8>>>()` is for one the Rust code
+    /// spells out.
     ///
     /// # Panics
     /// If the width isn't between 1 and 2^23 bits (D3).
     #[must_use]
     #[track_caller]
-    pub fn byte_type(self, width_in_bits: u32) -> Type<'context> {
+    pub fn byte_type(self, width_in_bits: u32) -> Type<'context, Byte> {
         if !checks::integer_width_is_valid(width_in_bits) {
             bad_call(format_args!("byte_type: {width_in_bits} bits is not between 1 and 2^23 bits"));
         }

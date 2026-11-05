@@ -3799,7 +3799,8 @@
       "status": "wrapped"
     },
     "lto_codegen_create": {
-      "status": "wrapped"
+      "status": "not_wrapped",
+      "reason": "A generator in libLTO's global context leaves a dangling diagnostic handler on that context when it goes, so Lyftar's generators use lto_codegen_create_in_local_context."
     },
     "lto_codegen_create_in_local_context": {
       "status": "wrapped"

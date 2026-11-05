@@ -19,10 +19,15 @@ Found by the positive tests: erase called a phi entry from a block in its own li
 since LLVM keeps the pointer; `LTOModule` keeps a reference to its bytes, and modules from another `libLTO` context could be
 added to a generator. `ASSUMPTIONS.md` holds what these rest on.
 
+Found when a run hung: LLVM's target registry and `libLTO` take no lock, so first uses on several threads could tie the list of
+targets into a loop. A `libLTO` generator in the global context also leaves a dangling handler there. `set_up_targets`, the
+lock in `lto.rs`, and generators that own their context are what came of it, and `tests/decision_16_threads.rs` reproduces the
+hang without them.
+
 ## Waiting on design claude
 
-- Spelling of: `Byte<Bits<N>>`, pointer address spaces, specific arrays/vectors/structs, function signatures. All of these
-  work through dynamic `Type`/`Value` until answered.
+- Spelling of: pointer address spaces, specific arrays/vectors/structs, function signatures. All of these work through dynamic
+  `Type`/`Value` until answered.
 - Spelling of the value markers (`Value<Function>`, `Value<GlobalVariable>`, `Value<Instruction>`) and of `Block`. Design claude
   is taking these to the owner as well, so they stay easy to rename.
 - `replace_all_uses_with` takes a shared borrow, and LLVM would delete constants that use the value, or metadata around it, in

@@ -35,6 +35,8 @@ impl Drop for DisposeOnExit {
 ///
 /// Plain data such as object file bytes can be returned; nothing carrying the context's lifetime can.
 pub fn with_context<R>(body: impl for<'context> FnOnce(Context<'context>) -> R) -> R {
+    // Anything in a context can reach LLVM's target registry, such as parsing a module's inline assembly.
+    crate::target::set_up_targets();
     // SAFETY: creating a context has no preconditions.
     let raw = unsafe { raw::LLVMContextCreate() };
     let _dispose = DisposeOnExit(raw);

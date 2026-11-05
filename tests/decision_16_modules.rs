@@ -312,14 +312,14 @@ fn decision_16_lto_reads_bitcode_and_makes_an_object() {
     assert!(names.iter().any(|name| name.contains("answer")), "{names:?}");
     assert!(!lyftar::lto::version().is_empty());
     let mut generator = LtoCodeGenerator::new();
-    generator.add_module(&module).expect("adding it");
+    generator.add_module(&bitcode, "answer").expect("adding it");
     generator.add_must_preserve_symbol("_answer");
     let object = generator.compile().expect("an object");
     assert!(!object.is_empty());
 }
 
 #[test]
-fn decision_16_lto_in_a_generators_own_context_makes_an_object_after_the_bytes_are_gone() {
+fn decision_16_lto_makes_an_object_after_the_bytes_it_read_are_gone() {
     let machine = TargetMachine::for_host().expect("a machine");
     let bitcode = || {
         with_context(|context| {
@@ -329,23 +329,32 @@ fn decision_16_lto_in_a_generators_own_context_makes_an_object_after_the_bytes_a
             module.write_bitcode_to_memory_buffer().as_bytes().to_vec()
         })
     };
-    let mut generator = LtoCodeGenerator::in_local_context();
-    generator.read_module(&bitcode(), "first").expect("good bitcode");
-    assert!(generator.read_module(b"not bitcode", "second").is_err());
-    generator.add_must_preserve_symbol("_answer");
-    assert!(!generator.compile().expect("an object").is_empty());
+    let mut adding = LtoCodeGenerator::new();
+    adding.add_module(&bitcode(), "first").expect("good bitcode");
+    assert!(adding.add_module(b"not bitcode", "second").is_err());
+    adding.add_must_preserve_symbol("_answer");
+    assert!(!adding.compile().expect("an object").is_empty());
 
-    let mut owner = LtoCodeGenerator::new();
-    owner.set_module(LtoModule::from_memory(&bitcode()).expect("good bitcode"));
-    owner.add_must_preserve_symbol("_answer");
-    assert!(!owner.compile().expect("an object").is_empty());
+    let mut setting = LtoCodeGenerator::new();
+    setting.set_module(&bitcode(), "first").expect("good bitcode");
+    assert!(setting.set_module(b"not bitcode", "second").is_err());
+    setting.add_must_preserve_symbol("_answer");
+    assert!(!setting.compile().expect("an object").is_empty());
+}
+
+// One generator's going once left a dangling handler on `libLTO`'s global context, which the next error there called.
+#[test]
+fn decision_16_an_error_after_a_generator_has_gone_comes_back_as_an_error() {
+    drop(LtoCodeGenerator::new());
+    let message = LtoModule::from_memory(b"not bitcode").err().expect("an error").message().to_string();
+    assert!(!message.is_empty());
 }
 
 #[test]
 fn decision_16_bytes_are_there_through_dynamic_types() {
     with_context(|context| {
         let byte = context.byte_type(8);
-        assert_eq!(byte.byte_width_in_bits(), 8);
+        assert_eq!(byte.width_in_bits(), 8);
         assert_eq!(byte.print_to_string(), "b8");
         let constant = byte.constant_byte(7);
         assert_eq!(constant.checked_cast::<lyftar::values::ConstantByte>().zero_extended_value(), 7);

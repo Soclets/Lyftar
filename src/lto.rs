@@ -3,14 +3,46 @@
 //! `libLTO` is a separate library with its own C API and its own state: it keeps one error message for the whole process, so
 //! these errors should be read on the thread that hit them.
 
+use std::cell::Cell;
 use std::ffi::{CString, c_char, c_int};
 use std::marker::PhantomData;
 use std::path::Path;
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use crate::bad_call::bad_call;
 use crate::error::Error;
 use crate::raw;
 use crate::text::{c_path, c_string, from_borrowed};
+
+// trace: D16
+/// `libLTO` keeps one global context, one error message and one set of options, with no lock, so each call to it goes through
+/// here. A thread already holding it can come back through, as when dropping a generator drops its modules.
+static LTO: Mutex<()> = Mutex::new(());
+
+thread_local! {
+    static THIS_THREAD_HOLDS_LTO: Cell<bool> = const { Cell::new(false) };
+}
+
+struct LtoLock(Option<MutexGuard<'static, ()>>);
+
+impl Drop for LtoLock {
+    fn drop(&mut self) {
+        if self.0.is_some() {
+            THIS_THREAD_HOLDS_LTO.set(false);
+        }
+    }
+}
+
+fn lock_lto() -> LtoLock {
+    crate::target::set_up_targets();
+    if THIS_THREAD_HOLDS_LTO.get() {
+        return LtoLock(None);
+    }
+    // A panic under this lock is a bug being reported (D3), and leaves nothing half done that the lock guards.
+    let guard = LTO.lock().unwrap_or_else(PoisonError::into_inner);
+    THIS_THREAD_HOLDS_LTO.set(true);
+    LtoLock(Some(guard))
+}
 
 fn last_error() -> Error {
     // SAFETY: takes nothing; the text is copied right away.
@@ -20,6 +52,7 @@ fn last_error() -> Error {
 /// `libLTO`'s version text.
 #[must_use]
 pub fn version() -> String {
+    let _lock = lock_lto();
     // SAFETY: takes nothing; the text is copied right away.
     from_borrowed(unsafe { raw::lto_get_version() })
 }
@@ -27,12 +60,14 @@ pub fn version() -> String {
 /// `libLTO`'s interface version.
 #[must_use]
 pub fn api_version() -> u32 {
+    let _lock = lock_lto();
     // SAFETY: takes nothing.
     unsafe { raw::lto_api_version() }
 }
 
 /// Sets up the disassembler for `libLTO`'s use.
 pub fn initialize_disassembler() {
+    let _lock = lock_lto();
     // SAFETY: takes nothing.
     unsafe { raw::lto_initialize_disassembler() };
 }
@@ -40,6 +75,7 @@ pub fn initialize_disassembler() {
 /// The names of the symbols the runtime library must provide.
 #[must_use]
 pub fn runtime_library_symbols() -> Vec<String> {
+    let _lock = lock_lto();
     let mut count = 0;
     // SAFETY: LLVM writes the count and keeps the list for good; each name is copied right away.
     unsafe {
@@ -57,6 +93,7 @@ pub fn runtime_library_symbols() -> Vec<String> {
 /// If an option has a NUL byte inside it (D3).
 #[track_caller]
 pub unsafe fn set_debug_options(options: &[&str]) {
+    let _lock = lock_lto();
     with_c_list("set_debug_options", options, |list, count| {
         // SAFETY: the list lasts for the call, and LLVM copies what it keeps; the caller promises no other thread is in LLVM.
         unsafe { raw::lto_set_debug_options(list, count) };
@@ -76,6 +113,7 @@ fn with_c_list<R>(operation: &str, items: &[&str], body: impl FnOnce(*const *con
 /// # Errors
 /// If the path has a NUL byte in it.
 pub fn is_object_file(path: &Path) -> Result<bool, Error> {
+    let _lock = lock_lto();
     let path = c_path(path)?;
     // SAFETY: a valid C string for the call.
     Ok(unsafe { raw::lto_module_is_object_file(path.as_ptr()) })
@@ -90,6 +128,7 @@ pub fn is_object_file(path: &Path) -> Result<bool, Error> {
 /// If the triple prefix has a NUL byte inside it (D3).
 #[track_caller]
 pub fn is_object_file_for_target(path: &Path, triple_prefix: &str) -> Result<bool, Error> {
+    let _lock = lock_lto();
     let path = c_path(path)?;
     let triple_prefix = c_string(triple_prefix, "is_object_file_for_target");
     // SAFETY: valid C strings for the call.
@@ -99,6 +138,7 @@ pub fn is_object_file_for_target(path: &Path, triple_prefix: &str) -> Result<boo
 /// Whether these bytes are an object file `libLTO` can read.
 #[must_use]
 pub fn is_object_file_in_memory(bytes: &[u8]) -> bool {
+    let _lock = lock_lto();
     // SAFETY: LLVM reads the length given.
     unsafe { raw::lto_module_is_object_file_in_memory(bytes.as_ptr().cast(), bytes.len()) }
 }
@@ -110,6 +150,7 @@ pub fn is_object_file_in_memory(bytes: &[u8]) -> bool {
 #[must_use]
 #[track_caller]
 pub fn is_object_file_in_memory_for_target(bytes: &[u8], triple_prefix: &str) -> bool {
+    let _lock = lock_lto();
     let triple_prefix = c_string(triple_prefix, "is_object_file_in_memory_for_target");
     // SAFETY: LLVM reads the length given, and the prefix is a valid C string.
     unsafe {
@@ -120,6 +161,7 @@ pub fn is_object_file_in_memory_for_target(bytes: &[u8], triple_prefix: &str) ->
 /// Whether these bytes hold an Objective-C category.
 #[must_use]
 pub fn has_objective_c_category(bytes: &[u8]) -> bool {
+    let _lock = lock_lto();
     // SAFETY: LLVM reads the length given.
     unsafe { raw::lto_module_has_objc_category(bytes.as_ptr().cast(), bytes.len()) }
 }
@@ -129,19 +171,11 @@ pub struct LtoModule {
     raw: raw::lto_module_t,
     // LLVM's `LTOModule` keeps a reference to the bytes it read, so they live here, as long as it does.
     bytes: Option<Box<[u8]>>,
-    context: LtoContext,
-}
-
-/// Which context a module was read into. `libLTO` can't say, and it can only merge modules within one.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum LtoContext {
-    Global,
-    OwnContext,
-    Generator(raw::lto_code_gen_t),
 }
 
 impl Drop for LtoModule {
     fn drop(&mut self) {
+        let _lock = lock_lto();
         // SAFETY: this wrapper owns the module.
         unsafe { raw::lto_module_dispose(self.raw) };
     }
@@ -207,12 +241,8 @@ impl LtoSymbolAttributes {
 }
 
 impl LtoModule {
-    fn from_raw_or_error(
-        raw_module: raw::lto_module_t,
-        bytes: Option<Box<[u8]>>,
-        context: LtoContext,
-    ) -> Result<Self, Error> {
-        if raw_module.is_null() { Err(last_error()) } else { Ok(LtoModule { raw: raw_module, bytes, context }) }
+    fn from_raw_or_error(raw_module: raw::lto_module_t, bytes: Option<Box<[u8]>>) -> Result<Self, Error> {
+        if raw_module.is_null() { Err(last_error()) } else { Ok(LtoModule { raw: raw_module, bytes }) }
     }
 
     /// Reads a file.
@@ -220,9 +250,10 @@ impl LtoModule {
     /// # Errors
     /// What is wrong with it.
     pub fn from_file(path: &Path) -> Result<Self, Error> {
+        let _lock = lock_lto();
         let path = c_path(path)?;
         // SAFETY: a valid C string for the call; the wrapper owns what comes back.
-        Self::from_raw_or_error(unsafe { raw::lto_module_create(path.as_ptr()) }, None, LtoContext::Global)
+        Self::from_raw_or_error(unsafe { raw::lto_module_create(path.as_ptr()) }, None)
     }
 
     /// Reads bytes, which it copies.
@@ -230,12 +261,12 @@ impl LtoModule {
     /// # Errors
     /// What is wrong with them.
     pub fn from_memory(bytes: &[u8]) -> Result<Self, Error> {
+        let _lock = lock_lto();
         let bytes = Box::<[u8]>::from(bytes);
         // SAFETY: LLVM reads the length given from the copy, which the wrapper keeps as long as what comes back.
         Self::from_raw_or_error(
             unsafe { raw::lto_module_create_from_memory(bytes.as_ptr().cast(), bytes.len()) },
             Some(bytes),
-            LtoContext::Global,
         )
     }
 
@@ -248,13 +279,13 @@ impl LtoModule {
     /// If the path has a NUL byte inside it (D3).
     #[track_caller]
     pub fn from_memory_with_path(bytes: &[u8], path: &str) -> Result<Self, Error> {
+        let _lock = lock_lto();
         let path = c_string(path, "from_memory_with_path");
         let bytes = Box::<[u8]>::from(bytes);
         // SAFETY: LLVM reads the length given from the copy, which the wrapper keeps as long as what comes back.
         Self::from_raw_or_error(
             unsafe { raw::lto_module_create_from_memory_with_path(bytes.as_ptr().cast(), bytes.len(), path.as_ptr()) },
             Some(bytes),
-            LtoContext::Global,
         )
     }
 
@@ -267,19 +298,20 @@ impl LtoModule {
     /// If the path has a NUL byte inside it (D3).
     #[track_caller]
     pub fn in_local_context(bytes: &[u8], path: &str) -> Result<Self, Error> {
+        let _lock = lock_lto();
         let path = c_string(path, "in_local_context");
         let bytes = Box::<[u8]>::from(bytes);
         // SAFETY: LLVM reads the length given from the copy, which the wrapper keeps as long as what comes back.
         Self::from_raw_or_error(
             unsafe { raw::lto_module_create_in_local_context(bytes.as_ptr().cast(), bytes.len(), path.as_ptr()) },
             Some(bytes),
-            LtoContext::OwnContext,
         )
     }
 
     /// The target triple.
     #[must_use]
     pub fn target_triple(&self) -> String {
+        let _lock = lock_lto();
         // SAFETY: the module is live; the text is copied right away.
         from_borrowed(unsafe { raw::lto_module_get_target_triple(self.raw) })
     }
@@ -290,6 +322,7 @@ impl LtoModule {
     /// If `triple` has a NUL byte inside it (D3).
     #[track_caller]
     pub fn set_target_triple(&mut self, triple: &str) {
+        let _lock = lock_lto();
         let triple = c_string(triple, "set_target_triple");
         // SAFETY: the module is live, and LLVM copies the valid C string.
         unsafe { raw::lto_module_set_target_triple(self.raw, triple.as_ptr()) };
@@ -298,6 +331,7 @@ impl LtoModule {
     /// How many symbols it has.
     #[must_use]
     pub fn symbol_count(&self) -> u32 {
+        let _lock = lock_lto();
         // SAFETY: the module is live.
         unsafe { raw::lto_module_get_num_symbols(self.raw) }
     }
@@ -309,6 +343,7 @@ impl LtoModule {
     #[must_use]
     #[track_caller]
     pub fn symbol_name(&self, index: u32) -> String {
+        let _lock = lock_lto();
         let count = self.symbol_count();
         if !crate::checks::index_in_bounds(index, count) {
             bad_call(format_args!("symbol_name: index {index} is out of bounds for {count} symbols"));
@@ -324,6 +359,7 @@ impl LtoModule {
     #[must_use]
     #[track_caller]
     pub fn symbol_attributes(&self, index: u32) -> LtoSymbolAttributes {
+        let _lock = lock_lto();
         let count = self.symbol_count();
         if !crate::checks::index_in_bounds(index, count) {
             bad_call(format_args!("symbol_attributes: index {index} is out of bounds for {count} symbols"));
@@ -335,6 +371,7 @@ impl LtoModule {
     /// The undefined symbols its module-level assembly uses.
     #[must_use]
     pub fn assembly_undefined_symbols(&self) -> Vec<String> {
+        let _lock = lock_lto();
         // SAFETY: the module is live, each index is below the count it gave, and each name is copied right away.
         unsafe {
             (0..raw::lto_module_get_num_asm_undef_symbols(self.raw))
@@ -346,6 +383,7 @@ impl LtoModule {
     /// The linker options it asks for.
     #[must_use]
     pub fn linker_options(&self) -> String {
+        let _lock = lock_lto();
         // SAFETY: the module is live; the text is copied right away.
         from_borrowed(unsafe { raw::lto_module_get_linkeropts(self.raw) })
     }
@@ -355,6 +393,7 @@ impl LtoModule {
     /// # Errors
     /// If it has none.
     pub fn macho_cpu_type(&self) -> Result<(u32, u32), Error> {
+        let _lock = lock_lto();
         let (mut cpu_type, mut cpu_subtype) = (0, 0);
         // SAFETY: the module is live, and LLVM writes two numbers.
         let failed = unsafe { raw::lto_module_get_macho_cputype(self.raw, &raw mut cpu_type, &raw mut cpu_subtype) };
@@ -364,6 +403,7 @@ impl LtoModule {
     /// Whether it has static constructors or destructors.
     #[must_use]
     pub fn has_constructors_or_destructors(&self) -> bool {
+        let _lock = lock_lto();
         // SAFETY: the module is live.
         unsafe { raw::lto_module_has_ctor_dtor(self.raw) }
     }
@@ -371,6 +411,7 @@ impl LtoModule {
     /// Whether this is bitcode for `ThinLTO`.
     #[must_use]
     pub fn is_thin(&self) -> bool {
+        let _lock = lock_lto();
         // SAFETY: the module is live.
         unsafe { raw::lto_module_is_thinlto(self.raw) }
     }
@@ -410,68 +451,53 @@ pub enum LtoDebugModel {
     Dwarf,
 }
 
-/// Merges modules, optimizes them and makes one object. It holds the modules it is given, for `'modules`.
-pub struct LtoCodeGenerator<'modules> {
+/// Merges modules, optimizes them and makes one object. It has a context of its own, and reads its modules into that, since
+/// `libLTO` can only merge within one context.
+///
+/// It leaves out `libLTO`'s generators in its global context. One of those leaves a dangling diagnostic handler on that
+/// context when it goes, and the next error there calls through it. (`ASSUMPTIONS.md`)
+pub struct LtoCodeGenerator<'handler> {
     raw: raw::lto_code_gen_t,
-    in_global_context: bool,
     // Modules read into this generator's own context, which have to go before it does.
     read_modules: Vec<LtoModule>,
-    // The bytes of modules LLVM took over: it goes on using them until the generator goes.
+    // The bytes of a module LLVM took over: it goes on using them until the generator goes.
     kept_bytes: Vec<Box<[u8]>>,
-    marker: PhantomData<&'modules ()>,
+    marker: PhantomData<&'handler ()>,
 }
 
 impl Drop for LtoCodeGenerator<'_> {
     fn drop(&mut self) {
+        let _lock = lock_lto();
         self.read_modules.clear();
         // SAFETY: this wrapper owns the generator, and nothing is left in its context. The kept bytes go after this.
         unsafe { raw::lto_codegen_dispose(self.raw) };
     }
 }
 
-impl<'modules> LtoCodeGenerator<'modules> {
-    /// A generator in `libLTO`'s global context, for modules from [`LtoModule::from_file`] and [`LtoModule::from_memory`].
+impl<'handler> LtoCodeGenerator<'handler> {
+    /// A generator, in a context of its own.
     #[must_use]
     pub fn new() -> Self {
-        // SAFETY: takes nothing; the wrapper owns what comes back.
-        let raw = unsafe { raw::lto_codegen_create() };
-        LtoCodeGenerator {
-            raw,
-            in_global_context: true,
-            read_modules: Vec::new(),
-            kept_bytes: Vec::new(),
-            marker: PhantomData,
-        }
-    }
-
-    /// A generator in a context of its own, whose modules come through [`LtoCodeGenerator::read_module`].
-    #[must_use]
-    pub fn in_local_context() -> Self {
+        let _lock = lock_lto();
         // SAFETY: takes nothing; the wrapper owns what comes back.
         let raw = unsafe { raw::lto_codegen_create_in_local_context() };
-        LtoCodeGenerator {
-            raw,
-            in_global_context: false,
-            read_modules: Vec::new(),
-            kept_bytes: Vec::new(),
-            marker: PhantomData,
-        }
+        LtoCodeGenerator { raw, read_modules: Vec::new(), kept_bytes: Vec::new(), marker: PhantomData }
     }
 
-    // trace: D3
-    #[track_caller]
-    fn check_context(&self, call: &str, module: &LtoModule) {
-        let matches = if self.in_global_context {
-            module.context == LtoContext::Global
-        } else {
-            module.context == LtoContext::Generator(self.raw)
-        };
-        if !matches {
-            bad_call(format_args!("{call}: this module was read into a different context from this generator's"));
-        }
+    fn read_into_context(&self, bytes: &[u8], path: &str, operation: &str) -> Result<LtoModule, Error> {
+        let path = c_string(path, operation);
+        let bytes = Box::<[u8]>::from(bytes);
+        // SAFETY: LLVM reads the length given from the copy, which the wrapper keeps as long as what comes back, and this
+        // generator keeps that wrapper, or the bytes, until it goes.
+        LtoModule::from_raw_or_error(
+            unsafe {
+                raw::lto_module_create_in_codegen_context(bytes.as_ptr().cast(), bytes.len(), path.as_ptr(), self.raw)
+            },
+            Some(bytes),
+        )
     }
 
-    /// Reads bytes, which it copies, into this generator's context, and adds the module to what is merged.
+    /// Reads bytes, which it copies, as one more module to merge.
     ///
     /// # Errors
     /// What is wrong with the bytes, or what stopped the module being added.
@@ -479,51 +505,32 @@ impl<'modules> LtoCodeGenerator<'modules> {
     /// # Panics
     /// If the path has a NUL byte inside it (D3).
     #[track_caller]
-    pub fn read_module(&mut self, bytes: &[u8], path: &str) -> Result<(), Error> {
-        let path = c_string(path, "read_module");
-        let bytes = Box::<[u8]>::from(bytes);
-        let context = if self.in_global_context { LtoContext::Global } else { LtoContext::Generator(self.raw) };
-        // SAFETY: LLVM reads the length given from the copy, which the wrapper keeps as long as what comes back, and this
-        // generator keeps that wrapper until just before it goes.
-        let module = LtoModule::from_raw_or_error(
-            unsafe {
-                raw::lto_module_create_in_codegen_context(bytes.as_ptr().cast(), bytes.len(), path.as_ptr(), self.raw)
-            },
-            Some(bytes),
-            context,
-        )?;
+    pub fn add_module(&mut self, bytes: &[u8], path: &str) -> Result<(), Error> {
+        let _lock = lock_lto();
+        let module = self.read_into_context(bytes, path, "add_module")?;
         // SAFETY: both are live, in one context, and the module stays so as long as the generator.
         let failed = unsafe { raw::lto_codegen_add_module(self.raw, module.raw) };
         self.read_modules.push(module);
         if failed { Err(last_error()) } else { Ok(()) }
     }
 
-    /// Adds a module to what is merged.
+    /// Reads bytes, which it copies, as the first of what is merged, in place of anything added before.
     ///
     /// # Errors
-    /// What stopped it being added.
+    /// What is wrong with the bytes.
     ///
     /// # Panics
-    /// If the module was read into a different context from this generator's (D3).
+    /// If the path has a NUL byte inside it (D3).
     #[track_caller]
-    pub fn add_module(&mut self, module: &'modules LtoModule) -> Result<(), Error> {
-        self.check_context("add_module", module);
-        // SAFETY: both are live, in one context, and the module stays so for `'modules`.
-        if unsafe { raw::lto_codegen_add_module(self.raw, module.raw) } { Err(last_error()) } else { Ok(()) }
-    }
-
-    /// Makes this module the first of what is merged, in place of anything added before. The generator owns it from here on.
-    ///
-    /// # Panics
-    /// If the module was read into a different context from this generator's (D3).
-    #[track_caller]
-    pub fn set_module(&mut self, mut module: LtoModule) {
-        self.check_context("set_module", &module);
+    pub fn set_module(&mut self, bytes: &[u8], path: &str) -> Result<(), Error> {
+        let _lock = lock_lto();
+        let mut module = self.read_into_context(bytes, path, "set_module")?;
         let raw_module = module.raw;
         self.kept_bytes.extend(module.bytes.take());
         std::mem::forget(module);
         // SAFETY: both are live, in one context, the generator takes the module, and it keeps the bytes as long as itself.
         unsafe { raw::lto_codegen_set_module(self.raw, raw_module) };
+        Ok(())
     }
 
     /// Sets whether what it makes carries debug information.
@@ -531,6 +538,7 @@ impl<'modules> LtoCodeGenerator<'modules> {
     /// # Errors
     /// If it couldn't be set.
     pub fn set_debug_model(&mut self, model: LtoDebugModel) -> Result<(), Error> {
+        let _lock = lock_lto();
         let raw_model = match model {
             LtoDebugModel::None => raw::lto_debug_model::LTO_DEBUG_MODEL_NONE,
             LtoDebugModel::Dwarf => raw::lto_debug_model::LTO_DEBUG_MODEL_DWARF,
@@ -544,6 +552,7 @@ impl<'modules> LtoCodeGenerator<'modules> {
     /// # Errors
     /// If it couldn't be set.
     pub fn set_position_model(&mut self, model: LtoPositionModel) -> Result<(), Error> {
+        let _lock = lock_lto();
         // SAFETY: the generator is live.
         if unsafe { raw::lto_codegen_set_pic_model(self.raw, model.to_raw()) } { Err(last_error()) } else { Ok(()) }
     }
@@ -554,6 +563,7 @@ impl<'modules> LtoCodeGenerator<'modules> {
     /// If `cpu` has a NUL byte inside it (D3).
     #[track_caller]
     pub fn set_cpu(&mut self, cpu: &str) {
+        let _lock = lock_lto();
         let cpu = c_string(cpu, "set_cpu");
         // SAFETY: the generator is live, and LLVM copies the valid C string.
         unsafe { raw::lto_codegen_set_cpu(self.raw, cpu.as_ptr()) };
@@ -564,6 +574,7 @@ impl<'modules> LtoCodeGenerator<'modules> {
     /// # Errors
     /// If the path has a NUL byte in it.
     pub fn set_assembler_path(&mut self, path: &Path) -> Result<(), Error> {
+        let _lock = lock_lto();
         let path = c_path(path)?;
         // SAFETY: the generator is live, and LLVM copies the valid C string.
         unsafe { raw::lto_codegen_set_assembler_path(self.raw, path.as_ptr()) };
@@ -576,6 +587,7 @@ impl<'modules> LtoCodeGenerator<'modules> {
     /// If an argument has a NUL byte inside it (D3).
     #[track_caller]
     pub fn set_assembler_arguments(&mut self, arguments: &[&str]) {
+        let _lock = lock_lto();
         with_c_list("set_assembler_arguments", arguments, |list, count| {
             // SAFETY: the generator is live, and LLVM copies what it keeps. Its signature wants a mutable pointer by old
             // habit.
@@ -589,6 +601,7 @@ impl<'modules> LtoCodeGenerator<'modules> {
     /// If `symbol` has a NUL byte inside it (D3).
     #[track_caller]
     pub fn add_must_preserve_symbol(&mut self, symbol: &str) {
+        let _lock = lock_lto();
         let symbol = c_string(symbol, "add_must_preserve_symbol");
         // SAFETY: the generator is live, and LLVM copies the valid C string.
         unsafe { raw::lto_codegen_add_must_preserve_symbol(self.raw, symbol.as_ptr()) };
@@ -599,6 +612,7 @@ impl<'modules> LtoCodeGenerator<'modules> {
     /// # Errors
     /// What stopped them being written.
     pub fn write_merged_modules(&mut self, path: &Path) -> Result<(), Error> {
+        let _lock = lock_lto();
         let path = c_path(path)?;
         // SAFETY: the generator is live, and the path is a valid C string for the call.
         if unsafe { raw::lto_codegen_write_merged_modules(self.raw, path.as_ptr()) } {
@@ -621,6 +635,7 @@ impl<'modules> LtoCodeGenerator<'modules> {
     /// # Errors
     /// What stopped it being made.
     pub fn compile(&mut self) -> Result<Vec<u8>, Error> {
+        let _lock = lock_lto();
         let mut size_in_bytes = 0;
         // SAFETY: the generator is live, and LLVM writes the size beside the pointer it gives back.
         let output = unsafe { raw::lto_codegen_compile(self.raw, &raw mut size_in_bytes) };
@@ -632,6 +647,7 @@ impl<'modules> LtoCodeGenerator<'modules> {
     /// # Errors
     /// What stopped it being made.
     pub fn compile_to_file(&mut self) -> Result<String, Error> {
+        let _lock = lock_lto();
         let mut name = std::ptr::null();
         // SAFETY: the generator is live, and LLVM writes the name, copied right away.
         if unsafe { raw::lto_codegen_compile_to_file(self.raw, &raw mut name) } {
@@ -645,6 +661,7 @@ impl<'modules> LtoCodeGenerator<'modules> {
     /// # Errors
     /// What stopped it.
     pub fn optimize(&mut self) -> Result<(), Error> {
+        let _lock = lock_lto();
         // SAFETY: the generator is live.
         if unsafe { raw::lto_codegen_optimize(self.raw) } { Err(last_error()) } else { Ok(()) }
     }
@@ -654,6 +671,7 @@ impl<'modules> LtoCodeGenerator<'modules> {
     /// # Errors
     /// What stopped it being made.
     pub fn compile_optimized(&mut self) -> Result<Vec<u8>, Error> {
+        let _lock = lock_lto();
         let mut size_in_bytes = 0;
         // SAFETY: the generator is live, and LLVM writes the size beside the pointer it gives back.
         let output = unsafe { raw::lto_codegen_compile_optimized(self.raw, &raw mut size_in_bytes) };
@@ -669,6 +687,7 @@ impl<'modules> LtoCodeGenerator<'modules> {
     /// If `options` has a NUL byte inside it (D3).
     #[track_caller]
     pub unsafe fn debug_options(&mut self, options: &str) {
+        let _lock = lock_lto();
         let options = c_string(options, "debug_options");
         // SAFETY: the generator is live, and LLVM copies the valid C string; the caller keeps other threads out of LLVM.
         unsafe { raw::lto_codegen_debug_options(self.raw, options.as_ptr()) };
@@ -683,6 +702,7 @@ impl<'modules> LtoCodeGenerator<'modules> {
     /// If an option has a NUL byte inside it (D3).
     #[track_caller]
     pub unsafe fn debug_options_list(&mut self, options: &[&str]) {
+        let _lock = lock_lto();
         with_c_list("debug_options_list", options, |list, count| {
             // SAFETY: the generator is live, and LLVM copies what it keeps; the caller keeps other threads out of LLVM.
             unsafe { raw::lto_codegen_debug_options_array(self.raw, list, count) };
@@ -691,12 +711,14 @@ impl<'modules> LtoCodeGenerator<'modules> {
 
     /// Sets whether it should make symbols it doesn't need to keep internal.
     pub fn set_should_internalize(&mut self, should: bool) {
+        let _lock = lock_lto();
         // SAFETY: the generator is live.
         unsafe { raw::lto_codegen_set_should_internalize(self.raw, should) };
     }
 
     /// Sets whether it should keep use lists in bitcode.
     pub fn set_should_embed_use_lists(&mut self, should: bool) {
+        let _lock = lock_lto();
         // SAFETY: the generator is live.
         unsafe { raw::lto_codegen_set_should_embed_uselists(self.raw, should) };
     }
@@ -704,7 +726,7 @@ impl<'modules> LtoCodeGenerator<'modules> {
     /// Sets what happens to a diagnostic `libLTO` reports. A panic in it aborts, since it is running inside LLVM (D3).
     ///
     /// The handler lives until the generator goes, so setting one again leaks the old one.
-    pub fn set_diagnostic_handler<F: FnMut(LtoDiagnosticSeverity, String) + 'modules>(&mut self, handler: F) {
+    pub fn set_diagnostic_handler<F: FnMut(LtoDiagnosticSeverity, String) + 'handler>(&mut self, handler: F) {
         unsafe extern "C" fn call<F: FnMut(LtoDiagnosticSeverity, String)>(
             severity: raw::lto_codegen_diagnostic_severity_t,
             message: *const c_char,
@@ -724,6 +746,7 @@ impl<'modules> LtoCodeGenerator<'modules> {
                 handler(severity, message);
             });
         }
+        let _lock = lock_lto();
         let state = Box::into_raw(Box::new(handler)).cast::<std::ffi::c_void>();
         // SAFETY: the generator is live, the function matches LLVM's signature, and `state` is leaked, so it lasts.
         unsafe { raw::lto_codegen_set_diagnostic_handler(self.raw, Some(call::<F>), state) };
@@ -757,6 +780,7 @@ pub struct LtoInput<'data> {
 
 impl Drop for LtoInput<'_> {
     fn drop(&mut self) {
+        let _lock = lock_lto();
         // SAFETY: this wrapper owns the input.
         unsafe { raw::lto_input_dispose(self.raw) };
     }
@@ -772,6 +796,7 @@ impl<'data> LtoInput<'data> {
     /// If the path has a NUL byte inside it (D3).
     #[track_caller]
     pub fn new(bytes: &'data [u8], path: &str) -> Result<Self, Error> {
+        let _lock = lock_lto();
         let path = c_string(path, "LtoInput::new");
         // SAFETY: the bytes last for `'data`, and the path is a valid C string for the call.
         let input = unsafe { raw::lto_input_create(bytes.as_ptr().cast(), bytes.len(), path.as_ptr()) };
@@ -781,6 +806,7 @@ impl<'data> LtoInput<'data> {
     /// The libraries it says it depends on.
     #[must_use]
     pub fn dependent_libraries(&self) -> Vec<String> {
+        let _lock = lock_lto();
         // SAFETY: the input is live, each index is below the count it gave, and each name is copied right away.
         unsafe {
             (0..raw::lto_input_get_num_dependent_libraries(self.raw))
@@ -801,6 +827,7 @@ pub struct ThinLtoCodeGenerator {
 
 impl Drop for ThinLtoCodeGenerator {
     fn drop(&mut self) {
+        let _lock = lock_lto();
         // SAFETY: this wrapper owns the generator.
         unsafe { raw::thinlto_codegen_dispose(self.raw) };
     }
@@ -816,6 +843,7 @@ impl ThinLtoCodeGenerator {
     /// A new generator.
     #[must_use]
     pub fn new() -> Self {
+        let _lock = lock_lto();
         // SAFETY: takes nothing; the wrapper owns what comes back.
         ThinLtoCodeGenerator { raw: unsafe { raw::thinlto_create_codegen() } }
     }
@@ -827,6 +855,7 @@ impl ThinLtoCodeGenerator {
     /// If the identifier has a NUL byte inside it, or the data is too long (D3).
     #[track_caller]
     pub fn add_module(&mut self, identifier: &str, bitcode: &'static [u8]) {
+        let _lock = lock_lto();
         let identifier = c_string(identifier, "add_module");
         let Ok(length) = c_int::try_from(bitcode.len()) else {
             bad_call(format_args!("add_module: {} bytes is more than libLTO can take", bitcode.len()))
@@ -837,6 +866,7 @@ impl ThinLtoCodeGenerator {
 
     /// Optimizes the modules and makes their objects.
     pub fn process(&mut self) {
+        let _lock = lock_lto();
         // SAFETY: the generator is live.
         unsafe { raw::thinlto_codegen_process(self.raw) };
     }
@@ -844,6 +874,7 @@ impl ThinLtoCodeGenerator {
     /// The objects made in memory, one per module.
     #[must_use]
     pub fn objects(&self) -> Vec<Vec<u8>> {
+        let _lock = lock_lto();
         // SAFETY: the generator is live, each index is below the count it gave, and each buffer is copied right away.
         unsafe {
             (0..raw::thinlto_module_get_num_objects(self.raw))
@@ -858,6 +889,7 @@ impl ThinLtoCodeGenerator {
     /// The object files made on disk, one per module, when a directory was set for them.
     #[must_use]
     pub fn object_files(&self) -> Vec<String> {
+        let _lock = lock_lto();
         // SAFETY: the generator is live, each index is below the count it gave, and each name is copied right away.
         unsafe {
             (0..raw::thinlto_module_get_num_object_files(self.raw))
@@ -871,6 +903,7 @@ impl ThinLtoCodeGenerator {
     /// # Errors
     /// If it couldn't be set.
     pub fn set_position_model(&mut self, model: LtoPositionModel) -> Result<(), Error> {
+        let _lock = lock_lto();
         // SAFETY: the generator is live.
         if unsafe { raw::thinlto_codegen_set_pic_model(self.raw, model.to_raw()) } { Err(last_error()) } else { Ok(()) }
     }
@@ -880,6 +913,7 @@ impl ThinLtoCodeGenerator {
     /// # Errors
     /// If the path has a NUL byte in it.
     pub fn set_save_temporaries_directory(&mut self, path: &Path) -> Result<(), Error> {
+        let _lock = lock_lto();
         let path = c_path(path)?;
         // SAFETY: the generator is live, and LLVM copies the valid C string.
         unsafe { raw::thinlto_codegen_set_savetemps_dir(self.raw, path.as_ptr()) };
@@ -891,6 +925,7 @@ impl ThinLtoCodeGenerator {
     /// # Errors
     /// If the path has a NUL byte in it.
     pub fn set_generated_objects_directory(&mut self, path: &Path) -> Result<(), Error> {
+        let _lock = lock_lto();
         let path = c_path(path)?;
         // SAFETY: the generator is live, and LLVM copies the valid C string.
         unsafe { raw::thinlto_set_generated_objects_dir(self.raw, path.as_ptr()) };
@@ -903,6 +938,7 @@ impl ThinLtoCodeGenerator {
     /// If `cpu` has a NUL byte inside it (D3).
     #[track_caller]
     pub fn set_cpu(&mut self, cpu: &str) {
+        let _lock = lock_lto();
         let cpu = c_string(cpu, "set_cpu");
         // SAFETY: the generator is live, and LLVM copies the valid C string.
         unsafe { raw::thinlto_codegen_set_cpu(self.raw, cpu.as_ptr()) };
@@ -910,12 +946,14 @@ impl ThinLtoCodeGenerator {
 
     /// Sets whether it stops before making code.
     pub fn disable_code_generation(&mut self, disable: bool) {
+        let _lock = lock_lto();
         // SAFETY: the generator is live.
         unsafe { raw::thinlto_codegen_disable_codegen(self.raw, disable) };
     }
 
     /// Sets whether it only makes code, from modules already optimized.
     pub fn set_code_generation_only(&mut self, code_generation_only: bool) {
+        let _lock = lock_lto();
         // SAFETY: the generator is live.
         unsafe { raw::thinlto_codegen_set_codegen_only(self.raw, code_generation_only) };
     }
@@ -934,6 +972,7 @@ impl ThinLtoCodeGenerator {
     /// If the name is too long (D3).
     #[track_caller]
     pub fn add_must_preserve_symbol(&mut self, name: &str) {
+        let _lock = lock_lto();
         let length = Self::name_length("add_must_preserve_symbol", name);
         // SAFETY: the generator is live, and LLVM reads the length given.
         unsafe { raw::thinlto_codegen_add_must_preserve_symbol(self.raw, name.as_ptr().cast(), length) };
@@ -945,6 +984,7 @@ impl ThinLtoCodeGenerator {
     /// If the name is too long (D3).
     #[track_caller]
     pub fn add_cross_referenced_symbol(&mut self, name: &str) {
+        let _lock = lock_lto();
         let length = Self::name_length("add_cross_referenced_symbol", name);
         // SAFETY: the generator is live, and LLVM reads the length given.
         unsafe { raw::thinlto_codegen_add_cross_referenced_symbol(self.raw, name.as_ptr().cast(), length) };
@@ -955,6 +995,7 @@ impl ThinLtoCodeGenerator {
     /// # Errors
     /// If the path has a NUL byte in it.
     pub fn set_cache_directory(&mut self, path: &Path) -> Result<(), Error> {
+        let _lock = lock_lto();
         let path = c_path(path)?;
         // SAFETY: the generator is live, and LLVM copies the valid C string.
         unsafe { raw::thinlto_codegen_set_cache_dir(self.raw, path.as_ptr()) };
@@ -967,6 +1008,7 @@ impl ThinLtoCodeGenerator {
     /// If it is too long for `libLTO` (D3).
     #[track_caller]
     pub fn set_cache_pruning_interval_in_seconds(&mut self, interval_in_seconds: u32) {
+        let _lock = lock_lto();
         let Ok(interval) = c_int::try_from(interval_in_seconds) else {
             bad_call(format_args!("set_cache_pruning_interval_in_seconds: {interval_in_seconds} is too long"))
         };
@@ -976,30 +1018,35 @@ impl ThinLtoCodeGenerator {
 
     /// Sets the largest its cache can be, as a percentage of the available space.
     pub fn set_final_cache_size_relative_to_available_space(&mut self, percentage: u32) {
+        let _lock = lock_lto();
         // SAFETY: the generator is live.
         unsafe { raw::thinlto_codegen_set_final_cache_size_relative_to_available_space(self.raw, percentage) };
     }
 
     /// Sets how long a cache entry stays.
     pub fn set_cache_entry_expiration_in_seconds(&mut self, expiration_in_seconds: u32) {
+        let _lock = lock_lto();
         // SAFETY: the generator is live.
         unsafe { raw::thinlto_codegen_set_cache_entry_expiration(self.raw, expiration_in_seconds) };
     }
 
     /// Sets the largest its cache can be.
     pub fn set_cache_size_in_bytes(&mut self, size_in_bytes: u32) {
+        let _lock = lock_lto();
         // SAFETY: the generator is live.
         unsafe { raw::thinlto_codegen_set_cache_size_bytes(self.raw, size_in_bytes) };
     }
 
     /// Sets the largest its cache can be.
     pub fn set_cache_size_in_megabytes(&mut self, size_in_megabytes: u32) {
+        let _lock = lock_lto();
         // SAFETY: the generator is live.
         unsafe { raw::thinlto_codegen_set_cache_size_megabytes(self.raw, size_in_megabytes) };
     }
 
     /// Sets how many files its cache can hold.
     pub fn set_cache_size_in_files(&mut self, size_in_files: u32) {
+        let _lock = lock_lto();
         // SAFETY: the generator is live.
         unsafe { raw::thinlto_codegen_set_cache_size_files(self.raw, size_in_files) };
     }
@@ -1014,6 +1061,7 @@ impl ThinLtoCodeGenerator {
 /// If an option has a NUL byte inside it (D3).
 #[track_caller]
 pub unsafe fn set_thin_debug_options(options: &[&str]) {
+    let _lock = lock_lto();
     with_c_list("set_thin_debug_options", options, |list, count| {
         // SAFETY: the list lasts for the call, and LLVM copies what it keeps; the caller promises no other thread is in LLVM.
         unsafe { raw::thinlto_debug_options(list, count) };

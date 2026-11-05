@@ -3,8 +3,7 @@
 use crate::raw;
 use crate::text::c_string;
 
-/// A disassembler for one target. It needs the target set up with [`crate::target::initialize_all_targets`] or
-/// [`crate::target::initialize_native_target`].
+/// A disassembler for one target.
 pub struct Disassembler {
     raw: raw::LLVMDisasmContextRef,
 }

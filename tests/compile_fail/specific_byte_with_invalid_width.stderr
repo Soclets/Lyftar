@@ -1,0 +1,22 @@
+error[E0080]: evaluation panicked: an LLVM byte is between 1 and 2^23 bits wide
+ --> $RUST/core/src/panic.rs
+  |
+  |         $crate::panicking::panic_fmt($crate::const_format_args!($($t)+));
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `<lyftar::Byte<lyftar::Bits<0>> as lyftar::types::SpecificType>::get_raw::{constant#0}` failed here
+  |
+ ::: src/types.rs
+  |
+  |         const { assert!(N >= 1 && N <= (1 << 23), "an LLVM byte is between 1 and 2^23 bits wide") };
+  |                 --------------------------------------------------------------------------------- in this macro invocation
+
+note: erroneous constant encountered
+ --> src/types.rs
+  |
+  |         const { assert!(N >= 1 && N <= (1 << 23), "an LLVM byte is between 1 and 2^23 bits wide") };
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+note: the above error was encountered while instantiating `fn <lyftar::Byte<lyftar::Bits<0>> as SpecificType>::get_raw`
+ --> src/types.rs
+  |
+  |         Type { raw: T::get_raw(self), marker: PhantomData }
+  |                     ^^^^^^^^^^^^^^^^

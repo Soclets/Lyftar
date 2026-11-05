@@ -83,36 +83,13 @@ extern "C" void lyftar_initialize_all_targets() {
   LLVMInitializeAllDisassemblers();
 }
 
-// Declares each target's initializers, which the C header's `LLVM_TARGET` macro
-// generates.
-#define LLVM_TARGET(TargetName)                                                \
-  extern "C" void LLVMInitialize##TargetName##AsmParser()                      \
-      __attribute__((weak));                                                   \
-  extern "C" void LLVMInitialize##TargetName##Disassembler()                   \
-      __attribute__((weak));
-#include "llvm/Config/Targets.def"
-
-// Contract: `name` has `length` bytes. Initializes the target LLVM calls that,
-// such as "AArch64", and returns false if LLVM wasn't built with it. Safe to
-// call more than once. A target can have no assembly parser or disassembler,
-// which is what the weak declarations above are for.
-extern "C" bool lyftar_initialize_named_target(const char *name,
-                                               size_t length) {
-  require(name != nullptr || length == 0,
-          "lyftar_initialize_named_target: null name");
+// Contract: `name` has `length` bytes. Returns whether LLVM was built with the
+// target it calls that, such as "AArch64".
+extern "C" bool lyftar_target_was_built(const char *name, size_t length) {
+  require(name != nullptr || length == 0, "lyftar_target_was_built: null name");
   const StringRef wanted(name, length);
 #define LLVM_TARGET(TargetName)                                                \
   if (wanted == #TargetName) {                                                 \
-    LLVMInitialize##TargetName##TargetInfo();                                  \
-    LLVMInitialize##TargetName##Target();                                      \
-    LLVMInitialize##TargetName##TargetMC();                                    \
-    LLVMInitialize##TargetName##AsmPrinter();                                  \
-    if (LLVMInitialize##TargetName##AsmParser != nullptr) {                    \
-      LLVMInitialize##TargetName##AsmParser();                                 \
-    }                                                                          \
-    if (LLVMInitialize##TargetName##Disassembler != nullptr) {                 \
-      LLVMInitialize##TargetName##Disassembler();                              \
-    }                                                                          \
     return true;                                                               \
   }
 #include "llvm/Config/Targets.def"

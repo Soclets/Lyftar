@@ -2,7 +2,7 @@
 
 use std::marker::PhantomData;
 use std::path::Path;
-use std::sync::Once;
+use std::sync::OnceLock;
 
 use crate::bad_call::bad_call;
 use crate::checks;
@@ -103,35 +103,51 @@ llvm_enum! {
     }
 }
 
-static INITIALIZE_NATIVE: Once = Once::new();
-static INITIALIZE_ALL: Once = Once::new();
+static TARGETS: OnceLock<bool> = OnceLock::new();
 
-/// Sets up this machine's own target, which everything that makes code needs. It is safe to call more than once.
+/// Sets up LLVM's target registry, once in the life of the process, and says whether it has a target for this machine.
+///
+/// LLVM's registry takes no lock. Two threads registering one target tie its list into a loop, and every lookup after that
+/// spins for good. `libLTO` registers all of them the first time it is used, with no lock either. So everything is
+/// registered here, `libLTO`'s turn included, and nothing writes to the registry again. Everything that can read the
+/// registry calls this first. (`ASSUMPTIONS.md`)
+pub(crate) fn set_up_targets() -> bool {
+    *TARGETS.get_or_init(|| {
+        // SAFETY: these take nothing, and `OnceLock` keeps them to one call in one thread. The generator exists only to have
+        // `libLTO` run its own setup now, and the wrapper for each `libLTO` call waits for this.
+        unsafe {
+            shim::lyftar_initialize_all_targets();
+            let native_failed = shim::lyftar_initialize_native_target() != 0;
+            raw::lto_codegen_dispose(raw::lto_codegen_create_in_local_context());
+            !native_failed
+        }
+    })
+}
+
+/// Sets up this machine's own target. Everything Lyftar does sets this up by itself, so this is only needed to ask whether
+/// LLVM has one. It is safe to call more than once.
 ///
 /// # Errors
 /// If LLVM has no target for this machine.
 pub fn initialize_native_target() -> Result<(), Error> {
-    let mut failed = 0;
-    INITIALIZE_NATIVE.call_once(|| {
-        // SAFETY: takes nothing, and `Once` keeps it to one call at a time.
-        failed = unsafe { shim::lyftar_initialize_native_target() };
-    });
-    if failed == 0 { Ok(()) } else { Err(Error::new("LLVM has no target for this machine")) }
+    if set_up_targets() { Ok(()) } else { Err(Error::new("LLVM has no target for this machine")) }
 }
 
-/// Sets up every target LLVM was built with. It is safe to call more than once.
+/// Sets up every target LLVM was built with. Everything Lyftar does sets them up by itself, so this is never needed first.
+/// It is safe to call more than once.
 pub fn initialize_all_targets() {
-    // SAFETY: takes nothing, and `Once` keeps it to one call at a time.
-    INITIALIZE_ALL.call_once(|| unsafe { shim::lyftar_initialize_all_targets() });
+    set_up_targets();
 }
 
-/// Sets up the target LLVM calls `name`, such as `AArch64`. It is safe to call more than once.
+/// Sets up the target LLVM calls `name`, such as `AArch64`. Everything Lyftar does sets it up by itself, so this is only
+/// needed to ask whether LLVM has it. It is safe to call more than once.
 ///
 /// # Errors
 /// If LLVM wasn't built with that target.
 pub fn initialize_target(name: &str) -> Result<(), Error> {
-    // SAFETY: the shim reads `name.len()` bytes. LLVM's registry is initialized under its own lock.
-    if unsafe { shim::lyftar_initialize_named_target(name.as_ptr().cast(), name.len()) } {
+    set_up_targets();
+    // SAFETY: the shim reads `name.len()` bytes.
+    if unsafe { shim::lyftar_target_was_built(name.as_ptr().cast(), name.len()) } {
         Ok(())
     } else {
         Err(Error::new(format!("LLVM wasn't built with the target {name}")))
@@ -183,6 +199,8 @@ impl Target {
     pub fn all() -> Vec<Target> {
         let mut targets = Vec::new();
         // SAFETY: takes nothing, and each next target comes from the last.
+        set_up_targets();
+        // SAFETY: takes nothing, and the registry is set up.
         let mut next = unsafe { raw::LLVMGetFirstTarget() };
         while !next.is_null() {
             targets.push(Target { raw: next });

@@ -106,7 +106,7 @@ cargo run --manifest-path tools/coverage/Cargo.toml
 Run the AddressSanitizer and UBSan tests, which need nightly Rust:
 
 ```bash
-LYFTAR_SANITIZE=1 RUSTFLAGS="-Zsanitizer=address" cargo +nightly test --target aarch64-apple-darwin --target-dir target/sanitize --test decision_2_end_to_end --test decision_3_panics --test decision_3_pass_aborts --test decision_4_build_calls --test decision_10_jit --test decision_11_deletion --test decision_1_passes --test decision_16_modules --test kayo_passes --no-fail-fast -- --skip plugin
+LYFTAR_SANITIZE=1 RUSTFLAGS="-Zsanitizer=address" cargo +nightly test --target aarch64-apple-darwin --target-dir target/sanitize --test decision_2_end_to_end --test decision_3_panics --test decision_3_pass_aborts --test decision_4_build_calls --test decision_10_jit --test decision_11_deletion --test decision_1_passes --test decision_16_modules --test decision_16_threads --test decision_30_bytes --test kayo_passes --no-fail-fast -- --skip plugin
 ```
 
 Measure what Lyftar adds over raw LLVM calls, beside the saved table, and save a new one with `-- --save`:

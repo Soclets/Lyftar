@@ -40,6 +40,17 @@ If one turns out false, the safety promise named beside it falls with it.
 - **`slice::sort_unstable` sorts.** `sorted_has_no_duplicates` is proven to find neighbours that match, and a lemma shows a
   sorted list whose neighbours differ has no duplicates. Sorting itself is assumed.
 
+## Global state in LLVM
+
+- **LLVM's target registry takes no lock, and neither does `libLTO`'s setup.** Seen against the real library: two threads
+  registering at once tied the list of targets into a loop, and `TargetRegistry::lookupTarget` spun for good.
+  `tests/decision_16_threads.rs` reproduces that against code without the fix. So `set_up_targets` registers every target
+  once, `libLTO`'s turn included, before anything can read the registry, and nothing writes to it again.
+- **`libLTO`'s global context, last error message and options are unguarded**, which `lto.h` implies by saying only
+  `lto_module_create_in_local_context` is thread-safe. Lyftar holds one lock around every `libLTO` call.
+- **LLVM has no other global state that safe Lyftar calls change.** The calls that set LLVM's command-line options do change
+  some, and are `unsafe` for that reason.
+
 ## Pass runs
 
 - **`StructuralHash` plus counts of a module's contents catch a pass that lied about `PreservedAnalyses::All`.** A collision
@@ -53,5 +64,8 @@ If one turns out false, the safety promise named beside it falls with it.
 - **`LLVMPassBuilderOptionsSetAAPipeline` keeps the pointer it is given.** Its header says so. The wrapper keeps the text.
 - **`LTOModule` keeps a reference to the bytes it read** (`MBRef` in `LTOModule.h`). The wrapper keeps a copy.
 - **`thinlto_codegen_add_module` keeps the bytes for the generator's life.** Its header says so. They are `'static`.
-- **`libLTO` merges modules only within one context**, as `lto.h` says of its code generators.
+- **`libLTO` merges modules only within one context**, as `lto.h` says of its code generators. So a generator reads its own
+  modules into its own context.
+- **A `libLTO` generator in the global context leaves its diagnostic handler on that context when it goes.** Seen against the
+  real library: the next error there calls through it and crashes. So Lyftar doesn't wrap `lto_codegen_create`.
 - **`getTerminator` asserts on a block with no terminator**, so Lyftar asks `hasTerminator` first.
