@@ -175,25 +175,26 @@ verus! {
 
 /// No two neighbours of this list are the same.
 pub open spec fn neighbours_differ(items: Seq<usize>) -> bool {
-    forall|index: int| 0 <= index && index + 1 < items.len() ==> items[index] != items[index + 1]
+    forall|index: int| 0 <= index && index + 1 < items.len() ==> #[trigger] items[index] != items[index + 1]
 }
 
 /// The list is sorted.
 pub open spec fn is_sorted(items: Seq<usize>) -> bool {
-    forall|left: int, right: int| 0 <= left <= right < items.len() ==> items[left] <= items[right]
+    forall|left: int, right: int| 0 <= left <= right < items.len() ==> #[trigger] items[left] <= #[trigger] items[right]
 }
 
 /// No two places in the list hold the same item.
 pub open spec fn all_distinct(items: Seq<usize>) -> bool {
-    forall|left: int, right: int| 0 <= left < right < items.len() ==> items[left] != items[right]
+    forall|left: int, right: int| 0 <= left < right < items.len() ==> #[trigger] items[left] != #[trigger] items[right]
 }
 
 proof fn sorted_neighbours_differ_means_distinct(items: Seq<usize>)
     requires is_sorted(items), neighbours_differ(items)
     ensures all_distinct(items)
 {
-    assert forall|left: int, right: int| 0 <= left < right < items.len() implies items[left] != items[right] by {
-        assert(items[left] < items[left + 1]);
+    assert forall|left: int, right: int| 0 <= left < right < items.len() implies #[trigger] items[left] != #[trigger] items[right] by {
+        assert(items[left] != items[left + 1]);
+        assert(items[left] <= items[left + 1]);
         assert(items[left + 1] <= items[right]);
     }
 }
@@ -212,7 +213,7 @@ pub(crate) fn sorted_has_no_duplicates(sorted: &[usize]) -> bool {
         invariant
             1 <= index,
             forall|earlier: int| 0 <= earlier && earlier + 1 < index && earlier + 1 < sorted@.len() ==>
-                sorted@[earlier] != sorted@[earlier + 1],
+                #[trigger] sorted@[earlier] != sorted@[earlier + 1],
         decreases sorted@.len() - index,
     ))]
     while index < sorted.len() {
