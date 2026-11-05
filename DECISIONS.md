@@ -131,3 +131,7 @@ therefore wait until Clang has them: a shim function's contract is a comment, an
 and a check in its Rust wrapper, which Verus proves (D22). Building LLVM itself with GCC was started as an experiment and
 stopped before it built anything, so it is untested. Other platforms are not settled here. Claude proposed Clang and C++23;
 the owner chose: "Nah, thought again. Probably too impractical". (Owner, 2026-11-05)
+
+**D26. Three cores per session.** Each Lyftar session uses at most 3 cores at once, for builds, tests and anything it starts.
+This replaces the "no limit" rule inherited from Cyborg. The owner asked for "a core limit, like 3"; Claude asked whether
+that was the rule for every session; the owner chose: "yea, each". (Owner, 2026-11-05)

@@ -29,7 +29,7 @@ changes, `DECISIONS.md` gets a new entry and this file is updated to match. Noth
 10. **Commits.** `kind.folder.narrowing: sentence (owner: "their words"; D1)`. Kinds: `decision`, `design`, `feature`, `fix`,
     `test`, `house`. Each commit ends with its session's trailer, such as
     `Co-Authored-By: design claude <noreply@anthropic.com>`.
-11. **Cores.** No limit.
+11. **Cores.** Each session uses at most 3 at once, for builds, tests and anything it starts. (D26)
 12. **Prompting.** Before prompting a subagent or a new session, a session reads the current prompting guide for that AI, in
     full and itself, and again after every compaction. Messaging another session isn't prompting, and isn't written like
     prompting: write it like one colleague talking to another.
