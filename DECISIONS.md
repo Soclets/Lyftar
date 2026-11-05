@@ -185,3 +185,11 @@ and a slice for a dynamic one, and a variadic call reads `builder.call(printf, (
 `Value<BasicBlockAsValue>`. D4's checked cast is `checked_cast`. A constant of a specific aggregate is built dynamically and then
 cast. D31's unknown space is plain `Value<Dynamic>`. Lyftar impl chose these; Claude listed them; the owner asked for no changes:
 "nah". (Owner, 2026-11-05)
+
+**D37. Aggregate and expression constants belong to a module.** This narrows D11, which said constants belong to the context
+and survive. LLVM's own passes, `default<O2>` among them, can delete an aggregate or constant expression once nothing uses it,
+as a use-after-free under AddressSanitizer showed in a program with no `unsafe`. So these constants come from a module and
+borrow it, as its other values do, and one held across a delete or a pass run does not compile. They can't be shared across
+modules. Plain data stays on the context and survives: integers, floats, null, undef, poison, zero, and data arrays and vectors.
+Lyftar impl found the hole and preferred a hidden module keeping each constant in use, as did Claude; the owner chose: "the alt".
+(Owner, 2026-11-05)
