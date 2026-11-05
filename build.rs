@@ -78,6 +78,9 @@ fn compile_shim(llvm_config: &Path) -> Result<(), String> {
     // trace: D27
     if std::env::var_os("LYFTAR_SANITIZE").is_some() {
         shim.flag("-fsanitize=address,undefined").flag("-fno-sanitize-recover=all").flag("-fno-omit-frame-pointer");
+        // LLVM's library isn't instrumented, so when it grows a `std::vector` the shim made, ASan's marks on that vector go
+        // stale and report reads inside the allocation. Only those marks go; a read past the allocation is still caught.
+        shim.define("__SANITIZER_DISABLE_CONTAINER_OVERFLOW__", None);
     }
     shim.try_compile("lyftar_shim").map_err(|error| format!("could not compile the shim: {error}"))
 }
