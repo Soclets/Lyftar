@@ -16,6 +16,13 @@ pub(crate) struct WeakHandle {
 
 unsafe extern "C" {
     pub(crate) fn lyftar_initialize_native_target() -> c_int;
+    pub(crate) fn lyftar_initialize_all_targets();
+    pub(crate) fn lyftar_initialize_named_target(name: *const c_char, length: usize) -> bool;
+    pub(crate) fn lyftar_link_modules(
+        destination: LLVMModuleRef,
+        source: LLVMModuleRef,
+        message: *mut *mut c_char,
+    ) -> bool;
     pub(crate) fn lyftar_value_belongs_to_module(value: LLVMValueRef, module: LLVMModuleRef) -> bool;
     pub(crate) fn lyftar_values_share_module(user: LLVMValueRef, other: LLVMValueRef) -> bool;
     pub(crate) fn lyftar_value_is_terminator(value: LLVMValueRef) -> bool;

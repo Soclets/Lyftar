@@ -12,19 +12,25 @@
 
 pub mod attributes;
 mod bad_call;
+pub mod bitcode;
 pub mod block;
 pub mod builder;
 mod checks;
 pub mod constants;
 pub mod context;
 pub mod enums;
+pub mod error;
 pub mod functions;
 pub mod instructions;
 pub mod intrinsics;
+pub mod ir_reader;
+pub mod linker;
+pub mod memory_buffer;
 pub mod metadata;
 pub mod module;
 pub mod raw;
 mod shim;
+pub mod target;
 mod text;
 pub mod types;
 pub mod values;

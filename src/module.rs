@@ -8,6 +8,7 @@ use crate::bad_call::bad_call;
 use crate::block::Block;
 use crate::checks;
 use crate::context::Context;
+use crate::error::Error;
 use crate::raw;
 use crate::shim;
 use crate::text::{c_path, c_string, from_borrowed, from_owned_message, from_pointer_and_length};
@@ -258,13 +259,13 @@ impl<'context> Module<'context> {
     ///
     /// # Errors
     /// The verifier's report.
-    pub fn verify(&self) -> Result<(), String> {
+    pub fn verify(&self) -> Result<(), Error> {
         let mut message = std::ptr::null_mut();
         // SAFETY: the module is live, and the verifier allocates the message for the caller to free.
         let failed = unsafe {
             raw::LLVMVerifyModule(self.raw, raw::LLVMVerifierFailureAction::LLVMReturnStatusAction, &raw mut message)
         };
-        let report = from_owned_message(message);
+        let report = Error::from_owned_message(message);
         if failed == 0 { Ok(()) } else { Err(report) }
     }
 
@@ -279,12 +280,12 @@ impl<'context> Module<'context> {
     ///
     /// # Errors
     /// What stopped the file being written.
-    pub fn print_to_file(&self, path: &Path) -> Result<(), String> {
+    pub fn print_to_file(&self, path: &Path) -> Result<(), Error> {
         let path = c_path(path)?;
         let mut message = std::ptr::null_mut();
         // SAFETY: the module is live, and LLVM allocates the message for the caller to free.
         let failed = unsafe { raw::LLVMPrintModuleToFile(self.raw, path.as_ptr(), &raw mut message) };
-        let report = from_owned_message(message);
+        let report = Error::from_owned_message(message);
         if failed == 0 { Ok(()) } else { Err(report) }
     }
 

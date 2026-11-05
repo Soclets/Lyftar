@@ -18,8 +18,9 @@ pub(crate) fn c_string(text: &str, what: &str) -> CString {
 }
 
 /// `path` as a C string, or an error for a path that has a NUL in it, which comes from the running program's input.
-pub(crate) fn c_path(path: &Path) -> Result<CString, String> {
-    CString::new(path.as_os_str().as_encoded_bytes()).map_err(|_| format!("{} has a NUL byte in it", path.display()))
+pub(crate) fn c_path(path: &Path) -> Result<CString, crate::error::Error> {
+    CString::new(path.as_os_str().as_encoded_bytes())
+        .map_err(|_| crate::error::Error::new(format!("{} has a NUL byte in it", path.display())))
 }
 
 /// Copies an LLVM string of known length.

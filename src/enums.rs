@@ -35,6 +35,7 @@ macro_rules! llvm_enum {
         }
     };
 }
+pub(crate) use llvm_enum;
 
 llvm_enum! {
     /// An instruction's operation.
