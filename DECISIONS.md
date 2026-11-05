@@ -217,3 +217,10 @@ asked; Claude proposed it; the owner chose it: "yea". (Owner, 2026-11-05)
 `constant_data_array` and `constant_string`, bytes, `token none`, `target none` and inline assembly do not. If one of these turns
 out to be deletable, moving it is a bug fix under rule 17. Lyftar impl proposed the list; Claude agreed; the owner chose it:
 "yea". (Owner, 2026-11-05)
+
+**D42. Modules live inside the context.** This builds on D39 and changes D11's "a value borrows its module". A constant read back
+from a module could otherwise still be deleted by a pass on another module, in safe code. So a module lives inside its context, as
+in `context.module(a).get_global(..)`, every value borrows the context, and running passes needs the context exclusively, so no
+read can be missed. A module stops being a separately owned value, and an exclusive call on one module blocks values held from any
+other. Whether a separate token from D39 is still needed is not settled here. Lyftar impl found the hole and preferred an extra
+token argument on each read, as did Claude; the owner chose: "B". (Owner, 2026-11-05)
