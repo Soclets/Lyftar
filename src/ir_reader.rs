@@ -4,7 +4,7 @@ use crate::context::Context;
 use crate::error::Error;
 use crate::memory_buffer::MemoryBuffer;
 use crate::module::Module;
-use crate::raw;
+use crate::shim;
 
 impl<'context> Context<'context> {
     /// Reads a module from a buffer holding LLVM IR, as text or bitcode.
@@ -14,9 +14,9 @@ impl<'context> Context<'context> {
     pub fn parse_ir(self, buffer: &MemoryBuffer<'_>) -> Result<Module<'context>, Error> {
         let mut module = std::ptr::null_mut();
         let mut message = std::ptr::null_mut();
-        // SAFETY: both are live, and this form leaves the buffer with the caller; LLVM writes the module, or a message
-        // for the caller to free.
-        let failed = unsafe { raw::LLVMParseIRInContext2(self.raw, buffer.raw, &raw mut module, &raw mut message) };
+        // SAFETY: both are live, and the shim leaves the buffer with the caller; it writes the module, or a message for the
+        // caller to free.
+        let failed = unsafe { shim::lyftar_parse_ir(self.raw, buffer.raw, &raw mut module, &raw mut message) };
         if failed != 0 {
             return Err(Error::from_owned_message(message));
         }

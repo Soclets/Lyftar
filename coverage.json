@@ -3139,7 +3139,8 @@
       "reason": "It frees the buffer it is given, which LLVMParseIRInContext2 replaces with a form that doesn't."
     },
     "LLVMParseIRInContext2": {
-      "status": "wrapped"
+      "status": "not_wrapped",
+      "reason": "Context::parse_ir goes through the shim's lyftar_parse_ir, which calls this for bitcode and reads text itself, since LLVM's text path ends the process on debug information that fails the verifier."
     },
     "LLVMPassBuilderOptionsSetAAPipeline": {
       "status": "wrapped"

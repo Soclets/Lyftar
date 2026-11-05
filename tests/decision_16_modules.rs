@@ -390,3 +390,46 @@ fn decision_11_running_llvm_passes_optimizes_real_code() {
         module.run_passes_on_function("f", "instcombine", None, &PassOptions::default()).expect("the pipeline");
     });
 }
+
+const DEBUG_FLAG: &str = "!llvm.module.flags = !{!0}\n!0 = !{i32 2, !\"Debug Info Version\", i32 3}\n";
+
+// LLVM's own parser ends the process on this, through "Broken module found".
+#[test]
+fn decision_38_text_with_debug_information_that_fails_the_verifier_is_an_error() {
+    with_context(|context| {
+        let broken = format!("@llvm.used = appending global [1 x ptr] [ptr inttoptr (i64 1 to ptr)]\n{DEBUG_FLAG}");
+        let error = context.parse_ir_text(&broken).err().expect("an error");
+        assert!(error.message().contains("invalid llvm.used member"), "{}", error.message());
+    });
+}
+
+#[test]
+fn decision_38_good_text_with_debug_information_still_reads_and_verifies() {
+    with_context(|context| {
+        let good = format!("@named = global i32 0\n@llvm.used = appending global [1 x ptr] [ptr @named]\n{DEBUG_FLAG}");
+        let module = context.parse_ir_text(&good).expect("good IR");
+        assert_eq!(module.verify(), Ok(()));
+        assert_eq!(module.debug_metadata_version(), 3);
+    });
+}
+
+#[test]
+fn decision_38_text_that_doesnt_parse_still_says_where() {
+    with_context(|context| {
+        let error = context.parse_ir_text("define nonsense").err().expect("an error");
+        assert!(error.message().contains("ir:1:"), "{}", error.message());
+    });
+}
+
+// Bad debug information is stripped, as LLVM's own parser does, rather than refused.
+#[test]
+fn decision_38_an_old_debug_version_is_still_upgraded_away() {
+    with_context(|context| {
+        let old = "!llvm.module.flags = !{!0}\n!0 = !{i32 2, !\"Debug Info Version\", i32 1}\n\
+                   define void @f() !dbg !1 {\n ret void\n}\n\
+                   !1 = distinct !{}\n";
+        let module = context.parse_ir_text(old).expect("readable IR");
+        assert_eq!(module.verify(), Ok(()));
+        assert!(!module.print_to_string().contains("!dbg"), "{}", module.print_to_string());
+    });
+}

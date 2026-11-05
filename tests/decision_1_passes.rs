@@ -329,3 +329,53 @@ fn decision_1_pass_options_reach_the_pipeline() {
         module.run_passes("default<O1>", None, &options).expect("the pipeline");
     });
 }
+
+// LLVM ends the process over these, or frees an invalid pointer, unless they are caught first.
+#[test]
+fn decision_38_what_llvm_would_end_the_process_over_comes_back_as_an_error() {
+    with_context(|context| {
+        for (pipeline, wanted) in [
+            ("default<Os>", "the optimization level \"Os\" is no longer supported"),
+            ("default<Oz>", "the optimization level \"Oz\" is no longer supported"),
+            ("lto<Os>", "the optimization level \"Os\" is no longer supported"),
+            ("thinlto<Oz>", "the optimization level \"Oz\" is no longer supported"),
+            ("lto-pre-link<Os>", "the optimization level \"Os\" is no longer supported"),
+            ("thinlto-pre-link<Oz>", "the optimization level \"Oz\" is no longer supported"),
+            ("function(sroa),default<Os>", "the optimization level \"Os\" is no longer supported"),
+            ("function-import", "needs LLVM's -summary-file option"),
+            ("globaldce,function-import", "needs LLVM's -summary-file option"),
+            ("function(free-machine-function)", "needs a machine function analysis"),
+        ] {
+            let mut module = context.parse_ir_text(IR).expect("the test's IR");
+            let error = module.run_passes(pipeline, None, &PassOptions::default()).expect_err(pipeline);
+            assert!(error.message().contains(wanted), "{pipeline}: {}", error.message());
+            let error = module.run_passes_with(pipeline, None, &PassOptions::default(), |_| {}).expect_err(pipeline);
+            assert!(error.message().contains(wanted), "{pipeline}: {}", error.message());
+            assert_eq!(module.verify(), Ok(()));
+        }
+        // A pass of someone's own can take a parameter of that spelling, and a similar name is a different pass.
+        let mut module = context.parse_ir_text(IR).expect("the test's IR");
+        let result = module.run_passes_with("own-pass<Os>", None, &PassOptions::default(), |_| {});
+        assert!(result.is_err_and(|error| error.message().contains("own-pass")));
+        let result = module.run_passes("function-import-not", None, &PassOptions::default());
+        assert!(result.is_err_and(|error| error.message().contains("function-import-not")));
+        assert!(module.run_passes("default<O2>", None, &PassOptions::default()).is_ok());
+    });
+}
+
+#[test]
+fn decision_38_what_an_extension_point_adds_is_checked_too() {
+    with_context(|context| {
+        let mut module = context.parse_ir_text(IR).expect("the test's IR");
+        let found = RefCell::new(None);
+        module
+            .run_passes_with("default<O1>", None, &PassOptions::default(), |builder| {
+                builder.at_pipeline_start(|manager, _| {
+                    *found.borrow_mut() = Some(manager.add_pipeline("default<Oz>").expect_err("Oz"));
+                });
+            })
+            .expect("the pipeline");
+        let found = found.into_inner().expect("the extension point ran");
+        assert!(found.message().contains("\"Oz\" is no longer supported"), "{}", found.message());
+    });
+}

@@ -9,6 +9,7 @@
 #include "shim.h"
 
 #include "llvm-c/Core.h"
+#include "llvm-c/IRReader.h"
 #include "llvm-c/Linker.h"
 #include "llvm-c/Object.h"
 #include "llvm-c/Target.h"
@@ -17,10 +18,14 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/AsmParser/LLParser.h"
+#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/IR/Attributes.h"
+#include "llvm/IR/AutoUpgrade.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DebugProgramInstruction.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -40,10 +45,14 @@
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/ValueHandle.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/CBindingWrapping.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <cstddef>
@@ -81,6 +90,58 @@ extern "C" void lyftar_initialize_all_targets() {
   LLVMInitializeAllAsmPrinters();
   LLVMInitializeAllAsmParsers();
   LLVMInitializeAllDisassemblers();
+}
+
+// Contract: `context` and `buffer` are live, and `module` and `message` can be
+// written. Reads a module from text or bitcode and returns 0, leaving the
+// buffer with the caller and the module with the caller; or returns 1 with a
+// message for the caller to free. LLVM's own parser ends the process on text
+// with debug information that fails the verifier, so this asks the verifier
+// first, and turns that into an error. It can't do that for bitcode, whose
+// reader has no such switch. trace: D3, D38
+extern "C" LLVMBool lyftar_parse_ir(LLVMContextRef context,
+                                    LLVMMemoryBufferRef buffer,
+                                    LLVMModuleRef *module, char **message) {
+  require(context != nullptr && buffer != nullptr && module != nullptr &&
+              message != nullptr,
+          "lyftar_parse_ir: null argument");
+  const MemoryBufferRef text = unwrap(buffer)->getMemBufferRef();
+  if (isBitcode(text.getBuffer().bytes_begin(), text.getBuffer().bytes_end())) {
+    return LLVMParseIRInContext2(context, buffer, module, message);
+  }
+  *module = nullptr;
+  std::string failure;
+  raw_string_ostream failure_stream(failure);
+  auto parsed =
+      std::make_unique<Module>(text.getBufferIdentifier(), *unwrap(context));
+  SourceMgr sources;
+  sources.AddNewSourceBuffer(MemoryBuffer::getMemBuffer(text), SMLoc());
+  SMDiagnostic diagnostic;
+  if (LLParser(text.getBuffer(), sources, diagnostic, parsed.get(), nullptr,
+               *unwrap(context))
+          .Run(/*UpgradeDebugInfo=*/false)) {
+    diagnostic.print(nullptr, failure_stream, /*ShowColors=*/false);
+    *message = LLVMCreateMessage(failure.c_str());
+    return 1;
+  }
+  if (getDebugMetadataVersionFromModule(*parsed) == DEBUG_METADATA_VERSION) {
+    bool broken_debug_information = false;
+    if (verifyModule(*parsed, &failure_stream, &broken_debug_information)) {
+      *message = LLVMCreateMessage(failure.c_str());
+      return 1;
+    }
+  }
+  UpgradeDebugInfo(*parsed);
+  *module = wrap(parsed.release());
+  return 0;
+}
+
+// Contract: takes nothing. Returns whether LLVM's `-summary-file` option was
+// given, without which the `function-import` pass ends the process. trace: D38
+extern "C" bool lyftar_summary_file_was_given() {
+  const auto &options = cl::getRegisteredOptions();
+  const auto found = options.find("summary-file");
+  return found != options.end() && found->second->getNumOccurrences() > 0;
 }
 
 // Contract: `name` has `length` bytes. Returns whether LLVM was built with the

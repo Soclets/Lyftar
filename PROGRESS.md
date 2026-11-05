@@ -31,8 +31,10 @@ Reproduced with `#![forbid(unsafe_code)]`, under AddressSanitizer: heap use-afte
 `Linkage::AvailableExternally`, and a function that loads it. Run `default<O2>`, then read `held`, say with `module.track(held)`.
 `Linkage::Internal` with no use and `globaldce` does the same.
 
-Also found while probing, and not fixed: `run_passes` with `default<Os>` or `function-import` ends the process through
-`LLVM ERROR` instead of returning an error, and so does `parse_ir_text` on a module with debug info that fails the verifier.
+Also found while probing, and fixed under D38: `default<Os>`, `<Oz>`, `function-import`, `free-machine-function` and text with
+debug information that fails the verifier now give errors. Not fixed: bitcode with debug information that fails the verifier
+still ends the process, in a program with no `unsafe`. LLVM's reader has no switch, and verifying first would refuse valid old
+bitcode whose intrinsics aren't upgraded yet.
 
 Probing all of LLVM's named passes with a `WeakVH` on each constant found these deleters and no others. A hidden module holding
 a real use of the constant stopped the deletion in the two cases tried, with the same printed IR. The fix is waiting on the owner.

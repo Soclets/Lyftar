@@ -18,6 +18,13 @@ unsafe extern "C" {
     pub fn lyftar_initialize_native_target() -> c_int;
     pub fn lyftar_initialize_all_targets();
     pub fn lyftar_target_was_built(name: *const c_char, length: usize) -> bool;
+    pub fn lyftar_parse_ir(
+        context: LLVMContextRef,
+        buffer: crate::raw::LLVMMemoryBufferRef,
+        module: *mut LLVMModuleRef,
+        message: *mut *mut c_char,
+    ) -> crate::raw::LLVMBool;
+    pub fn lyftar_summary_file_was_given() -> bool;
     pub fn lyftar_link_modules(destination: LLVMModuleRef, source: LLVMModuleRef, message: *mut *mut c_char) -> bool;
     pub fn lyftar_value_belongs_to_module(value: LLVMValueRef, module: LLVMModuleRef) -> bool;
     pub fn lyftar_values_share_module(user: LLVMValueRef, other: LLVMValueRef) -> bool;

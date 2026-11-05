@@ -59,6 +59,15 @@ If one turns out false, the safety promise named beside it falls with it.
 - **LLVM has no other global state that safe Lyftar calls change.** The calls that set LLVM's command-line options do change
   some, and are `unsafe` for that reason.
 
+## What ends the process
+
+- **LLVM's `report_fatal_error` can't be caught.** Its handler must not return, and a panic can't cross C++. So Lyftar turns into
+  errors only the cases seen against the real library: running every pass `opt --print-passes` names, without the sanitizer,
+  printing and similar ones, found `default<Os>` and `<Oz>` and their LTO forms, `function-import` with no summary file, and
+  `free-machine-function`, which frees an invalid pointer. A pipeline's parameters weren't all tried. Others may exist.
+- **Bitcode with debug information that fails the verifier still ends the process.** LLVM's reader upgrades debug information
+  as it reads, and has no switch for that. Text is checked first.
+
 ## Pass runs
 
 - **`StructuralHash` plus counts of a module's contents catch a pass that lied about `PreservedAnalyses::All`.** A collision

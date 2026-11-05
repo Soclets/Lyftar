@@ -736,6 +736,7 @@ impl<'pipeline> ModulePassManager<'pipeline> {
     /// # Errors
     /// What is wrong with the text.
     pub fn add_pipeline(&mut self, pipeline: &str) -> Result<(), Error> {
+        check_pipeline_text(pipeline)?;
         // SAFETY: both are live for this call, and LLVM reads `pipeline.len()` bytes.
         Error::from_raw_result(unsafe {
             shim::lyftar_pass_manager_add_pipeline(self.builder, self.raw, 0, pipeline.as_ptr().cast(), pipeline.len())
@@ -770,6 +771,7 @@ impl<'pipeline> FunctionPassManager<'pipeline> {
     /// # Errors
     /// What is wrong with the text.
     pub fn add_pipeline(&mut self, pipeline: &str) -> Result<(), Error> {
+        check_pipeline_text(pipeline)?;
         // SAFETY: both are live for this call, and LLVM reads `pipeline.len()` bytes.
         Error::from_raw_result(unsafe {
             shim::lyftar_pass_manager_add_pipeline(self.builder, self.raw, 1, pipeline.as_ptr().cast(), pipeline.len())
@@ -804,6 +806,7 @@ impl<'pipeline> CallGraphPassManager<'pipeline> {
     /// # Errors
     /// What is wrong with the text.
     pub fn add_pipeline(&mut self, pipeline: &str) -> Result<(), Error> {
+        check_pipeline_text(pipeline)?;
         // SAFETY: both are live for this call, and LLVM reads `pipeline.len()` bytes.
         Error::from_raw_result(unsafe {
             shim::lyftar_pass_manager_add_pipeline(self.builder, self.raw, 2, pipeline.as_ptr().cast(), pipeline.len())
@@ -824,6 +827,7 @@ impl LoopPassManager<'_> {
     /// # Errors
     /// What is wrong with the text.
     pub fn add_pipeline(&mut self, pipeline: &str) -> Result<(), Error> {
+        check_pipeline_text(pipeline)?;
         // SAFETY: both are live for this call, and LLVM reads `pipeline.len()` bytes.
         Error::from_raw_result(unsafe {
             shim::lyftar_pass_manager_add_pipeline(self.builder, self.raw, 3, pipeline.as_ptr().cast(), pipeline.len())
@@ -1149,6 +1153,38 @@ impl PassOptions {
     }
 }
 
+// trace: D3, D38
+/// Finds in pipeline text what LLVM would end the process over, or crash on, rather than give an error, so it can be one.
+///
+/// This can only know what has been seen against the real library. Those were found by running every pass `opt` names.
+fn check_pipeline_text(pipeline: &str) -> Result<(), Error> {
+    const OPTIMIZING_PIPELINES: [&str; 5] = ["default", "thinlto-pre-link", "thinlto", "lto-pre-link", "lto"];
+    let is_name_character = |character: char| character.is_alphanumeric() || matches!(character, '-' | '_' | '.');
+    for name in pipeline.split(|character: char| !is_name_character(character)) {
+        // SAFETY: takes nothing, and only reads LLVM's list of options.
+        if name == "function-import" && !unsafe { shim::lyftar_summary_file_was_given() } {
+            return Err(Error::new("the function-import pass needs LLVM's -summary-file option to be given"));
+        }
+        if name == "free-machine-function" {
+            return Err(Error::new(
+                "the free-machine-function pass needs a machine function analysis, which this pipeline doesn't have",
+            ));
+        }
+    }
+    for (level, attribute) in [("Os", "optsize"), ("Oz", "minsize")] {
+        for (start, _) in pipeline.match_indices(&format!("<{level}>")) {
+            let before = &pipeline[..start];
+            let name_start = before.rfind(|character: char| !is_name_character(character)).map_or(0, |found| found + 1);
+            if OPTIMIZING_PIPELINES.contains(&&before[name_start..]) {
+                return Err(Error::new(format!(
+                    "the optimization level \"{level}\" is no longer supported: use O2 with the {attribute} attribute"
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
 fn raw_machine(machine: Option<&TargetMachine>) -> raw::LLVMTargetMachineRef {
     machine.map_or(std::ptr::null_mut(), |found| found.raw)
 }
@@ -1171,6 +1207,7 @@ impl Module<'_> {
         machine: Option<&TargetMachine>,
         options: &PassOptions,
     ) -> Result<(), Error> {
+        check_pipeline_text(pipeline)?;
         let pipeline = c_string(pipeline, "run_passes");
         let raw_options = options.to_raw()?;
         self.bump_generation();
@@ -1199,6 +1236,7 @@ impl Module<'_> {
         machine: Option<&TargetMachine>,
         options: &PassOptions,
     ) -> Result<(), Error> {
+        check_pipeline_text(pipeline)?;
         let pipeline = c_string(pipeline, "run_passes_on_function");
         let raw_options = options.to_raw()?;
         let Some(function) = self.get_function(function_name) else {
@@ -1247,6 +1285,7 @@ impl Module<'_> {
         ) -> (*mut c_void, shim::Register) {
             (std::ptr::from_mut(register).cast(), call::<'pipeline, F>)
         }
+        check_pipeline_text(pipeline)?;
         self.bump_generation();
         let (alias_pipeline, alias_length) = options
             .alias_analysis_pipeline
