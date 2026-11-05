@@ -98,3 +98,9 @@ Claude's. (Owner, 2026-11-04)
 counts as a breaking change. The number does not say which LLVM; `build.rs` checks that (D13). After date-based versions
 in both orders ran into Cargo's rules, the owner chose: "Fuck it, let's just do normal". Reading "normal" as `0.1.0`
 rather than the date in y/m/d order is Claude's. (Owner, 2026-11-05)
+
+**D20. A hook prints the rules.** The implementation rules live in one short file, `IMPLEMENTATION.md`, and a
+`SessionStart` hook prints it into every session in this repository at startup, resume, clear and after compaction, the
+implementation session included. The hook is copied from Cyborg's, which took the idea from TAKL. The rules themselves
+are not settled here. Claude reported the idea from Cyborg's design session; the owner chose it: "Add the hook for this
+session, and evnetually Lyftar's impl session". (Owner, 2026-11-05)
