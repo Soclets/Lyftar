@@ -144,3 +144,7 @@ than being dropped. Claude proposed it, from Radium's C++ rule; the owner chose 
 **D28. Public at Soclets/Lyftar, pushed automatically.** Lyftar lives in a public repository, `Soclets/Lyftar`. Sessions push
 after each commit, running `git pull --rebase` first. Claude suggested a private repository with automatic pushing, as Cyborg
 does; the owner chose: "yea, public". (Owner, 2026-11-05)
+
+**D29. The build session.** The session that builds Lyftar is `implementation claude`, in its own clone at
+`/Users/ts/Lyftar implementation`, on `main`. This design session stays at `/Users/ts/Lyftar`. Claude proposed it, following
+Cyborg's setup; the owner chose it: "yup". (Owner, 2026-11-05)

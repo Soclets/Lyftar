@@ -4,6 +4,12 @@ The rules for the code that implements Lyftar. `DECISIONS.md` records each decis
 collects the rules. A hook prints it into every session at startup and after compaction, so keep it short. When a rule
 changes, `DECISIONS.md` gets a new entry and this file is updated to match. Nothing gets built until the owner says go.
 
+## Sessions
+
+- **design claude**: the decisions, `DECISIONS.md` and `IMPLEMENTATION.md`, at `/Users/ts/Lyftar`.
+- **implementation claude**: builds Lyftar, in its own clone at `/Users/ts/Lyftar implementation`, on `main`. Its commits end with
+  `Co-Authored-By: implementation claude <noreply@anthropic.com>`. (D29)
+
 ## Rules
 
 1. **Language.** Rust, plus a C++ shim for what LLVM's C API can't reach, custom pass support included. `build.rs` compiles
@@ -61,7 +67,3 @@ A check fails on a tag that names no decision, and lists the decisions nothing t
 - **One name per concept**, and LLVM's concepts keep LLVM's words, spelled out.
 - **Rust's casing**, which `clippy` enforces. C++ follows LLVM's style.
 - **Tests are named after their decision.**
-
-## Not decided yet
-
-- The build session's name, and whether it works in its own clone.
