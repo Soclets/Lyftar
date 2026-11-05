@@ -198,3 +198,11 @@ Lyftar impl found the hole and preferred a hidden module keeping each constant i
 decision, a rule, or what the code says it does. A fix that needs a design choice is still that choice, and goes to the owner
 under rule 3. Claude asked whether to fix two cases where LLVM ends the process instead of returning an error (D3); the owner
 chose: "Bugs shall be fixed without asking, if it's actually a bug". (Owner, 2026-11-05)
+
+**D39. Constants borrow a token from the context.** This replaces D37's borrow of one module, which could not close the hole:
+LLVM keeps one copy of an identical constant per context, so a pass on module B could delete a constant held from module A.
+Aggregate and expression constants borrow a token from the context, and running passes needs that token exclusively, so a constant
+held across a pass on any module does not compile. `Context` stops being a plain copy, and every pass call changes. Because these
+constants no longer belong to one module, D37's limit on sharing them may go; that is untested. Plain data stays free of the
+token. Lyftar impl found the problem and preferred a run-time panic; Claude proposed the token; the owner chose it: "yea". (Owner,
+2026-11-05)
