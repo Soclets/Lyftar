@@ -113,3 +113,9 @@ and an `unsafe` LLVM call, such as the stale-entry check in erase (D11), index b
 Rust's compiler already enforces needs no proof. What an LLVM call does can only be assumed, so those assumptions are
 written down in one place, and `extern` declarations stay outside `verus!` blocks. Claude proposed it; the owner chose it:
 "yea". (Owner, 2026-11-05)
+
+**D23. The rules start from Cyborg's.** `IMPLEMENTATION.md` starts from Cyborg's rules, changed for a crate with a C++ shim
+and deliberate panics, with Radium's C++ rule added. Where an inherited rule conflicts with a decision here, the decision
+wins, so `build.rs` compiles the shim (D16). Nothing undecided is guessed, which replaces the provisional choices in the
+draft build prompt. Cyborg's design session advised starting from what exists; Claude proposed this base; the owner chose
+it: "yea". (Owner, 2026-11-05)
