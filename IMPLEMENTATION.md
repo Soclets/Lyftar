@@ -49,6 +49,8 @@ changes, `DECISIONS.md` gets a new entry and this file is updated to match. Noth
 16. **Optimizations from the start.** Lyftar is built fast as it goes, never as a plain version sped up later: no runtime check
     a specific type makes unnecessary, no avoidable allocation on a build call, and a benchmark tracking what Lyftar adds over
     raw LLVM calls. (D24)
+17. **Bugs.** An actual bug gets fixed without asking: behaviour that breaks a decision, a rule, or what the code says it does.
+    A fix that needs a design choice goes to the owner under rule 3. (D38)
 
 ## Tracing
 

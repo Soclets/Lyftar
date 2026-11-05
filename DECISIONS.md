@@ -193,3 +193,8 @@ borrow it, as its other values do, and one held across a delete or a pass run do
 modules. Plain data stays on the context and survives: integers, floats, null, undef, poison, zero, and data arrays and vectors.
 Lyftar impl found the hole and preferred a hidden module keeping each constant in use, as did Claude; the owner chose: "the alt".
 (Owner, 2026-11-05)
+
+**D38. Bugs are fixed without asking.** A session fixes an actual bug without asking the owner: behaviour that breaks a
+decision, a rule, or what the code says it does. A fix that needs a design choice is still that choice, and goes to the owner
+under rule 3. Claude asked whether to fix two cases where LLVM ends the process instead of returning an error (D3); the owner
+chose: "Bugs shall be fixed without asking, if it's actually a bug". (Owner, 2026-11-05)
