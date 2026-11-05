@@ -13,7 +13,8 @@ a clear error on any other version. macOS uses the committed bindings. Linux and
 need `libclang` for it. On Linux, a program using Lyftar also needs LLVM's library directory on its library path, for `libLTO`
 and `libRemarks`, such as through `LD_LIBRARY_PATH`. Windows links LLVM statically, with the static C runtime: build with
 `RUSTFLAGS="-C target-feature=+crt-static"`, use `clang-cl` as the C++ compiler, and have LLVM's `bin` on `PATH`, for `LTO.dll`
-and `Remarks.dll`.
+and `Remarks.dll`. The official download leaves out the static libraries it was built against, so put `zs.lib`,
+`zstd_static.lib` and `xml2s.lib` in its `lib`, built with the static C runtime, such as vcpkg's `x64-windows-static`.
 
 ## Building a function
 

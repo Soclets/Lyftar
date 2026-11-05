@@ -24,11 +24,21 @@ fn main() -> Result<(), String> {
         return Err(format!("Lyftar supports LLVM {LLVM_MAJOR} only, and {} is LLVM {version}", llvm_config.display()));
     }
 
+    // Windows' official LLVM is built with the static C runtime. A program with the other one still links, then crashes when
+    // it frees what LLVM allocated, so this stops here instead.
+    let is_msvc = std::env::var("CARGO_CFG_TARGET_ENV").is_ok_and(|environment| environment == "msvc");
+    let has_static_runtime = std::env::var("CARGO_CFG_TARGET_FEATURE")
+        .is_ok_and(|features| features.split(',').any(|feature| feature == "crt-static"));
+    if is_msvc && !has_static_runtime {
+        return Err("on Windows Lyftar needs the static C runtime that LLVM is built with: build with \
+                    RUSTFLAGS=\"-C target-feature=+crt-static\""
+            .to_string());
+    }
+
     let library_directory = run(&llvm_config, &["--libdir"])?;
     println!("cargo:rustc-link-search=native={library_directory}");
     // Windows' official download has no shared LLVM, only static libraries, and those need the system's libraries too.
     // With MSVC `--libs` gives full paths, quoted when they have a space, and the directory is already searched.
-    let is_msvc = std::env::var("CARGO_CFG_TARGET_ENV").is_ok_and(|environment| environment == "msvc");
     let libraries = if run(&llvm_config, &["--shared-mode"])? == "static" {
         run(&llvm_config, &["--link-static", if is_msvc { "--libnames" } else { "--libs" }, "--system-libs"])?
     } else {
@@ -67,7 +77,7 @@ fn compile_shim(llvm_config: &Path) -> Result<(), String> {
         .warnings(true)
         .extra_warnings(true)
         .warnings_into_errors(!is_msvc);
-    // Windows' official LLVM is built with the static C runtime, and everything linked with it has to match.
+    // The same static C runtime `main` checks for.
     if is_msvc {
         shim.static_crt(true);
     }

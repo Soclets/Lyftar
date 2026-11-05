@@ -51,7 +51,9 @@ jobs:
           echo "LYFTAR_LLVM_CONFIG=${root}/bin/llvm-config.exe" >> "$GITHUB_ENV"
           echo "LIBCLANG_PATH=${root}/bin" >> "$GITHUB_ENV"
           echo "CXX=${root}/bin/clang-cl.exe" >> "$GITHUB_ENV"
-          echo "RUSTFLAGS=-C target-feature=+crt-static" >> "$GITHUB_ENV"
+          # Not `RUSTFLAGS`, which trybuild removes and rustdoc ignores, and both then link programs with the wrong C runtime.
+          echo "CARGO_BUILD_RUSTFLAGS=-C target-feature=+crt-static" >> "$GITHUB_ENV"
+          echo "RUSTDOCFLAGS=-C target-feature=+crt-static" >> "$GITHUB_ENV"
           echo "${root}/bin" >> "$GITHUB_PATH"
       # The official download leaves out the static zlib, zstd and libxml2 its libraries were built against, and names them.
       - name: Install what LLVM depends on
