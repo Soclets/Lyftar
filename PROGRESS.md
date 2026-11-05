@@ -46,8 +46,8 @@ Nothing. D30 to D43 are built.
 ## CI
 
 `.github/workflows/ci.yml` runs on every push. Read it with `gh run list`: don't call Linux or Windows untested without looking.
-Every run up to 6db7931 failed. macOS: the committed bindings predated `rustfmt.toml`. Linux: every test binary died at load
-because `libLTO` wasn't on the library path. Windows: the official download has no shared LLVM.
+Every run up to 6db7931 failed. At 726fdad Linux and the macOS bindings check pass on GitHub. Windows isn't passing yet; it
+links LLVM statically, and the official download leaves out the zlib, zstd and libxml2 those libraries were built against.
 
 ## kayo's passes
 

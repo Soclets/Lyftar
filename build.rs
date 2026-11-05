@@ -27,16 +27,19 @@ fn main() -> Result<(), String> {
     let library_directory = run(&llvm_config, &["--libdir"])?;
     println!("cargo:rustc-link-search=native={library_directory}");
     // Windows' official download has no shared LLVM, only static libraries, and those need the system's libraries too.
+    // With MSVC `--libs` gives full paths, quoted when they have a space, and the directory is already searched.
+    let is_msvc = std::env::var("CARGO_CFG_TARGET_ENV").is_ok_and(|environment| environment == "msvc");
     let libraries = if run(&llvm_config, &["--shared-mode"])? == "static" {
-        run(&llvm_config, &["--link-static", "--libs", "--system-libs"])?
+        run(&llvm_config, &["--link-static", if is_msvc { "--libnames" } else { "--libs" }, "--system-libs"])?
     } else {
         run(&llvm_config, &["--link-shared", "--libs"])?
     };
     for library in libraries.split_whitespace() {
-        // `-lLLVM` on Unix, and `LLVMCore.lib` on Windows.
+        // `-lLLVM` on Unix. On Windows `LLVMCore.lib`, or a path on the machine that built LLVM for what it depends on.
+        let file_name = library.rsplit(['/', '\\']).next().unwrap_or(library);
         let name = library
             .strip_prefix("-l")
-            .or_else(|| library.strip_suffix(".lib"))
+            .or_else(|| file_name.strip_suffix(".lib"))
             .ok_or_else(|| format!("unexpected library from llvm-config: {library}"))?;
         println!("cargo:rustc-link-lib=dylib={name}");
     }
