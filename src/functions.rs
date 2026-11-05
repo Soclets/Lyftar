@@ -391,7 +391,7 @@ impl<'context> Module<'context> {
         self.add_global_in_address_space(name, global_type, 0)
     }
 
-    // trace: D33
+    // trace: D33, D36
     /// Adds a function whose signature is written into the Rust code, as in
     /// `add_specific_function::<Function<Void, (Pointer,)>>("name")`, so calls to it are checked at `cargo build`.
     ///

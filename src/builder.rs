@@ -394,6 +394,7 @@ macro_rules! call_targets {
         )*
     };
 }
+// trace: D36
 call_targets! {
     0: ();
     1: (A);
