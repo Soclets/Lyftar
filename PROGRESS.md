@@ -24,11 +24,22 @@ targets into a loop. A `libLTO` generator in the global context also leaves a da
 lock in `lto.rs`, and generators that own their context are what came of it, and `tests/decision_16_threads.rs` reproduces the
 hang without them.
 
+## Known hole: context constants deleted by passes
+
+Reproduced with `#![forbid(unsafe_code)]`, under AddressSanitizer: heap use-after-free, allocated by `constant_struct` and freed by
+`EliminateAvailableExternallyPass`. Make `held = context.constant_struct(..)`. Add a global with `held` as its initializer and
+`Linkage::AvailableExternally`, and a function that loads it. Run `default<O2>`, then read `held`, say with `module.track(held)`.
+`Linkage::Internal` with no use and `globaldce` does the same.
+
+Also found while probing, and not fixed: `run_passes` with `default<Os>` or `function-import` ends the process through
+`LLVM ERROR` instead of returning an error, and so does `parse_ir_text` on a module with debug info that fails the verifier.
+
+Probing all of LLVM's named passes with a `WeakVH` on each constant found these deleters and no others. A hidden module holding
+a real use of the constant stopped the deletion in the two cases tried, with the same printed IR. The fix is waiting on the owner.
+
 ## Waiting on design claude
 
-Nothing. D30 to D35 are built. Told design claude what they leave to the code: 12 as the fixed maximum for specific calls and
-structs, `add_specific_function`, `builder.call` taking a tuple or a slice, `BasicBlockAsValue` for the marker, and constants of
-specific aggregates going through `checked_cast`.
+What to do about the known hole above. D30 to D36 are built.
 
 ## Untested
 

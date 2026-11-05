@@ -16,9 +16,11 @@ If one turns out false, the safety promise named beside it falls with it.
 ## What deletes what
 
 - **`ConstantData` has no use list** (`Value::hasUseList`), and is never deleted while its context lives (D11).
-- **Only these delete a constant that a module doesn't own:** destroying the context, and one known corner that is not
-  closed. LLVM's `strip` passes clear what `llvm.used` held, so an aggregate of plain constants used only there, and held
-  in Rust across that pass, could go. This is from reading what those passes are documented to do, not from a test.
+- **Known hole, not closed: passes can delete an aggregate or constant expression that belongs only to the context.** D11
+  promises they survive, and they don't always. `GlobalDCEPass` and `EliminateAvailableExternallyPass` destroy the initializer
+  of a global they empty, when nothing else uses it, and `default<O1>` to `default<O3>` and `lto<O1>` to `lto<O3>` run them. A
+  `Value<'context, 'static, _>` held across that dangles, in safe code: AddressSanitizer reports a heap use-after-free. See
+  `PROGRESS.md`. Constants of plain data (`ConstantData`) were not deleted by any of LLVM's passes.
 - **A shared call to LLVM deletes nothing a `Value` can point at**, except the two cases `replace_all_uses_with` refuses:
   - It can destroy a constant other than a global that uses the value being replaced. Seen against the real library: it
     changes the constant in place, unless what the constant would become exists already.
