@@ -657,7 +657,7 @@ impl TargetData<'_> {
     #[track_caller]
     fn check_sized<T>(&self, operation: &str, checked: Type<'_, T>) {
         if !checked.is_sized() {
-            bad_call(format_args!("{operation}: {} has no size", checked.print_to_string()));
+            bad_call(format_args!("{operation}: {} has no size", checked.describe()));
         }
     }
 
@@ -743,7 +743,7 @@ impl TargetData<'_> {
     #[track_caller]
     fn check_struct(&self, operation: &str, checked: Type<'_>) {
         if checked.raw_kind() != raw::LLVMTypeKind::LLVMStructTypeKind || !checked.is_sized() {
-            bad_call(format_args!("{operation}: {} is not a sized struct", checked.print_to_string()));
+            bad_call(format_args!("{operation}: {} is not a sized struct", checked.describe()));
         }
     }
 
@@ -769,10 +769,7 @@ impl TargetData<'_> {
         self.check_struct("offset_of_element_in_bytes", struct_type);
         let count = struct_type.struct_element_count();
         if !checks::index_in_bounds(element, count) {
-            bad_call(format_args!(
-                "offset_of_element_in_bytes: {} has no element {element}",
-                struct_type.print_to_string()
-            ));
+            bad_call(format_args!("offset_of_element_in_bytes: {} has no element {element}", struct_type.describe()));
         }
         // SAFETY: just checked.
         unsafe { raw::LLVMOffsetOfElement(self.raw, struct_type.raw, element) }

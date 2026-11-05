@@ -1800,7 +1800,7 @@ impl<'context, 'module> DebugInfoBuilder<'context, 'module> {
         let raw_constant = match constant_value {
             Some(found) => {
                 if !found.is_constant() {
-                    bad_call(format_args!("create_static_member_type: {} isn't a constant", found.print_to_string()));
+                    bad_call(format_args!("create_static_member_type: {} isn't a constant", found.describe()));
                 }
                 found.raw
             }

@@ -256,12 +256,14 @@ impl<'context, T> Type<'context, T> {
     pub fn checked_cast<U: TypeMarker>(self) -> Type<'context, U> {
         match self.as_kind::<U>() {
             Some(cast) => cast,
-            None => bad_call(format_args!(
-                "checked_cast: {} is not a {}",
-                self.print_to_string(),
-                std::any::type_name::<U>()
-            )),
+            None => bad_call(format_args!("checked_cast: {} is not a {}", self.describe(), std::any::type_name::<U>())),
         }
+    }
+
+    /// What a panic calls this type.
+    #[must_use]
+    pub(crate) fn describe(self) -> String {
+        self.print_to_string()
     }
 
     /// LLVM's text for this type, such as `i64`.
@@ -300,7 +302,7 @@ impl<'context, T> Type<'context, T> {
     #[track_caller]
     fn require_kind(self, wanted: raw::LLVMTypeKind, operation: &str, what: &str) {
         if self.raw_kind() != wanted {
-            bad_call(format_args!("{operation}: {} is not {what}", self.print_to_string()));
+            bad_call(format_args!("{operation}: {} is not {what}", self.describe()));
         }
     }
 
@@ -312,7 +314,7 @@ impl<'context, T> Type<'context, T> {
     #[track_caller]
     pub fn size_of(self) -> Value<'context, 'static> {
         if !self.is_sized() {
-            bad_call(format_args!("size_of: {} has no size", self.print_to_string()));
+            bad_call(format_args!("size_of: {} has no size", self.describe()));
         }
         // SAFETY: the type was just checked to be sized, and the result belongs to the context.
         unsafe { Value::from_raw(raw::LLVMSizeOf(self.raw)) }
@@ -326,7 +328,7 @@ impl<'context, T> Type<'context, T> {
     #[track_caller]
     pub fn alignment_of(self) -> Value<'context, 'static> {
         if !self.is_sized() {
-            bad_call(format_args!("alignment_of: {} has no size", self.print_to_string()));
+            bad_call(format_args!("alignment_of: {} has no size", self.describe()));
         }
         // SAFETY: the type was just checked to be sized, and the result belongs to the context.
         unsafe { Value::from_raw(raw::LLVMAlignOf(self.raw)) }
@@ -413,7 +415,7 @@ impl<'context, T> Type<'context, T> {
         self.require_kind(raw::LLVMTypeKind::LLVMStructTypeKind, "set_struct_body", "a struct");
         // SAFETY: just checked to be a struct.
         if unsafe { raw::LLVMIsOpaqueStruct(self.raw) } == 0 {
-            bad_call(format_args!("set_struct_body: {} already has a body", self.print_to_string()));
+            bad_call(format_args!("set_struct_body: {} already has a body", self.describe()));
         }
         check_struct_elements("set_struct_body", elements);
         // SAFETY: an opaque struct, with elements just checked; LLVM only reads them, and `Type` has the layout of
@@ -464,10 +466,7 @@ impl<'context, T> Type<'context, T> {
     pub fn struct_element_type_at(self, index: u32) -> Type<'context> {
         let count = self.struct_element_count();
         if !checks::index_in_bounds(index, count) {
-            bad_call(format_args!(
-                "struct_element_type_at: index {index} is out of bounds for {}",
-                self.print_to_string()
-            ));
+            bad_call(format_args!("struct_element_type_at: index {index} is out of bounds for {}", self.describe()));
         }
         // SAFETY: a struct, and the index was just checked.
         unsafe { Type::from_raw(raw::LLVMStructGetTypeAtIndex(self.raw, index)) }
@@ -520,7 +519,7 @@ impl<'context, T> Type<'context, T> {
     pub fn element_type(self) -> Type<'context> {
         use raw::LLVMTypeKind as K;
         if !matches!(self.raw_kind(), K::LLVMArrayTypeKind | K::LLVMVectorTypeKind | K::LLVMScalableVectorTypeKind) {
-            bad_call(format_args!("element_type: {} is not an array or a vector", self.print_to_string()));
+            bad_call(format_args!("element_type: {} is not an array or a vector", self.describe()));
         }
         // SAFETY: just checked to be a type with an element type.
         unsafe { Type::from_raw(raw::LLVMGetElementType(self.raw)) }
@@ -547,7 +546,7 @@ impl<'context, T> Type<'context, T> {
     pub fn vector_size_in_elements(self) -> u32 {
         use raw::LLVMTypeKind as K;
         if !matches!(self.raw_kind(), K::LLVMVectorTypeKind | K::LLVMScalableVectorTypeKind) {
-            bad_call(format_args!("vector_size_in_elements: {} is not a vector", self.print_to_string()));
+            bad_call(format_args!("vector_size_in_elements: {} is not a vector", self.describe()));
         }
         // SAFETY: just checked to be a vector.
         unsafe { raw::LLVMGetVectorSize(self.raw) }
@@ -562,7 +561,7 @@ impl<'context, T> Type<'context, T> {
     pub fn array_type(self, length_in_elements: u64) -> Type<'context> {
         // SAFETY: only reads the type.
         if !unsafe { crate::shim::lyftar_is_valid_array_element(self.raw) } {
-            bad_call(format_args!("array_type: {} can't be an array's element", self.print_to_string()));
+            bad_call(format_args!("array_type: {} can't be an array's element", self.describe()));
         }
         // SAFETY: just checked.
         unsafe { Type::from_raw(raw::LLVMArrayType2(self.raw, length_in_elements)) }
@@ -577,7 +576,7 @@ impl<'context, T> Type<'context, T> {
     pub fn vector_type(self, size_in_elements: u32) -> Type<'context> {
         // SAFETY: only reads the type.
         if size_in_elements == 0 || !unsafe { crate::shim::lyftar_is_valid_vector_element(self.raw) } {
-            bad_call(format_args!("vector_type: can't make a vector of {size_in_elements} {}", self.print_to_string()));
+            bad_call(format_args!("vector_type: can't make a vector of {size_in_elements} {}", self.describe()));
         }
         // SAFETY: just checked.
         unsafe { Type::from_raw(raw::LLVMVectorType(self.raw, size_in_elements)) }
@@ -594,7 +593,7 @@ impl<'context, T> Type<'context, T> {
         if size_in_elements == 0 || !unsafe { crate::shim::lyftar_is_valid_vector_element(self.raw) } {
             bad_call(format_args!(
                 "scalable_vector_type: can't make a vector of {size_in_elements} {}",
-                self.print_to_string()
+                self.describe()
             ));
         }
         // SAFETY: just checked.
@@ -666,7 +665,7 @@ impl<'context, T> Type<'context, T> {
     pub fn constant_null(self) -> Value<'context, 'static, T> {
         // SAFETY: only reads the type.
         if !unsafe { crate::shim::lyftar_type_has_null_value(self.raw) } {
-            bad_call(format_args!("constant_null: {} has no zero value", self.print_to_string()));
+            bad_call(format_args!("constant_null: {} has no zero value", self.describe()));
         }
         // SAFETY: just checked; the zero value of `T` is a `T`, and it belongs to the context.
         unsafe { Value::from_raw(raw::LLVMConstNull(self.raw)) }
@@ -700,7 +699,7 @@ impl<'context, T> Type<'context, T> {
     fn require_value_type(self, operation: &str) {
         use raw::LLVMTypeKind as K;
         if matches!(self.raw_kind(), K::LLVMVoidTypeKind | K::LLVMFunctionTypeKind | K::LLVMLabelTypeKind) {
-            bad_call(format_args!("{operation}: {} can't be the type of a value", self.print_to_string()));
+            bad_call(format_args!("{operation}: {} can't be the type of a value", self.describe()));
         }
     }
 }
@@ -801,9 +800,9 @@ impl<'context> Context<'context> {
             bad_call(format_args!(
                 "function_type: {} can't be used in a function",
                 if bad_parameter as usize >= parameter_types.len() {
-                    return_type.print_to_string()
+                    return_type.describe()
                 } else {
-                    parameter_types[bad_parameter as usize].print_to_string()
+                    parameter_types[bad_parameter as usize].describe()
                 }
             ));
         }
@@ -916,7 +915,7 @@ fn check_struct_elements(operation: &str, elements: &[Type<'_>]) {
     for element in elements {
         // SAFETY: only reads the type.
         if !unsafe { crate::shim::lyftar_is_valid_struct_element(element.raw) } {
-            bad_call(format_args!("{operation}: {} can't go in a struct", element.print_to_string()));
+            bad_call(format_args!("{operation}: {} can't go in a struct", element.describe()));
         }
     }
 }

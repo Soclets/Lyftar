@@ -53,7 +53,7 @@ impl GenericValue {
     pub fn from_float<F>(float_type: Type<'_, Float<F>>, value: f64) -> Self {
         use raw::LLVMTypeKind as K;
         if !matches!(float_type.raw_kind(), K::LLVMFloatTypeKind | K::LLVMDoubleTypeKind) {
-            bad_call(format_args!("from_float: only `float` and `double`, not {}", float_type.print_to_string()));
+            bad_call(format_args!("from_float: only `float` and `double`, not {}", float_type.describe()));
         }
         // SAFETY: just checked; LLVM makes a new value for the caller to own.
         GenericValue { raw: unsafe { raw::LLVMCreateGenericValueOfFloat(float_type.raw, value) } }
@@ -89,7 +89,7 @@ impl GenericValue {
     pub fn to_float<F>(&self, float_type: Type<'_, Float<F>>) -> f64 {
         use raw::LLVMTypeKind as K;
         if !matches!(float_type.raw_kind(), K::LLVMFloatTypeKind | K::LLVMDoubleTypeKind) {
-            bad_call(format_args!("to_float: only `float` and `double`, not {}", float_type.print_to_string()));
+            bad_call(format_args!("to_float: only `float` and `double`, not {}", float_type.describe()));
         }
         // SAFETY: just checked, and the value is live.
         unsafe { raw::LLVMGenericValueToFloat(float_type.raw, self.raw) }

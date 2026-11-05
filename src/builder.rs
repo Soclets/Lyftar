@@ -74,7 +74,7 @@ fn is_float_like(raw_type: raw::LLVMTypeRef) -> bool {
 fn bad_operand(operation: &str, value: raw::LLVMValueRef, wanted: &str) -> ! {
     // SAFETY: the caller got this from a live `Value`.
     let value: Value<'_, '_> = unsafe { Value::from_raw(value) };
-    bad_call(format_args!("{operation}: {} is not {wanted}", value.print_to_string()))
+    bad_call(format_args!("{operation}: {} is not {wanted}", value.describe()))
 }
 
 #[cold]
@@ -84,8 +84,8 @@ fn different_types(operation: &str, left: raw::LLVMValueRef, right: raw::LLVMVal
     let (left, right): (Value<'_, '_>, Value<'_, '_>) = unsafe { (Value::from_raw(left), Value::from_raw(right)) };
     bad_call(format_args!(
         "{operation}: the operands have different types, {} and {}",
-        left.get_type().print_to_string(),
-        right.get_type().print_to_string()
+        left.get_type().describe(),
+        right.get_type().describe()
     ))
 }
 
@@ -631,7 +631,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         let raw_instruction = match instruction {
             Some(found) => {
                 if found.parent_block() != block {
-                    bad_call(format_args!("position: {} isn't in %{}", found.print_to_string(), block.name()));
+                    bad_call(format_args!("position: {} isn't in %{}", found.describe(), block.name()));
                 }
                 found.raw
             }
@@ -660,7 +660,7 @@ impl<'context, 'module> Builder<'context, 'module> {
                 if found.parent_block() != block {
                     bad_call(format_args!(
                         "position_before_debug_records: {} isn't in %{}",
-                        found.print_to_string(),
+                        found.describe(),
                         block.name()
                     ));
                 }
@@ -732,10 +732,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     fn check_module<T>(&self, operation: &str, value: Value<'context, 'module, T>) {
         // SAFETY: both are live.
         if !unsafe { shim::lyftar_value_belongs_to_module(value.raw, self.module) } {
-            bad_call(format_args!(
-                "{operation}: {} belongs to another module than this builder's",
-                value.print_to_string()
-            ));
+            bad_call(format_args!("{operation}: {} belongs to another module than this builder's", value.describe()));
         }
     }
 
@@ -803,11 +800,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) {
         // SAFETY: both live; the shim only reads them.
         if !unsafe { shim::lyftar_cast_is_valid(opcode, value.raw, target.raw) } {
-            bad_call(format_args!(
-                "{operation}: can't cast {} to {}",
-                value.print_to_string(),
-                target.print_to_string()
-            ));
+            bad_call(format_args!("{operation}: can't cast {} to {}", value.describe(), target.describe()));
         }
     }
 
@@ -919,8 +912,8 @@ impl<'context, 'module> Builder<'context, 'module> {
         if !unsafe { shim::lyftar_binary_operation_is_valid(opcode.to_raw(), left.raw, right.raw) } {
             bad_call(format_args!(
                 "binary_operation: {opcode:?} doesn't take {} and {}",
-                left.print_to_string(),
-                right.print_to_string()
+                left.describe(),
+                right.describe()
             ));
         }
         // SAFETY: the checks above are what LLVM requires.
@@ -1060,7 +1053,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         T::check_pointer("pointer_difference", left.raw);
         check_same_type("pointer_difference", left.raw, right.raw);
         if !element_type.is_sized() {
-            bad_call(format_args!("pointer_difference: {} has no size", element_type.print_to_string()));
+            bad_call(format_args!("pointer_difference: {} has no size", element_type.describe()));
         }
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildPtrDiff2(self.raw, element_type.raw, left.raw, right.raw, EMPTY.as_ptr()) };
@@ -1432,11 +1425,7 @@ impl<'context, 'module> Builder<'context, 'module> {
                 || shim::lyftar_cast_is_valid(raw::LLVMOpcode::LLVMBitCast, value.raw, target.raw)
         };
         if !valid {
-            bad_call(format_args!(
-                "{operation}: can't cast {} to {}",
-                value.print_to_string(),
-                target.print_to_string()
-            ));
+            bad_call(format_args!("{operation}: can't cast {} to {}", value.describe(), target.describe()));
         }
     }
 
@@ -1485,11 +1474,7 @@ impl<'context, 'module> Builder<'context, 'module> {
                 || shim::lyftar_cast_is_valid(raw::LLVMOpcode::LLVMAddrSpaceCast, value.raw, target.raw)
         };
         if !valid {
-            bad_call(format_args!(
-                "pointer_cast: can't cast {} to {}",
-                value.print_to_string(),
-                target.print_to_string()
-            ));
+            bad_call(format_args!("pointer_cast: can't cast {} to {}", value.describe(), target.describe()));
         }
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildPointerCast(self.raw, value.raw, target.raw, EMPTY.as_ptr()) };
@@ -1515,11 +1500,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         S::check_one("integer_cast", value.raw);
         // SAFETY: both live.
         if !is_integer_like(target.raw) || !same_shape(unsafe { raw::LLVMTypeOf(value.raw) }, target.raw) {
-            bad_call(format_args!(
-                "integer_cast: can't cast {} to {}",
-                value.print_to_string(),
-                target.print_to_string()
-            ));
+            bad_call(format_args!("integer_cast: can't cast {} to {}", value.describe(), target.describe()));
         }
         // SAFETY: the checks above are what LLVM requires.
         let result =
@@ -1545,11 +1526,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         S::check_one("float_cast", value.raw);
         // SAFETY: both live.
         if !is_float_like(target.raw) || !same_shape(unsafe { raw::LLVMTypeOf(value.raw) }, target.raw) {
-            bad_call(format_args!(
-                "float_cast: can't cast {} to {}",
-                value.print_to_string(),
-                target.print_to_string()
-            ));
+            bad_call(format_args!("float_cast: can't cast {} to {}", value.describe(), target.describe()));
         }
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildFPCast(self.raw, value.raw, target.raw, EMPTY.as_ptr()) };
@@ -1934,7 +1911,7 @@ impl<'context, 'module> Builder<'context, 'module> {
             shim::lyftar_get_element_pointer_is_valid(source_type.raw, indices.as_ptr().cast(), count, P::IS_DYNAMIC)
         };
         if !valid {
-            bad_call(format_args!("{operation}: those indices don't fit {}", source_type.print_to_string()));
+            bad_call(format_args!("{operation}: those indices don't fit {}", source_type.describe()));
         }
         count
     }
@@ -1959,7 +1936,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         if !checks::index_in_bounds(index, count) {
             bad_call(format_args!(
                 "struct_get_element_pointer: index {index} is out of bounds for {}",
-                struct_type.print_to_string()
+                struct_type.describe()
             ));
         }
         // SAFETY: the checks above are what LLVM requires.
@@ -2030,20 +2007,20 @@ impl<'context, 'module> Builder<'context, 'module> {
         arguments: &[Value<'context, 'module, A>],
     ) -> u32 {
         if function_type.raw_kind() != raw::LLVMTypeKind::LLVMFunctionTypeKind {
-            bad_call(format_args!("{operation}: {} is not a function type", function_type.print_to_string()));
+            bad_call(format_args!("{operation}: {} is not a function type", function_type.describe()));
         }
         let count = length_as_u32(arguments.len(), operation);
         // SAFETY: only reads them; `Value` has the layout of `LLVMValueRef`.
         let bad_argument =
             unsafe { shim::lyftar_call_first_bad_argument(function_type.raw, arguments.as_ptr().cast(), count) };
         if bad_argument == CALL_HAS_WRONG_COUNT {
-            bad_call(format_args!("{operation}: {} can't take {count} arguments", function_type.print_to_string()));
+            bad_call(format_args!("{operation}: {} can't take {count} arguments", function_type.describe()));
         }
         if bad_argument != CALL_IS_VALID {
             bad_call(format_args!(
                 "{operation}: argument {bad_argument}, {}, doesn't have the type {} wants",
-                arguments[bad_argument as usize].print_to_string(),
-                function_type.print_to_string()
+                arguments[bad_argument as usize].describe(),
+                function_type.describe()
             ));
         }
         self.check_values_module(operation, arguments);
@@ -2180,9 +2157,9 @@ impl<'context, 'module> Builder<'context, 'module> {
         if !unsafe { shim::lyftar_select_is_valid(condition.raw, then_value.raw, else_value.raw) } {
             bad_call(format_args!(
                 "select: {} can't pick between {} and {}",
-                condition.print_to_string(),
-                then_value.print_to_string(),
-                else_value.print_to_string()
+                condition.describe(),
+                then_value.describe(),
+                else_value.describe()
             ));
         }
         // SAFETY: just checked what LLVM requires.
@@ -2234,11 +2211,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_module("extract_element", index);
         // SAFETY: only reads them.
         if !unsafe { shim::lyftar_extract_element_is_valid(vector.raw, index.raw) } {
-            bad_call(format_args!(
-                "extract_element: can't take element {} of {}",
-                index.print_to_string(),
-                vector.print_to_string()
-            ));
+            bad_call(format_args!("extract_element: can't take element {} of {}", index.describe(), vector.describe()));
         }
         // SAFETY: just checked what LLVM requires.
         let result = unsafe { raw::LLVMBuildExtractElement(self.raw, vector.raw, index.raw, EMPTY.as_ptr()) };
@@ -2267,9 +2240,9 @@ impl<'context, 'module> Builder<'context, 'module> {
         if !unsafe { shim::lyftar_insert_element_is_valid(vector.raw, element.raw, index.raw) } {
             bad_call(format_args!(
                 "insert_element: can't put {} in {} at {}",
-                element.print_to_string(),
-                vector.print_to_string(),
-                index.print_to_string()
+                element.describe(),
+                vector.describe(),
+                index.describe()
             ));
         }
         // SAFETY: just checked what LLVM requires.
@@ -2300,9 +2273,9 @@ impl<'context, 'module> Builder<'context, 'module> {
         if !unsafe { shim::lyftar_shuffle_vector_is_valid(left.raw, right.raw, mask.raw) } {
             bad_call(format_args!(
                 "shuffle_vector: can't shuffle {} and {} by {}",
-                left.print_to_string(),
-                right.print_to_string(),
-                mask.print_to_string()
+                left.describe(),
+                right.describe(),
+                mask.describe()
             ));
         }
         // SAFETY: just checked what LLVM requires.
@@ -2328,7 +2301,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         // SAFETY: only reads the type.
         let count = unsafe { shim::lyftar_aggregate_element_count(raw::LLVMTypeOf(aggregate.raw)) };
         if !checks::aggregate_index_in_bounds(u64::from(index), count) {
-            bad_call(format_args!("extract_value: {} has no element {index}", aggregate.print_to_string()));
+            bad_call(format_args!("extract_value: {} has no element {index}", aggregate.describe()));
         }
         // SAFETY: just checked what LLVM requires.
         let result = unsafe { raw::LLVMBuildExtractValue(self.raw, aggregate.raw, index, EMPTY.as_ptr()) };
@@ -2360,8 +2333,8 @@ impl<'context, 'module> Builder<'context, 'module> {
         if !valid {
             bad_call(format_args!(
                 "insert_value: {} can't go at element {index} of {}",
-                element.print_to_string(),
-                aggregate.print_to_string()
+                element.describe(),
+                aggregate.describe()
             ));
         }
         // SAFETY: just checked what LLVM requires.
@@ -2494,7 +2467,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         let suits =
             unsafe { shim::lyftar_atomic_read_modify_write_is_valid(operation.to_raw(), raw::LLVMTypeOf(value.raw)) };
         if !suits {
-            bad_call(format_args!("{name}: {operation:?} doesn't take {}", value.print_to_string()));
+            bad_call(format_args!("{name}: {operation:?} doesn't take {}", value.describe()));
         }
     }
 
@@ -2605,7 +2578,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         // SAFETY: the value is live.
         let kind = unsafe { raw::LLVMGetTypeKind(raw::LLVMTypeOf(expected.raw)) };
         if !matches!(kind, K::LLVMIntegerTypeKind | K::LLVMPointerTypeKind) {
-            bad_call(format_args!("{name}: {} isn't an integer or a pointer", expected.print_to_string()));
+            bad_call(format_args!("{name}: {} isn't an integer or a pointer", expected.describe()));
         }
     }
 
@@ -2645,8 +2618,8 @@ impl<'context, 'module> Builder<'context, 'module> {
             let wanted: Type<'context> = unsafe { Type::from_raw(wanted) };
             bad_call(format_args!(
                 "return_value: this function returns {}, not {}",
-                wanted.print_to_string(),
-                value.print_to_string()
+                wanted.describe(),
+                value.describe()
             ));
         }
         // SAFETY: the checks above are what LLVM requires.
@@ -2674,7 +2647,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         if !matches {
             bad_call(format_args!(
                 "aggregate_return: this function returns {}, which {count} values don't make",
-                wanted.print_to_string()
+                wanted.describe()
             ));
         }
         // SAFETY: the checks above are what LLVM requires; it only reads the values.
@@ -3143,7 +3116,7 @@ fn set_global_name(value: raw::LLVMValueRef, name: &str) {
 #[track_caller]
 fn check_sized<T>(operation: &str, checked: Type<'_, T>) {
     if !checked.is_sized() {
-        bad_call(format_args!("{operation}: {} has no size", checked.print_to_string()));
+        bad_call(format_args!("{operation}: {} has no size", checked.describe()));
     }
 }
 
@@ -3158,7 +3131,7 @@ fn check_optional_alignment(operation: &str, alignment_in_bytes: u32) {
 fn check_loadable<T>(operation: &str, checked: Type<'_, T>) {
     // SAFETY: only reads the type.
     if !unsafe { shim::lyftar_type_is_loadable(checked.raw) } {
-        bad_call(format_args!("{operation}: {} can't be loaded or stored", checked.print_to_string()));
+        bad_call(format_args!("{operation}: {} can't be loaded or stored", checked.describe()));
     }
 }
 
@@ -3166,7 +3139,7 @@ fn check_loadable<T>(operation: &str, checked: Type<'_, T>) {
 fn check_first_class<T>(operation: &str, checked: Type<'_, T>) {
     // SAFETY: only reads the type.
     if !unsafe { shim::lyftar_type_is_first_class(checked.raw) } {
-        bad_call(format_args!("{operation}: {} isn't a type a value can have here", checked.print_to_string()));
+        bad_call(format_args!("{operation}: {} isn't a type a value can have here", checked.describe()));
     }
 }
 

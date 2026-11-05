@@ -442,6 +442,16 @@ impl<'context, 'module, T> Value<'context, 'module, T> {
         from_owned_message(unsafe { raw::LLVMPrintValueToString(self.raw) })
     }
 
+    /// What a panic calls this value: a global by name, since printing a function prints its whole body.
+    #[must_use]
+    pub(crate) fn describe(self) -> String {
+        // SAFETY: the value is live for `'module`.
+        if unsafe { !raw::LLVMIsAGlobalValue(self.raw).is_null() } {
+            return format!("@{}", self.name());
+        }
+        self.print_to_string().trim().to_string()
+    }
+
     /// This value's name, empty if it has none.
     #[must_use]
     pub fn name(self) -> String {
@@ -515,7 +525,7 @@ impl<'context, 'module, T> Value<'context, 'module, T> {
         if unsafe { shim::lyftar_value_is_context_constant(self.raw) } {
             bad_call(format_args!(
                 "uses: {} belongs to the context, so its uses can be in any module: use uses_in",
-                self.print_to_string()
+                self.describe()
             ));
         }
         // SAFETY: the value is tied to a module, as just checked, which is where all its uses are, live for `'module`.
@@ -540,16 +550,16 @@ impl<'context, 'module, T> Value<'context, 'module, T> {
         if !checks::same_identity(own_type as usize, other_type as usize) {
             bad_call(format_args!(
                 "replace_all_uses_with: {} and {} have different types",
-                self.print_to_string(),
-                replacement.print_to_string()
+                self.describe(),
+                replacement.describe()
             ));
         }
         // SAFETY: both are live.
         if unsafe { !shim::lyftar_value_can_replace_uses(self.raw, replacement.raw) } {
             bad_call(format_args!(
                 "replace_all_uses_with: can't replace the uses of {} with {}",
-                self.print_to_string(),
-                replacement.print_to_string()
+                self.describe(),
+                replacement.describe()
             ));
         }
         // SAFETY: just checked what LLVM asserts.
@@ -582,11 +592,7 @@ impl<'context, 'module, T: ValueMarker> Value<'context, 'module, T> {
     pub fn checked_cast<U: ValueMarker>(self) -> Value<'context, 'module, U> {
         match self.as_kind::<U>() {
             Some(value) => value,
-            None => bad_call(format_args!(
-                "checked_cast: {} is not a {}",
-                self.print_to_string(),
-                std::any::type_name::<U>()
-            )),
+            None => bad_call(format_args!("checked_cast: {} is not a {}", self.describe(), std::any::type_name::<U>())),
         }
     }
 }
@@ -641,7 +647,7 @@ impl<'context, 'module, T: UserMarker> Value<'context, 'module, T> {
         self.check_operand_index("set_operand", index);
         // SAFETY: the value is live; the shim only reads it.
         if !unsafe { shim::lyftar_value_operands_can_change(self.raw) } {
-            bad_call(format_args!("set_operand: the operands of {} can't change", self.print_to_string()));
+            bad_call(format_args!("set_operand: the operands of {} can't change", self.describe()));
         }
         // SAFETY: the index was just checked and both values are live.
         unsafe {
@@ -649,15 +655,15 @@ impl<'context, 'module, T: UserMarker> Value<'context, 'module, T> {
             if !checks::same_identity(raw::LLVMTypeOf(old) as usize, raw::LLVMTypeOf(operand.raw) as usize) {
                 bad_call(format_args!(
                     "set_operand: {} doesn't have the type of operand {index} of {}",
-                    operand.print_to_string(),
-                    self.print_to_string()
+                    operand.describe(),
+                    self.describe()
                 ));
             }
             if !shim::lyftar_values_share_module(self.raw, operand.raw) {
                 bad_call(format_args!(
                     "set_operand: {} belongs to another module than {}",
-                    operand.print_to_string(),
-                    self.print_to_string()
+                    operand.describe(),
+                    self.describe()
                 ));
             }
             raw::LLVMSetOperand(self.raw, index, operand.raw);

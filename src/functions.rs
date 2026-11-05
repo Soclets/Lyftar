@@ -404,7 +404,7 @@ impl<'context> Module<'context> {
     ) -> Value<'context, 'module, GlobalVariable> {
         // SAFETY: only reads the type.
         if !unsafe { shim::lyftar_type_is_valid_global(global_type.raw) } {
-            bad_call(format_args!("add_global: {} can't be a global's type", global_type.print_to_string()));
+            bad_call(format_args!("add_global: {} can't be a global's type", global_type.describe()));
         }
         let name = c_string(name, "add_global");
         // SAFETY: the module is live, the type was just checked, and `name` is a valid C string for the call.
@@ -576,7 +576,7 @@ impl<'context> Module<'context> {
     pub(crate) fn check_owns<T>(&self, operation: &str, value: Value<'context, '_, T>) {
         // SAFETY: both are live; the shim only reads them.
         if !unsafe { shim::lyftar_value_belongs_to_module(value.raw, self.raw) } {
-            bad_call(format_args!("{operation}: {} belongs to another module", value.print_to_string()));
+            bad_call(format_args!("{operation}: {} belongs to another module", value.describe()));
         }
     }
 }
@@ -584,7 +584,7 @@ impl<'context> Module<'context> {
 #[track_caller]
 fn check_function_type(operation: &str, function_type: Type<'_>) {
     if function_type.raw_kind() != raw::LLVMTypeKind::LLVMFunctionTypeKind {
-        bad_call(format_args!("{operation}: {} is not a function type", function_type.print_to_string()));
+        bad_call(format_args!("{operation}: {} is not a function type", function_type.describe()));
     }
 }
 
@@ -594,7 +594,7 @@ fn check_constant_pointer<T>(operation: &str, value: Value<'_, '_, T>) {
     let is_pointer =
         unsafe { raw::LLVMGetTypeKind(raw::LLVMTypeOf(value.raw)) == raw::LLVMTypeKind::LLVMPointerTypeKind };
     if !value.is_constant() || !is_pointer {
-        bad_call(format_args!("{operation}: {} is not a constant pointer", value.print_to_string()));
+        bad_call(format_args!("{operation}: {} is not a constant pointer", value.describe()));
     }
 }
 
@@ -627,7 +627,7 @@ impl<'context, 'module> Value<'context, 'module, GlobalVariable> {
     #[track_caller]
     pub fn set_initializer<T>(self, initializer: Value<'context, 'module, T>) {
         if !initializer.is_constant() {
-            bad_call(format_args!("set_initializer: {} is not a constant", initializer.print_to_string()));
+            bad_call(format_args!("set_initializer: {} is not a constant", initializer.describe()));
         }
         // SAFETY: both are live for `'module`; the shim only reads them, and the type is compared before setting.
         unsafe {
@@ -637,12 +637,12 @@ impl<'context, 'module> Value<'context, 'module, GlobalVariable> {
             ) {
                 bad_call(format_args!(
                     "set_initializer: {} doesn't have the type of {}",
-                    initializer.print_to_string(),
-                    self.print_to_string()
+                    initializer.describe(),
+                    self.describe()
                 ));
             }
             if !shim::lyftar_values_share_module(self.raw, initializer.raw) {
-                bad_call(format_args!("set_initializer: {} belongs to another module", initializer.print_to_string()));
+                bad_call(format_args!("set_initializer: {} belongs to another module", initializer.describe()));
             }
             raw::LLVMSetInitializer(self.raw, initializer.raw);
         }
@@ -731,7 +731,7 @@ impl<'context, 'module> Value<'context, 'module, GlobalAlias> {
         // SAFETY: the shim only reads both; the target was just checked.
         unsafe {
             if !shim::lyftar_values_share_module(self.raw, aliasee.raw) {
-                bad_call(format_args!("set_aliasee: {} belongs to another module", aliasee.print_to_string()));
+                bad_call(format_args!("set_aliasee: {} belongs to another module", aliasee.describe()));
             }
             raw::LLVMAliasSetAliasee(self.raw, aliasee.raw);
         }
@@ -770,7 +770,7 @@ impl<'context, 'module> Value<'context, 'module, GlobalIndirectFunction> {
         // SAFETY: the shim only reads both; the resolver was just checked.
         unsafe {
             if !shim::lyftar_values_share_module(self.raw, resolver.raw) {
-                bad_call(format_args!("set_resolver: {} belongs to another module", resolver.print_to_string()));
+                bad_call(format_args!("set_resolver: {} belongs to another module", resolver.describe()));
             }
             raw::LLVMSetGlobalIFuncResolver(self.raw, resolver.raw);
         }
@@ -1022,7 +1022,7 @@ impl<'context, 'module> Value<'context, 'module, Function> {
         // SAFETY: the shim only reads both; the personality was just checked.
         unsafe {
             if !shim::lyftar_values_share_module(self.raw, personality.raw) {
-                bad_call(format_args!("set_personality: {} belongs to another module", personality.print_to_string()));
+                bad_call(format_args!("set_personality: {} belongs to another module", personality.describe()));
             }
             raw::LLVMSetPersonalityFn(self.raw, personality.raw);
         }
@@ -1069,11 +1069,11 @@ impl<'context, 'module> Value<'context, 'module, Function> {
     #[track_caller]
     fn check_function_data<T>(self, operation: &str, data: Value<'context, 'module, T>) {
         if !data.is_constant() {
-            bad_call(format_args!("{operation}: {} is not a constant", data.print_to_string()));
+            bad_call(format_args!("{operation}: {} is not a constant", data.describe()));
         }
         // SAFETY: the shim only reads both.
         if !unsafe { shim::lyftar_values_share_module(self.raw, data.raw) } {
-            bad_call(format_args!("{operation}: {} belongs to another module", data.print_to_string()));
+            bad_call(format_args!("{operation}: {} belongs to another module", data.describe()));
         }
     }
 

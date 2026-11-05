@@ -95,7 +95,7 @@ impl<'context, F> Type<'context, Float<F>> {
         if !checks::enough_words(words.len(), needed) {
             bad_call(format_args!(
                 "constant_float_from_bits: {} needs {needed} words, not {}",
-                self.print_to_string(),
+                self.describe(),
                 words.len()
             ));
         }
@@ -114,7 +114,7 @@ impl<'context, T> Type<'context, T> {
     pub fn constant_array<'module, V>(self, values: &[Value<'context, 'module, V>]) -> Value<'context, 'module> {
         // SAFETY: only reads the type.
         if !unsafe { shim::lyftar_is_valid_array_element(self.raw) } {
-            bad_call(format_args!("constant_array: {} can't be an array's element", self.print_to_string()));
+            bad_call(format_args!("constant_array: {} can't be an array's element", self.describe()));
         }
         check_constants("constant_array", values, Some(self.raw));
         // SAFETY: LLVM only reads the values, which were just checked; `Value` has the layout of `LLVMValueRef`.
@@ -136,7 +136,7 @@ impl<'context, T> Type<'context, T> {
             bad_call(format_args!(
                 "constant_data_array: {} bytes can't be elements of type {}",
                 data.len(),
-                self.print_to_string()
+                self.describe()
             ));
         }
         // SAFETY: LLVM reads `data.len()` bytes, and the element type was just checked.
@@ -155,7 +155,7 @@ impl<'context, T> Type<'context, T> {
         if elements.len() != values.len() {
             bad_call(format_args!(
                 "constant_named_struct: {} has {} elements, not {count}",
-                self.print_to_string(),
+                self.describe(),
                 elements.len()
             ));
         }
@@ -163,11 +163,7 @@ impl<'context, T> Type<'context, T> {
         for (element, value) in elements.iter().zip(values) {
             // SAFETY: the value is live.
             if !checks::same_identity(element.raw as usize, unsafe { raw::LLVMTypeOf(value.raw) } as usize) {
-                bad_call(format_args!(
-                    "constant_named_struct: {} is not a {}",
-                    value.print_to_string(),
-                    element.print_to_string()
-                ));
+                bad_call(format_args!("constant_named_struct: {} is not a {}", value.describe(), element.describe()));
             }
         }
         // SAFETY: LLVM only reads the values, which were just checked.
@@ -197,7 +193,7 @@ impl<'context, T> Type<'context, T> {
         if !valid {
             bad_call(format_args!(
                 "inline_assembly: {constraints:?} are not valid constraints for {}",
-                self.print_to_string()
+                self.describe()
             ));
         }
         // SAFETY: the type and constraints were just checked; LLVM reads the lengths given.
@@ -247,7 +243,7 @@ impl<'context> Context<'context> {
         for value in values {
             // SAFETY: the value is live, and the shim only reads its type.
             if !unsafe { shim::lyftar_is_valid_struct_element(raw::LLVMTypeOf(value.raw)) } {
-                bad_call(format_args!("constant_struct: {} can't go in a struct", value.print_to_string()));
+                bad_call(format_args!("constant_struct: {} can't go in a struct", value.describe()));
             }
         }
         let count = length_as_u32(values.len(), "constant_struct");
@@ -276,7 +272,7 @@ impl<'context> Context<'context> {
         check_constants("constant_vector", values, Some(unsafe { raw::LLVMTypeOf(first.raw) }));
         // SAFETY: the value is live, and the shim only reads its type.
         if !unsafe { shim::lyftar_is_valid_vector_element(raw::LLVMTypeOf(first.raw)) } {
-            bad_call(format_args!("constant_vector: {} can't be a vector's element", first.print_to_string()));
+            bad_call(format_args!("constant_vector: {} can't be a vector's element", first.describe()));
         }
         let count = length_as_u32(values.len(), "constant_vector");
         // SAFETY: LLVM only reads the values, which were just checked.
@@ -289,18 +285,14 @@ impl<'context> Context<'context> {
 fn check_constants<V>(operation: &str, values: &[Value<'_, '_, V>], element_type: Option<raw::LLVMTypeRef>) {
     for value in values {
         if !value.is_constant() {
-            bad_call(format_args!("{operation}: {} is not a constant", value.print_to_string()));
+            bad_call(format_args!("{operation}: {} is not a constant", value.describe()));
         }
         if let Some(wanted) = element_type {
             // SAFETY: the value is live.
             if !checks::same_identity(wanted as usize, unsafe { raw::LLVMTypeOf(value.raw) } as usize) {
                 // SAFETY: the type is live for as long as the value's context.
                 let wanted_type: Type<'_, Dynamic> = unsafe { Type::from_raw(wanted) };
-                bad_call(format_args!(
-                    "{operation}: {} is not a {}",
-                    value.print_to_string(),
-                    wanted_type.print_to_string()
-                ));
+                bad_call(format_args!("{operation}: {} is not a {}", value.describe(), wanted_type.describe()));
             }
         }
     }
@@ -538,28 +530,20 @@ impl<'context, 'module, W> Value<'context, 'module, Integer<W>> {
     #[track_caller]
     fn check_constant_pair(self, operation: &str, other: Self) {
         if !self.is_constant() || !other.is_constant() {
-            bad_call(format_args!(
-                "{operation}: {} and {} must both be constants",
-                self.print_to_string(),
-                other.print_to_string()
-            ));
+            bad_call(format_args!("{operation}: {} and {} must both be constants", self.describe(), other.describe()));
         }
         // SAFETY: both are live.
         if !checks::same_identity(unsafe { raw::LLVMTypeOf(self.raw) } as usize, unsafe { raw::LLVMTypeOf(other.raw) }
             as usize)
         {
-            bad_call(format_args!(
-                "{operation}: {} and {} have different types",
-                self.print_to_string(),
-                other.print_to_string()
-            ));
+            bad_call(format_args!("{operation}: {} and {} have different types", self.describe(), other.describe()));
         }
     }
 
     #[track_caller]
     fn check_constant(self, operation: &str) {
         if !self.is_constant() {
-            bad_call(format_args!("{operation}: {} is not a constant", self.print_to_string()));
+            bad_call(format_args!("{operation}: {} is not a constant", self.describe()));
         }
     }
 
@@ -718,7 +702,7 @@ impl<'context, 'module, W> Value<'context, 'module, Integer<W>> {
         if !checks::is_narrowing(self.width_in_bits(), target.width_in_bits()) {
             bad_call(format_args!(
                 "constant_truncate: {} is not narrower than {} bits",
-                target.print_to_string(),
+                target.describe(),
                 self.width_in_bits()
             ));
         }
@@ -731,7 +715,7 @@ impl<'context, 'module> Value<'context, 'module, Pointer> {
     #[track_caller]
     fn check_constant_pointer(self, operation: &str) {
         if !self.is_constant() {
-            bad_call(format_args!("{operation}: {} is not a constant", self.print_to_string()));
+            bad_call(format_args!("{operation}: {} is not a constant", self.describe()));
         }
     }
 
@@ -782,10 +766,7 @@ impl<'context, 'module> Value<'context, 'module, Pointer> {
             shim::lyftar_get_element_pointer_is_valid(element_type.raw, indices.as_ptr().cast(), count, false)
         };
         if !valid {
-            bad_call(format_args!(
-                "constant_get_element_pointer: those indices don't fit {}",
-                element_type.print_to_string()
-            ));
+            bad_call(format_args!("constant_get_element_pointer: those indices don't fit {}", element_type.describe()));
         }
         // SAFETY: just checked; LLVM only reads the indices.
         unsafe {
@@ -834,11 +815,7 @@ impl<'context, 'module> Value<'context, 'module> {
         self.check_constant_dynamic("constant_bit_cast");
         // SAFETY: only reads them.
         if !unsafe { shim::lyftar_cast_is_valid(raw::LLVMOpcode::LLVMBitCast, self.raw, target.raw) } {
-            bad_call(format_args!(
-                "constant_bit_cast: can't cast {} to {}",
-                self.print_to_string(),
-                target.print_to_string()
-            ));
+            bad_call(format_args!("constant_bit_cast: can't cast {} to {}", self.describe(), target.describe()));
         }
         // SAFETY: just checked.
         unsafe { Value::from_raw(raw::LLVMConstBitCast(self.raw, target.raw)) }
@@ -860,8 +837,8 @@ impl<'context, 'module> Value<'context, 'module> {
         if !valid {
             bad_call(format_args!(
                 "constant_truncate_or_bit_cast: can't cast {} to {}",
-                self.print_to_string(),
-                target.print_to_string()
+                self.describe(),
+                target.describe()
             ));
         }
         // SAFETY: just checked.
@@ -880,11 +857,7 @@ impl<'context, 'module> Value<'context, 'module> {
         if self.get_type().raw_kind() != K::LLVMPointerTypeKind
             || !matches!(target.raw_kind(), K::LLVMPointerTypeKind | K::LLVMIntegerTypeKind)
         {
-            bad_call(format_args!(
-                "constant_pointer_cast: can't cast {} to {}",
-                self.print_to_string(),
-                target.print_to_string()
-            ));
+            bad_call(format_args!("constant_pointer_cast: can't cast {} to {}", self.describe(), target.describe()));
         }
         // SAFETY: just checked.
         unsafe { Value::from_raw(raw::LLVMConstPointerCast(self.raw, target.raw)) }
@@ -893,7 +866,7 @@ impl<'context, 'module> Value<'context, 'module> {
     #[track_caller]
     fn check_constant_dynamic(self, operation: &str) {
         if !self.is_constant() {
-            bad_call(format_args!("{operation}: {} is not a constant", self.print_to_string()));
+            bad_call(format_args!("{operation}: {} is not a constant", self.describe()));
         }
     }
 
@@ -909,8 +882,8 @@ impl<'context, 'module> Value<'context, 'module> {
         if !unsafe { shim::lyftar_extract_element_is_valid(self.raw, index.raw) } || !index.is_constant() {
             bad_call(format_args!(
                 "constant_extract_element: can't take element {} of {}",
-                index.print_to_string(),
-                self.print_to_string()
+                index.describe(),
+                self.describe()
             ));
         }
         // SAFETY: just checked.
@@ -936,9 +909,9 @@ impl<'context, 'module> Value<'context, 'module> {
         {
             bad_call(format_args!(
                 "constant_insert_element: can't put {} in {} at {}",
-                element.print_to_string(),
-                self.print_to_string(),
-                index.print_to_string()
+                element.describe(),
+                self.describe(),
+                index.describe()
             ));
         }
         // SAFETY: just checked.
@@ -961,9 +934,9 @@ impl<'context, 'module> Value<'context, 'module> {
         if !unsafe { shim::lyftar_shuffle_vector_is_valid(self.raw, other.raw, mask.raw) } || !other.is_constant() {
             bad_call(format_args!(
                 "constant_shuffle_vector: can't shuffle {} and {} by {}",
-                self.print_to_string(),
-                other.print_to_string(),
-                mask.print_to_string()
+                self.describe(),
+                other.describe(),
+                mask.describe()
             ));
         }
         // SAFETY: just checked.

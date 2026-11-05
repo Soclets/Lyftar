@@ -75,7 +75,7 @@ impl<'context> FunctionInPass<'context> {
         if parent != self.function {
             bad_call(format_args!(
                 "value_to_erase: a function pass can only erase from its own function, and {} isn't there",
-                instruction.print_to_string()
+                instruction.describe()
             ));
         }
         self.module.value_to_erase(instruction)
@@ -148,7 +148,7 @@ impl<'context> FunctionInPass<'context> {
         if parent != self.function {
             bad_call(format_args!(
                 "call_to_inline: a function pass can only inline into its own function, and {} isn't there",
-                call.print_to_string()
+                call.describe()
             ));
         }
         self.module.call_to_inline(call)

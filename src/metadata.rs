@@ -119,7 +119,7 @@ impl<'context, 'module> Value<'context, 'module, MetadataAsValue> {
     #[track_caller]
     pub fn node_operands(self) -> Vec<Option<Value<'context, 'module>>> {
         if !self.is_metadata_node() {
-            bad_call(format_args!("node_operands: {} is not a metadata node", self.print_to_string()));
+            bad_call(format_args!("node_operands: {} is not a metadata node", self.describe()));
         }
         // SAFETY: just checked; the buffer has room for all the operands.
         unsafe {
@@ -143,7 +143,7 @@ impl<'context, 'module> Value<'context, 'module, MetadataAsValue> {
         // SAFETY: the marker guarantees a live wrapped value. LLVM can delete an unresolved node when one of its operands
         // changes, which would leave other handles on it dangling, so those are refused.
         if !unsafe { crate::shim::lyftar_metadata_node_can_change_operand(raw::LLVMValueAsMetadata(self.raw)) } {
-            bad_call(format_args!("replace_node_operand: {} is not a resolved metadata node", self.print_to_string()));
+            bad_call(format_args!("replace_node_operand: {} is not a resolved metadata node", self.describe()));
         }
         // SAFETY: just checked.
         let count = unsafe { raw::LLVMGetMDNodeNumOperands(self.raw) };
@@ -324,7 +324,7 @@ impl<'context, 'module> NamedMetadata<'context, 'module> {
     #[track_caller]
     pub fn add_operand(self, node: Value<'context, 'module, MetadataAsValue>) {
         if !node.is_metadata_node() {
-            bad_call(format_args!("add_operand: {} is not a metadata node", node.print_to_string()));
+            bad_call(format_args!("add_operand: {} is not a metadata node", node.describe()));
         }
         let name = c_string(&self.name(), "add_operand");
         // SAFETY: just checked; this named metadata is in that module.

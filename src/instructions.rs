@@ -158,7 +158,7 @@ impl<'context, 'module, T: InstructionMarker> Value<'context, 'module, T> {
     #[track_caller]
     fn require_opcode(self, operation: &str, allowed: &[Opcode], what: &str) {
         if !allowed.contains(&self.opcode()) {
-            bad_call(format_args!("{operation}: {} is not {what}", self.print_to_string()));
+            bad_call(format_args!("{operation}: {} is not {what}", self.describe()));
         }
     }
 
@@ -303,7 +303,7 @@ impl<'context, 'module, T: InstructionMarker> Value<'context, 'module, T> {
     #[track_caller]
     fn require_fast_math(self, operation: &str) {
         if !self.can_use_fast_math_flags() {
-            bad_call(format_args!("{operation}: {} can't have fast-math flags", self.print_to_string()));
+            bad_call(format_args!("{operation}: {} can't have fast-math flags", self.describe()));
         }
     }
 }
@@ -780,12 +780,12 @@ impl<'context, 'module, T: TypeMarker> Value<'context, 'module, PhiNode<T>> {
                 {
                     bad_call(format_args!(
                         "add_incoming: {} doesn't have the type of {}",
-                        value.print_to_string(),
-                        self.print_to_string()
+                        value.describe(),
+                        self.describe()
                     ));
                 }
                 if !shim::lyftar_values_share_module(self.raw, value.raw) {
-                    bad_call(format_args!("add_incoming: {} belongs to another module", value.print_to_string()));
+                    bad_call(format_args!("add_incoming: {} belongs to another module", value.describe()));
                 }
                 self.check_same_function("add_incoming", *block);
                 let mut one_value = value.raw;
@@ -819,10 +819,7 @@ impl<'context, 'module> Value<'context, 'module, SwitchInstruction> {
                     raw::LLVMTypeOf(on_value.raw) as usize,
                 )
             {
-                bad_call(format_args!(
-                    "add_case: {} is not a constant of the switch's type",
-                    on_value.print_to_string()
-                ));
+                bad_call(format_args!("add_case: {} is not a constant of the switch's type", on_value.describe()));
             }
             if raw::LLVMGetBasicBlockParent(destination.raw)
                 != raw::LLVMGetBasicBlockParent(raw::LLVMGetInstructionParent(self.raw))
@@ -875,7 +872,7 @@ impl<'context, 'module> Value<'context, 'module, SwitchInstruction> {
             {
                 bad_call(format_args!(
                     "set_case_value: {} is not a constant of the switch's type",
-                    case_value.print_to_string()
+                    case_value.describe()
                 ));
             }
             raw::LLVMSetSwitchCaseValue(self.raw, index + 1, case_value.raw);
@@ -919,7 +916,7 @@ impl<'context, 'module> Value<'context, 'module, ConditionalBranchInstruction> {
         // SAFETY: both are live; the shim only reads them.
         unsafe {
             if !shim::lyftar_values_share_module(self.raw, condition.raw) {
-                bad_call(format_args!("set_condition: {} belongs to another module", condition.print_to_string()));
+                bad_call(format_args!("set_condition: {} belongs to another module", condition.describe()));
             }
             raw::LLVMSetCondition(self.raw, condition.raw);
         }
@@ -1335,11 +1332,11 @@ impl<'context, 'module> Value<'context, 'module, LandingPadInstruction> {
     #[track_caller]
     pub fn add_clause<T>(self, clause: Value<'context, 'module, T>) {
         if !clause.is_constant() {
-            bad_call(format_args!("add_clause: {} is not a constant", clause.print_to_string()));
+            bad_call(format_args!("add_clause: {} is not a constant", clause.describe()));
         }
         // SAFETY: both live for `'module`; the shim only reads them.
         if !unsafe { shim::lyftar_values_share_module(self.raw, clause.raw) } {
-            bad_call(format_args!("add_clause: {} belongs to another module", clause.print_to_string()));
+            bad_call(format_args!("add_clause: {} belongs to another module", clause.describe()));
         }
         // SAFETY: just checked what LLVM requires.
         unsafe { raw::LLVMAddClause(self.raw, clause.raw) };
@@ -1420,7 +1417,7 @@ impl<'context, 'module> Value<'context, 'module, FuncletPadInstruction> {
         // SAFETY: the index was just checked; the shim only reads both values.
         unsafe {
             if !shim::lyftar_values_share_module(self.raw, argument.raw) {
-                bad_call(format_args!("set_argument: {} belongs to another module", argument.print_to_string()));
+                bad_call(format_args!("set_argument: {} belongs to another module", argument.describe()));
             }
             raw::LLVMSetArgOperand(self.raw, index, argument.raw);
         }

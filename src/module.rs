@@ -323,7 +323,7 @@ impl<'context> Module<'context> {
         if !unsafe { shim::lyftar_value_is_erasable(value.raw) } {
             bad_call(format_args!(
                 "value_to_erase: {} is not an instruction, function, global variable, alias or indirect function",
-                value.print_to_string()
+                value.describe()
             ));
         }
         self.check_owns("value_to_erase", value);
@@ -374,7 +374,7 @@ impl<'context> Module<'context> {
         if !blocker.is_null() {
             // SAFETY: the shim found this among the live values.
             let blocker: Value<'context, '_> = unsafe { Value::from_raw(blocker) };
-            bad_call(format_args!("erase: {} is still used by something that stays", blocker.print_to_string()));
+            bad_call(format_args!("erase: {} is still used by something that stays", blocker.describe()));
         }
         self.bump_generation();
         // SAFETY: just checked what the shim's contract says, and exclusive access means no `Value` is left to dangle.
@@ -392,7 +392,7 @@ impl<'context> Module<'context> {
         self.check_owns("track", value);
         // SAFETY: the value is live; the shim only reads it to decide this.
         if unsafe { shim::lyftar_value_is_context_constant(value.raw) } {
-            bad_call(format_args!("track: {} belongs to the context and needs no handle", value.print_to_string()));
+            bad_call(format_args!("track: {} belongs to the context and needs no handle", value.describe()));
         }
         // SAFETY: the value is live; the handle is owned by the wrapper from here on.
         TrackedHandle { raw: unsafe { shim::lyftar_weak_handle_create(value.raw) }, marker: PhantomData }
