@@ -652,7 +652,7 @@ impl JitBuilder {
     /// Makes the JIT.
     ///
     /// # Errors
-    /// What stopped it being made, or the verifier's report if the module is invalid, since LLVM would crash on it.
+    /// What stopped it being made.
     pub fn build(mut self) -> Result<Jit, Error> {
         crate::target::initialize_native_target()?;
         let mut jit = std::ptr::null_mut();
@@ -711,7 +711,7 @@ impl Jit {
     /// A JIT for the computer this is running on.
     ///
     /// # Errors
-    /// What stopped it being made, or the verifier's report if the module is invalid, since LLVM would crash on it.
+    /// What stopped it being made.
     pub fn new() -> Result<Jit, Error> {
         JitBuilder::new().build()
     }
