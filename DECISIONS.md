@@ -155,3 +155,9 @@ Cyborg's setup; the owner chose it: "yup". (Owner, 2026-11-05)
 **D31. Pointer address spaces.** `Pointer` means address space 0, and is the same type as `Pointer<AddressSpace<0>>`. Any
 other space is `Pointer<AddressSpace<N>>`, and a pointer whose space isn't known is `Dynamic`. Lyftar impl asked; Claude
 proposed it; the owner chose it: "yea". (Owner, 2026-11-05)
+
+**D32. Specific arrays, vectors and structs.** `[4 x i32]` is `Array<Integer<Bits<32>>, Elements<4>>`, `<4 x i32>` is
+`Vector<Integer<Bits<32>>, Elements<4>>`, `<vscale x 4 x i32>` is `ScalableVector<Integer<Bits<32>>, MinimumElements<4>>`,
+`{ i32, ptr }` is `Struct<(Integer<Bits<32>>, Pointer)>`, and `<{ i32, i32 }>` is
+`PackedStruct<(Integer<Bits<32>>, Integer<Bits<32>>)>`. A named struct stays `Dynamic`, since it can refer to itself and its
+body can come later. Lyftar impl asked; Claude proposed it; the owner chose it: "yea". (Owner, 2026-11-05)
