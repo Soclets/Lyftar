@@ -12,7 +12,8 @@ fn generate_bindings(include_directory: &std::path::Path, output: &std::path::Pa
         bindgen::RustTarget::stable(85, 0).map_err(|error| format!("bindgen does not know Rust 1.85: {error}"))?;
     let mut builder = bindgen::Builder::default()
         .clang_arg(format!("-I{}", include_directory.display()))
-        .allowlist_file(".*/llvm-c/.*")
+        // Either separator, since Windows paths use a backslash.
+        .allowlist_file(r".*[/\\]llvm-c[/\\].*")
         .default_enum_style(bindgen::EnumVariation::NewType { is_bitfield: false, is_global: false })
         .rust_target(rust_target)
         .rust_edition(bindgen::RustEdition::Edition2024)

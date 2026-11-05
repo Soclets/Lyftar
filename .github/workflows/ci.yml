@@ -1,9 +1,8 @@
 # trace: D13, D14
 # Linux and Windows generate their bindings during the build; macOS checks that the committed ones are current.
 #
-# rustc words some type names differently per platform, as `Value` or `lyftar::Value`, so the exact text of each compile-fail
-# error is only checked on macOS, where it is committed. `TRYBUILD=overwrite` elsewhere still fails if one of those programs
-# compiles.
+# Rust is pinned to the version the compile-fail tests' exact error text was written with, since each release words them a little
+# differently. Moving it means regenerating those with `TRYBUILD=overwrite`.
 name: ci
 
 on:
@@ -19,7 +18,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.96.1
       - name: Install LLVM
         run: |
           curl -fsSL https://apt.llvm.org/llvm.sh -o llvm.sh
@@ -28,7 +27,6 @@ jobs:
           echo "LYFTAR_LLVM_CONFIG=/usr/bin/llvm-config-23" >> "$GITHUB_ENV"
           echo "LIBCLANG_PATH=/usr/lib/llvm-23/lib" >> "$GITHUB_ENV"
           echo "LD_LIBRARY_PATH=/usr/lib/llvm-23/lib" >> "$GITHUB_ENV"
-          echo "TRYBUILD=overwrite" >> "$GITHUB_ENV"
           echo "CXX=clang++-23" >> "$GITHUB_ENV"
       - run: cargo build --all-targets
       - run: cargo test --no-fail-fast
@@ -37,7 +35,7 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.96.1
       - name: Install LLVM
         shell: bash
         run: |
@@ -49,7 +47,6 @@ jobs:
           echo "LIBCLANG_PATH=${root}/bin" >> "$GITHUB_ENV"
           echo "CXX=${root}/bin/clang-cl.exe" >> "$GITHUB_ENV"
           echo "RUSTFLAGS=-C target-feature=+crt-static" >> "$GITHUB_ENV"
-          echo "TRYBUILD=overwrite" >> "$GITHUB_ENV"
           echo "${root}/bin" >> "$GITHUB_PATH"
       - run: cargo build --all-targets
       - run: cargo test --no-fail-fast
@@ -58,7 +55,7 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.96.1
       - run: brew install llvm
       - name: The committed bindings are current
         run: |
