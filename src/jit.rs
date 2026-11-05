@@ -152,6 +152,7 @@ impl<'context> ExecutionEngine<'context> {
     ) -> Result<Self, Error> {
         crate::target::initialize_native_target()?;
         module.verify_before("ExecutionEngine")?;
+        module.check_can_make_code("ExecutionEngine", &crate::target::default_target_triple())?;
         let raw_module = module.into_raw();
         let mut engine = std::ptr::null_mut();
         let mut message = std::ptr::null_mut();
@@ -694,7 +695,9 @@ fn thread_safe_module(
         let raw_module = module.into_raw();
         let verified = {
             let borrowed = Module::from_raw_borrowed(raw_module);
-            borrowed.verify()
+            borrowed
+                .verify()
+                .and_then(|()| borrowed.check_can_make_code("add_module", &crate::target::default_target_triple()))
         };
         if let Err(report) = verified {
             raw::LLVMDisposeModule(raw_module);

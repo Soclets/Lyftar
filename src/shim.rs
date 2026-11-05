@@ -25,6 +25,8 @@ unsafe extern "C" {
         message: *mut *mut c_char,
     ) -> crate::raw::LLVMBool;
     pub fn lyftar_summary_file_was_given() -> bool;
+    pub fn lyftar_verify_function(function: LLVMValueRef) -> *mut c_char;
+    pub fn lyftar_module_has_pointer_authentication(module: LLVMModuleRef) -> bool;
     pub fn lyftar_link_modules(destination: LLVMModuleRef, source: LLVMModuleRef, message: *mut *mut c_char) -> bool;
     pub fn lyftar_value_belongs_to_module(value: LLVMValueRef, module: LLVMModuleRef) -> bool;
     pub fn lyftar_values_share_module(user: LLVMValueRef, other: LLVMValueRef) -> bool;

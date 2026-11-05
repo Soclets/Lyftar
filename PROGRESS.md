@@ -41,11 +41,12 @@ a real use of the constant stopped the deletion in the two cases tried, with the
 
 ## Waiting on design claude
 
-D37 is not built, because it doesn't close the hole as written. LLVM keeps one copy of a constant per context, so a constant
-borrowed from module A is the same object as one in module B, and a pass on B can delete it while A's borrow still compiles.
-ASan confirms it. Passes also crash on invalid IR, since nothing verifies first: an unterminated block through `default<O2>`
-segfaults, and a `llvm.dbg.declare` with a data array argument makes `strip-debug-declare` free plain data. Both questions are
-with design claude, along with where `ConstantPtrAuth` and the unlisted plain-data kinds go.
+D39 is not built. The token is tried in scratch and does what it says for constants made through it, but a constant read back out
+of a module borrows only that module, and ASan shows it dangling after a pass on another module: `global.initializer()` then
+`remove_initializer()`, or `node_operands()` from metadata, with no removal at all. Design claude has the options, the spelling
+and the proposal of a separate `Constants` type. Probes found no deletion from dropping, cloning, linking, stripping debug
+information, erasing or a bitcode round trip, and none from emission on 17 targets or MCJIT, though those run passes that can.
+Where `ConstantPtrAuth` and the unlisted plain-data kinds go is also open.
 
 ## Untested
 

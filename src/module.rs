@@ -276,6 +276,19 @@ impl<'context> Module<'context> {
         })
     }
 
+    // trace: D38
+    /// What LLVM would end the process over when making code for this triple, and can be seen ahead of time.
+    pub(crate) fn check_can_make_code(&self, operation: &str, triple: &str) -> Result<(), Error> {
+        let is_aarch64 = ["aarch64", "arm64"].iter().any(|architecture| triple.starts_with(architecture));
+        // SAFETY: the module is live, and the shim only reads it.
+        if !is_aarch64 && unsafe { shim::lyftar_module_has_pointer_authentication(self.raw) } {
+            return Err(Error::new(format!(
+                "{operation}: this module has a ptrauth constant, and only AArch64 can make code for one, not {triple}"
+            )));
+        }
+        Ok(())
+    }
+
     /// Runs LLVM's module verifier, and gives back its report if the module is invalid.
     ///
     /// # Errors

@@ -9,6 +9,7 @@ use std::path::Path;
 use std::time::Instant;
 
 use lyftar::enums::IntegerPredicate;
+use lyftar::passes::{Analyses, FunctionInPass, FunctionPass, PassOptions, PreservedAnalyses};
 use lyftar::raw;
 use lyftar::{
     BasicBlock, Bits, Builder, Context, Dynamic, Function, Integer, Module, Pointer, Type, Value, with_context,
@@ -208,6 +209,59 @@ fn best_nanoseconds_per_call(step: Step) -> f64 {
     best
 }
 
+/// A pass that does nothing, so what it costs is what Lyftar adds around a Rust pass: the verifier (D40) and the hash that
+/// checks its claim of changing nothing (D3).
+struct DoesNothing;
+
+impl FunctionPass for DoesNothing {
+    fn run<'context>(
+        &mut self,
+        _function: &mut FunctionInPass<'context>,
+        _analyses: &Analyses<'_>,
+    ) -> PreservedAnalyses {
+        PreservedAnalyses::All
+    }
+}
+
+const FUNCTIONS: u32 = 200;
+const ADDS_IN_A_FUNCTION: u32 = 200;
+
+/// The best run over a module of many functions, in nanoseconds per function a pipeline visits.
+fn best_nanoseconds_per_function(pipeline: &str, rust_pass: bool) -> f64 {
+    let mut best = f64::MAX;
+    for _ in 0..20 {
+        let elapsed = with_context(|context| {
+            let mut module: Module<'_> = context.create_module("passes");
+            let i64_type = context.get_type::<I64>().to_dynamic();
+            let function_type = context.function_type(i64_type, &[i64_type], false);
+            for index in 0..FUNCTIONS {
+                let function = module.add_function(&format!("f{index}"), function_type);
+                let builder = Builder::at_end_of(function.append_basic_block("entry"));
+                let parameter = function.parameter(0).checked_cast::<I64>();
+                let mut total = parameter;
+                for _ in 0..ADDS_IN_A_FUNCTION {
+                    total = builder.integer_add(total, parameter, "");
+                }
+                builder.return_value(total);
+            }
+            let options = PassOptions::default();
+            let start = Instant::now();
+            if rust_pass {
+                module
+                    .run_passes_with(pipeline, None, &options, |builder| {
+                        builder.register_function_pass("does-nothing", || DoesNothing);
+                    })
+                    .expect("the pipeline");
+            } else {
+                module.run_passes(pipeline, None, &options).expect("the pipeline");
+            }
+            start.elapsed()
+        });
+        best = best.min(elapsed.as_secs_f64() * 1e9 / f64::from(FUNCTIONS));
+    }
+    best
+}
+
 fn main() {
     let saved_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("benches/overhead_saved.txt");
     let saved = std::fs::read_to_string(&saved_path).unwrap_or_default();
@@ -224,6 +278,21 @@ fn main() {
         println!("{name:<30}{raw_time:>12.1}{lyftar_time:>12.1}{added:>12.1}{before:>16}");
         let _ = writeln!(table, "{name}\t{added:.1}");
     }
+    // trace: D40, D24
+    let name = "Rust function pass, 200 adds";
+    let raw_time = best_nanoseconds_per_function("function(no-op-function)", false);
+    let lyftar_time = best_nanoseconds_per_function("function(does-nothing)", true);
+    let added = lyftar_time - raw_time;
+    let before = saved
+        .lines()
+        .find_map(|line| line.strip_prefix(name)?.strip_prefix('\t'))
+        .map_or("none".to_string(), str::to_string);
+    println!(
+        "{:<30}{:>12}{:>12}{:>12}{:>16}",
+        "nanoseconds per function", "LLVM no-op", "Rust no-op", "added", "added, saved"
+    );
+    println!("{name:<30}{raw_time:>12.1}{lyftar_time:>12.1}{added:>12.1}{before:>16}");
+    let _ = writeln!(table, "{name}\t{added:.1}");
     if std::env::args().any(|argument| argument == "--save") {
         std::fs::write(&saved_path, table).expect("saving the table");
     }

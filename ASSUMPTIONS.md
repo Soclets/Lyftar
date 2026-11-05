@@ -63,8 +63,8 @@ If one turns out false, the safety promise named beside it falls with it.
 
 - **LLVM's passes and code generators assume a valid module**, and crash on one that isn't: seen against the real library, a
   block with no terminator segfaults both `default<O2>` and object emission. So they are given only a module the verifier
-  passes, which also closes `strip-debug-declare` freeing plain data, since that took a malformed `llvm.dbg.declare`. A Rust pass
-  could still leave a module invalid for the next pass in a pipeline. That is not closed, and is with the owner.
+  passes, which also closes `strip-debug-declare` freeing plain data, since that took a malformed `llvm.dbg.declare`. Each Rust
+  pass is verified after it runs too (D40). A function pass is verified only for its own function, the only one it can change.
 
 ## What ends the process
 
@@ -72,6 +72,9 @@ If one turns out false, the safety promise named beside it falls with it.
   errors only the cases seen against the real library: running every pass `opt --print-passes` names, without the sanitizer,
   printing and similar ones, found `default<Os>` and `<Oz>` and their LTO forms, `function-import` with no summary file, and
   `free-machine-function`, which frees an invalid pointer. A pipeline's parameters weren't all tried. Others may exist.
+- **A backend's fatal errors can't be caught.** A module the verifier passes doesn't mean a target can emit it. A `ptrauth`
+  constant anywhere but AArch64 is turned into an error, since 15 targets were seen ending the process over it. SPIR-V ends the
+  process on some types, which isn't caught, and neither would anything else a backend refuses that way.
 - **Bitcode with debug information that fails the verifier still ends the process.** LLVM's reader upgrades debug information
   as it reads, and has no switch for that. Text is checked first.
 

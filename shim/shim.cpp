@@ -136,6 +136,58 @@ extern "C" LLVMBool lyftar_parse_ir(LLVMContextRef context,
   return 0;
 }
 
+// Contract: `function` is a live function. Returns null if the verifier passes
+// it, and otherwise its report, for the caller to free. trace: D40
+extern "C" char *lyftar_verify_function(LLVMValueRef function) {
+  require(function != nullptr && isa<Function>(unwrap(function)),
+          "lyftar_verify_function: not a function");
+  std::string report;
+  raw_string_ostream report_stream(report);
+  if (verifyFunction(*cast<Function>(unwrap(function)), &report_stream)) {
+    return LLVMCreateMessage(report.c_str());
+  }
+  return nullptr;
+}
+
+// Contract: `module` is live. Returns whether anything in it uses a `ptrauth`
+// constant, which every target but AArch64 ends the process over when it makes
+// code. trace: D38
+extern "C" bool lyftar_module_has_pointer_authentication(LLVMModuleRef module) {
+  require(module != nullptr,
+          "lyftar_module_has_pointer_authentication: null module");
+  SmallPtrSet<const Constant *, 32> seen;
+  SmallVector<const Constant *, 32> work;
+  const auto addOperands = [&work](const User &user) {
+    for (const Use &operand : user.operands()) {
+      if (const auto *constant = dyn_cast<Constant>(operand.get())) {
+        work.push_back(constant);
+      }
+    }
+  };
+  const Module *found = unwrap(module);
+  for (const GlobalValue &global : found->global_values()) {
+    addOperands(global);
+  }
+  for (const Function &function : *found) {
+    for (const BasicBlock &block : function) {
+      for (const Instruction &instruction : block) {
+        addOperands(instruction);
+      }
+    }
+  }
+  while (!work.empty()) {
+    const Constant *current = work.pop_back_val();
+    if (isa<ConstantPtrAuth>(current)) {
+      return true;
+    }
+    if (isa<GlobalValue>(current) || !seen.insert(current).second) {
+      continue;
+    }
+    addOperands(*current);
+  }
+  return false;
+}
+
 // Contract: takes nothing. Returns whether LLVM's `-summary-file` option was
 // given, without which the `function-import` pass ends the process. trace: D38
 extern "C" bool lyftar_summary_file_was_given() {

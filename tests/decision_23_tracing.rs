@@ -22,9 +22,9 @@ fn decision_23_every_tag_names_a_decision_and_only_the_process_decisions_go_untr
     let output = run_check(Path::new(env!("CARGO_MANIFEST_DIR")));
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(output.status.success(), "{text}{}", String::from_utf8_lossy(&output.stderr));
-    // D18, D20, D28 and D29 settle how sessions work, or were replaced, so no code carries them out. D37 is waiting on a
-    // question to the owner, in PROGRESS.md.
-    assert!(text.contains("nothing traces yet: D18, D20, D28, D29, D37\n"), "{text}");
+    // D18, D20, D28 and D29 settle how sessions work, or were replaced, so no code carries them out. D37 was replaced by
+    // D39, and D39 is waiting on questions to the owner, in PROGRESS.md.
+    assert!(text.contains("nothing traces yet: D18, D20, D28, D29, D37, D39\n"), "{text}");
 }
 
 #[test]

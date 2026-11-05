@@ -459,3 +459,54 @@ fn decision_38_a_malformed_debug_declare_cant_free_plain_data() {
         assert_eq!(data.print_to_string(), "[2 x i32] [i32 1, i32 2]");
     });
 }
+
+// LLVM ends the process over this anywhere but AArch64.
+#[test]
+fn decision_38_a_ptrauth_constant_for_another_architecture_is_an_error() {
+    lyftar::target::initialize_all_targets();
+    let machine_for = |triple: &str| {
+        lyftar::target::Target::from_triple(triple).expect("a target").create_target_machine(
+            triple,
+            "",
+            "",
+            lyftar::target::CodeGenerationOptimizationLevel::Default,
+            lyftar::target::RelocationMode::Default,
+            lyftar::target::CodeModel::Default,
+        )
+    };
+    with_context(|context| {
+        let source = "@signed = global ptr ptrauth (ptr null, i32 0)";
+        let file_type = lyftar::target::CodeGenerationFileType::Object;
+        let mut module = context.parse_ir_text(source).expect("good IR");
+        let x86 = machine_for("x86_64-unknown-linux-gnu");
+        module.set_target_machine(&x86);
+        let error = x86.emit_to_memory_buffer(&mut module, file_type).err().expect("an error");
+        assert!(error.message().contains("only AArch64 can make code for one, not x86_64"), "{}", error.message());
+
+        let mut module = context.parse_ir_text(source).expect("good IR");
+        let aarch64 = machine_for("aarch64-apple-darwin");
+        module.set_target_machine(&aarch64);
+        assert!(aarch64.emit_to_memory_buffer(&mut module, file_type).is_ok());
+    });
+}
+
+#[test]
+fn decision_38_a_module_with_no_ptrauth_constant_emits_for_any_architecture() {
+    lyftar::target::initialize_all_targets();
+    with_context(|context| {
+        let mut module = context
+            .parse_ir_text("@data = global { i32, ptr } { i32 1, ptr null }\ndefine i32 @f() {\n ret i32 1\n}")
+            .expect("good IR");
+        let triple = "x86_64-unknown-linux-gnu";
+        let machine = lyftar::target::Target::from_triple(triple).expect("a target").create_target_machine(
+            triple,
+            "",
+            "",
+            lyftar::target::CodeGenerationOptimizationLevel::Default,
+            lyftar::target::RelocationMode::Default,
+            lyftar::target::CodeModel::Default,
+        );
+        module.set_target_machine(&machine);
+        assert!(machine.emit_to_memory_buffer(&mut module, lyftar::target::CodeGenerationFileType::Object).is_ok());
+    });
+}

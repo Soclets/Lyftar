@@ -539,6 +539,7 @@ impl TargetMachine {
     ) -> Result<(), Error> {
         let path = c_path(path)?;
         module.verify_before("emit_to_file")?;
+        module.check_can_make_code("emit_to_file", &self.triple())?;
         module.bump_generation();
         let mut message = std::ptr::null_mut();
         // SAFETY: both are live, the module exclusively; `LLVMTargetMachineEmitToFile` takes a non-const path only by
@@ -565,6 +566,7 @@ impl TargetMachine {
         file_type: CodeGenerationFileType,
     ) -> Result<MemoryBuffer<'static>, Error> {
         module.verify_before("emit_to_memory_buffer")?;
+        module.check_can_make_code("emit_to_memory_buffer", &self.triple())?;
         module.bump_generation();
         let mut message = std::ptr::null_mut();
         let mut buffer = std::ptr::null_mut();

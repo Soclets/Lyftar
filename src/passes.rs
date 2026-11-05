@@ -15,7 +15,7 @@ use crate::module::{Module, ReplacementToMake, TrackedHandle, ValueToErase};
 use crate::raw;
 use crate::shim;
 use crate::target::TargetMachine;
-use crate::text::c_string;
+use crate::text::{c_string, from_owned_message};
 use crate::types::Invariant;
 use crate::values::{CallBaseMarker, Function, InstructionMarker, Value, ValueMarker};
 
@@ -648,6 +648,14 @@ fn pass_lied(name: &str) -> ! {
     panic!("a pass {name} said it changed nothing, but it changed the IR");
 }
 
+// trace: D40, D3
+/// The compiler stops at this: a pass left IR that the next C++ pass would crash on.
+#[cold]
+#[allow(clippy::panic)]
+fn pass_left_invalid_ir(name: &str, report: &str) -> ! {
+    panic!("a pass {name} left invalid IR: {report}");
+}
+
 unsafe extern "C" fn run_module_pass<P: ModulePass>(
     state: *mut c_void,
     module: raw::LLVMModuleRef,
@@ -663,6 +671,10 @@ unsafe extern "C" fn run_module_pass<P: ModulePass>(
         let result = pass.run(&mut wrapped, &analyses);
         if wrapped.raw != module {
             bad_call(format_args!("a module pass replaced its module with another"));
+        }
+        // trace: D40
+        if let Err(report) = wrapped.verify() {
+            pass_left_invalid_ir(std::any::type_name::<P>(), report.message());
         }
         // SAFETY: the module is live.
         if result == PreservedAnalyses::All && before != unsafe { shim::lyftar_structural_hash_of_module(module) } {
@@ -687,6 +699,13 @@ unsafe extern "C" fn run_function_pass<P: FunctionPass>(
         let analyses =
             Analyses { raw: analyses, module, generation: Cell::new(wrapped.module.generation), marker: PhantomData };
         let result = pass.run(&mut wrapped, &analyses);
+        // trace: D40
+        // A function pass can only change its own function, so that is all this asks about.
+        // SAFETY: the function is live, and the shim gives a message for the caller to free, or null.
+        let report = unsafe { shim::lyftar_verify_function(function) };
+        if !report.is_null() {
+            pass_left_invalid_ir(std::any::type_name::<P>(), &from_owned_message(report));
+        }
         // SAFETY: the function is live.
         if result == PreservedAnalyses::All && before != unsafe { shim::lyftar_structural_hash_of_function(function) } {
             pass_lied(std::any::type_name::<P>());

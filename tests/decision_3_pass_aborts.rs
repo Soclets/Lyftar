@@ -124,6 +124,30 @@ impl FunctionPass for ErasesElsewhereByBlock {
     }
 }
 
+struct LeavesAnUnterminatedBlock;
+
+impl FunctionPass for LeavesAnUnterminatedBlock {
+    fn run<'context>(
+        &mut self,
+        function: &mut FunctionInPass<'context>,
+        _analyses: &Analyses<'_>,
+    ) -> PreservedAnalyses {
+        let _ = function.function().append_basic_block("left_open");
+        PreservedAnalyses::None
+    }
+}
+
+struct LeavesABrokenFunctionInTheModule;
+
+impl ModulePass for LeavesABrokenFunctionInTheModule {
+    fn run<'context>(&mut self, module: &mut Module<'context>, _analyses: &Analyses<'_>) -> PreservedAnalyses {
+        let function =
+            module.add_function("added", module.context().function_type(module.context().void_type(), &[], false));
+        let _ = function.append_basic_block("left_open");
+        PreservedAnalyses::None
+    }
+}
+
 struct ReplacesElsewhereByValue;
 
 impl FunctionPass for ReplacesElsewhereByValue {
@@ -246,6 +270,8 @@ fn run_case(name: &str) {
         "erases_elsewhere_by_value" => run_function_pass(|| ErasesElsewhereByValue),
         "erases_elsewhere_by_block" => run_function_pass(|| ErasesElsewhereByBlock),
         "erases_elsewhere_through_the_module" => run_function_pass(|| ErasesElsewhereThroughTheModule),
+        "leaves_an_unterminated_block" => run_function_pass(|| LeavesAnUnterminatedBlock),
+        "leaves_a_broken_function_in_the_module" => run_module_pass(|| LeavesABrokenFunctionInTheModule),
         "replaces_elsewhere_by_value" => run_function_pass(|| ReplacesElsewhereByValue),
         "replaces_elsewhere_through_the_module" => run_function_pass(|| ReplacesElsewhereThroughTheModule),
         "inlines_elsewhere" => run_function_pass(|| InlinesElsewhere),
@@ -358,5 +384,21 @@ fn decision_34_a_function_pass_replacing_elsewhere_through_its_module_aborts() {
     aborts_with(
         "replaces_elsewhere_through_the_module",
         "replace: a function pass can only replace in its own function, and this entry is from elsewhere",
+    );
+}
+
+#[test]
+fn decision_40_a_function_pass_leaving_invalid_ir_aborts_naming_it() {
+    aborts_with(
+        "leaves_an_unterminated_block",
+        "LeavesAnUnterminatedBlock> left invalid IR: Basic Block in function 'f'",
+    );
+}
+
+#[test]
+fn decision_40_a_module_pass_leaving_invalid_ir_aborts_naming_it() {
+    aborts_with(
+        "leaves_a_broken_function_in_the_module",
+        "LeavesABrokenFunctionInTheModule left invalid IR: Basic Block in function 'added'",
     );
 }

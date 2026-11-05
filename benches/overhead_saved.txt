@@ -1,9 +1,10 @@
-integer_add, specific	6.2
-integer_add, dynamic	6.5
-integer_compare, specific	5.0
-load, specific	3.0
-store, specific	4.4
-get_element_pointer	5.7
-call, two arguments	7.8
-call, two arguments, specific	6.5
-branch into a new block	3.8
+integer_add, specific	6.1
+integer_add, dynamic	10.7
+integer_compare, specific	5.2
+load, specific	3.1
+store, specific	4.1
+get_element_pointer	5.6
+call, two arguments	8.8
+call, two arguments, specific	6.6
+branch into a new block	0.8
+Rust function pass, 200 adds	12944.8
