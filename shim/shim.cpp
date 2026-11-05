@@ -338,7 +338,8 @@ void collectGoing(ArrayRef<LLVMValueRef> values,
 // something that stays, or null. A constant user counts only if it stays in
 // use: `removeDeadConstantUsers` clears the ones no one uses, and it runs first
 // in `lyftar_erase_values`. A block address doesn't block a block, because LLVM
-// rewrites it when the block goes. trace: D11
+// rewrites it when the block goes, and a phi's entry for a block in the list
+// goes with that block. trace: D11
 extern "C" LLVMValueRef lyftar_erase_find_blocker(const LLVMValueRef *values,
                                                   size_t count) {
   require(values != nullptr || count == 0,
@@ -347,8 +348,14 @@ extern "C" LLVMValueRef lyftar_erase_find_blocker(const LLVMValueRef *values,
   SmallPtrSet<const Value *, 32> going;
   collectGoing(list, &going);
   for (const Value *value : going) {
-    for (const User *user : value->users()) {
+    for (const Use &use : value->uses()) {
+      const User *user = use.getUser();
       if (going.contains(user) || isa<BlockAddress>(user)) {
+        continue;
+      }
+      // A phi's entry for a block that goes, goes with that block.
+      if (const auto *phi = dyn_cast<PHINode>(user);
+          phi != nullptr && going.contains(phi->getIncomingBlock(use))) {
         continue;
       }
       // A global's initializer, an alias's target and a function's personality

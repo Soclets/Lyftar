@@ -319,6 +319,29 @@ fn decision_16_lto_reads_bitcode_and_makes_an_object() {
 }
 
 #[test]
+fn decision_16_lto_in_a_generators_own_context_makes_an_object_after_the_bytes_are_gone() {
+    let machine = TargetMachine::for_host().expect("a machine");
+    let bitcode = || {
+        with_context(|context| {
+            let module = context.create_module("lto");
+            module.set_target_machine(&machine);
+            add_answer_function(&module);
+            module.write_bitcode_to_memory_buffer().as_bytes().to_vec()
+        })
+    };
+    let mut generator = LtoCodeGenerator::in_local_context();
+    generator.read_module(&bitcode(), "first").expect("good bitcode");
+    assert!(generator.read_module(b"not bitcode", "second").is_err());
+    generator.add_must_preserve_symbol("_answer");
+    assert!(!generator.compile().expect("an object").is_empty());
+
+    let mut owner = LtoCodeGenerator::new();
+    owner.set_module(LtoModule::from_memory(&bitcode()).expect("good bitcode"));
+    owner.add_must_preserve_symbol("_answer");
+    assert!(!owner.compile().expect("an object").is_empty());
+}
+
+#[test]
 fn decision_16_bytes_are_there_through_dynamic_types() {
     with_context(|context| {
         let byte = context.byte_type(8);

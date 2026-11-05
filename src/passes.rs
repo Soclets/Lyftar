@@ -446,7 +446,7 @@ impl<'context, 'module> LoopInfo<'context, 'module> {
 }
 
 /// A natural loop.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Loop<'context, 'module> {
     raw: *mut c_void,
     marker: PhantomData<(Invariant<'context>, &'module ())>,
@@ -1053,8 +1053,8 @@ impl Default for PassOptions {
     }
 }
 
-/// Owns LLVM's C form of [`PassOptions`] for a call.
-struct RawPassOptions(raw::LLVMPassBuilderOptionsRef);
+/// Owns LLVM's C form of [`PassOptions`] for a call, and the alias analysis text, which LLVM keeps without copying.
+struct RawPassOptions(raw::LLVMPassBuilderOptionsRef, Option<CString>);
 
 impl Drop for RawPassOptions {
     fn drop(&mut self) {
@@ -1066,8 +1066,8 @@ impl Drop for RawPassOptions {
 impl PassOptions {
     fn to_raw(&self) -> Result<RawPassOptions, Error> {
         // SAFETY: takes nothing, and the options are owned by the wrapper from here on.
-        let options = RawPassOptions(unsafe { raw::LLVMCreatePassBuilderOptions() });
-        // SAFETY: the options are live, and LLVM copies text it keeps.
+        let mut options = RawPassOptions(unsafe { raw::LLVMCreatePassBuilderOptions() }, None);
+        // SAFETY: the options are live, and the one text LLVM keeps is owned by the wrapper, so it outlives them.
         unsafe {
             raw::LLVMPassBuilderOptionsSetVerifyEach(options.0, i32::from(self.verify_each));
             raw::LLVMPassBuilderOptionsSetDebugLogging(options.0, i32::from(self.debug_logging));
@@ -1096,6 +1096,7 @@ impl PassOptions {
                 let pipeline = CString::new(pipeline.as_str())
                     .map_err(|_| Error::new("an alias analysis pipeline has no NUL bytes in it"))?;
                 raw::LLVMPassBuilderOptionsSetAAPipeline(options.0, pipeline.as_ptr());
+                options.1 = Some(pipeline);
             }
         }
         Ok(options)

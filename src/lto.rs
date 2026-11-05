@@ -127,6 +127,17 @@ pub fn has_objective_c_category(bytes: &[u8]) -> bool {
 /// An object file read by `libLTO`.
 pub struct LtoModule {
     raw: raw::lto_module_t,
+    // LLVM's `LTOModule` keeps a reference to the bytes it read, so they live here, as long as it does.
+    bytes: Option<Box<[u8]>>,
+    context: LtoContext,
+}
+
+/// Which context a module was read into. `libLTO` can't say, and it can only merge modules within one.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum LtoContext {
+    Global,
+    OwnContext,
+    Generator(raw::lto_code_gen_t),
 }
 
 impl Drop for LtoModule {
@@ -196,8 +207,12 @@ impl LtoSymbolAttributes {
 }
 
 impl LtoModule {
-    fn from_raw_or_error(raw_module: raw::lto_module_t) -> Result<Self, Error> {
-        if raw_module.is_null() { Err(last_error()) } else { Ok(LtoModule { raw: raw_module }) }
+    fn from_raw_or_error(
+        raw_module: raw::lto_module_t,
+        bytes: Option<Box<[u8]>>,
+        context: LtoContext,
+    ) -> Result<Self, Error> {
+        if raw_module.is_null() { Err(last_error()) } else { Ok(LtoModule { raw: raw_module, bytes, context }) }
     }
 
     /// Reads a file.
@@ -207,7 +222,7 @@ impl LtoModule {
     pub fn from_file(path: &Path) -> Result<Self, Error> {
         let path = c_path(path)?;
         // SAFETY: a valid C string for the call; the wrapper owns what comes back.
-        Self::from_raw_or_error(unsafe { raw::lto_module_create(path.as_ptr()) })
+        Self::from_raw_or_error(unsafe { raw::lto_module_create(path.as_ptr()) }, None, LtoContext::Global)
     }
 
     /// Reads bytes, which it copies.
@@ -215,8 +230,13 @@ impl LtoModule {
     /// # Errors
     /// What is wrong with them.
     pub fn from_memory(bytes: &[u8]) -> Result<Self, Error> {
-        // SAFETY: LLVM reads the length given and copies what it keeps; the wrapper owns what comes back.
-        Self::from_raw_or_error(unsafe { raw::lto_module_create_from_memory(bytes.as_ptr().cast(), bytes.len()) })
+        let bytes = Box::<[u8]>::from(bytes);
+        // SAFETY: LLVM reads the length given from the copy, which the wrapper keeps as long as what comes back.
+        Self::from_raw_or_error(
+            unsafe { raw::lto_module_create_from_memory(bytes.as_ptr().cast(), bytes.len()) },
+            Some(bytes),
+            LtoContext::Global,
+        )
     }
 
     /// Reads bytes, which it copies, with a path to name it by.
@@ -229,13 +249,16 @@ impl LtoModule {
     #[track_caller]
     pub fn from_memory_with_path(bytes: &[u8], path: &str) -> Result<Self, Error> {
         let path = c_string(path, "from_memory_with_path");
-        // SAFETY: LLVM reads the length given and copies what it keeps; the wrapper owns what comes back.
-        Self::from_raw_or_error(unsafe {
-            raw::lto_module_create_from_memory_with_path(bytes.as_ptr().cast(), bytes.len(), path.as_ptr())
-        })
+        let bytes = Box::<[u8]>::from(bytes);
+        // SAFETY: LLVM reads the length given from the copy, which the wrapper keeps as long as what comes back.
+        Self::from_raw_or_error(
+            unsafe { raw::lto_module_create_from_memory_with_path(bytes.as_ptr().cast(), bytes.len(), path.as_ptr()) },
+            Some(bytes),
+            LtoContext::Global,
+        )
     }
 
-    /// Reads bytes into a context of its own, so that many can be read at once on several threads.
+    /// Reads bytes, which it copies, into a context of its own, so that many can be read at once on several threads.
     ///
     /// # Errors
     /// What is wrong with them.
@@ -245,32 +268,13 @@ impl LtoModule {
     #[track_caller]
     pub fn in_local_context(bytes: &[u8], path: &str) -> Result<Self, Error> {
         let path = c_string(path, "in_local_context");
-        // SAFETY: LLVM reads the length given and copies what it keeps; the wrapper owns what comes back.
-        Self::from_raw_or_error(unsafe {
-            raw::lto_module_create_in_local_context(bytes.as_ptr().cast(), bytes.len(), path.as_ptr())
-        })
-    }
-
-    /// Reads bytes into the context of a code generator, which must then outlive this module.
-    ///
-    /// # Errors
-    /// What is wrong with them.
-    ///
-    /// # Panics
-    /// If the path has a NUL byte inside it (D3).
-    #[track_caller]
-    pub fn in_code_generator_context<'generator>(
-        bytes: &[u8],
-        path: &str,
-        generator: &'generator LtoCodeGenerator<'_>,
-    ) -> Result<GeneratorModule<'generator>, Error> {
-        let path = c_string(path, "in_code_generator_context");
-        // SAFETY: LLVM reads the length given and copies what it keeps; the wrapper owns what comes back, and can't outlive the
-        // generator.
-        Self::from_raw_or_error(unsafe {
-            raw::lto_module_create_in_codegen_context(bytes.as_ptr().cast(), bytes.len(), path.as_ptr(), generator.raw)
-        })
-        .map(|module| GeneratorModule { module, marker: PhantomData })
+        let bytes = Box::<[u8]>::from(bytes);
+        // SAFETY: LLVM reads the length given from the copy, which the wrapper keeps as long as what comes back.
+        Self::from_raw_or_error(
+            unsafe { raw::lto_module_create_in_local_context(bytes.as_ptr().cast(), bytes.len(), path.as_ptr()) },
+            Some(bytes),
+            LtoContext::OwnContext,
+        )
     }
 
     /// The target triple.
@@ -372,20 +376,6 @@ impl LtoModule {
     }
 }
 
-/// A module in a code generator's context, from [`LtoModule::in_code_generator_context`].
-pub struct GeneratorModule<'generator> {
-    module: LtoModule,
-    marker: PhantomData<&'generator ()>,
-}
-
-impl GeneratorModule<'_> {
-    /// The module.
-    #[must_use]
-    pub fn module(&self) -> &LtoModule {
-        &self.module
-    }
-}
-
 /// How `libLTO` should make position-dependent code.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum LtoPositionModel {
@@ -423,45 +413,116 @@ pub enum LtoDebugModel {
 /// Merges modules, optimizes them and makes one object. It holds the modules it is given, for `'modules`.
 pub struct LtoCodeGenerator<'modules> {
     raw: raw::lto_code_gen_t,
+    in_global_context: bool,
+    // Modules read into this generator's own context, which have to go before it does.
+    read_modules: Vec<LtoModule>,
+    // The bytes of modules LLVM took over: it goes on using them until the generator goes.
+    kept_bytes: Vec<Box<[u8]>>,
     marker: PhantomData<&'modules ()>,
 }
 
 impl Drop for LtoCodeGenerator<'_> {
     fn drop(&mut self) {
-        // SAFETY: this wrapper owns the generator.
+        self.read_modules.clear();
+        // SAFETY: this wrapper owns the generator, and nothing is left in its context. The kept bytes go after this.
         unsafe { raw::lto_codegen_dispose(self.raw) };
     }
 }
 
 impl<'modules> LtoCodeGenerator<'modules> {
-    /// A generator in `libLTO`'s global context.
+    /// A generator in `libLTO`'s global context, for modules from [`LtoModule::from_file`] and [`LtoModule::from_memory`].
     #[must_use]
     pub fn new() -> Self {
         // SAFETY: takes nothing; the wrapper owns what comes back.
-        LtoCodeGenerator { raw: unsafe { raw::lto_codegen_create() }, marker: PhantomData }
+        let raw = unsafe { raw::lto_codegen_create() };
+        LtoCodeGenerator {
+            raw,
+            in_global_context: true,
+            read_modules: Vec::new(),
+            kept_bytes: Vec::new(),
+            marker: PhantomData,
+        }
     }
 
-    /// A generator in a context of its own, for modules from [`LtoModule::in_code_generator_context`].
+    /// A generator in a context of its own, whose modules come through [`LtoCodeGenerator::read_module`].
     #[must_use]
     pub fn in_local_context() -> Self {
         // SAFETY: takes nothing; the wrapper owns what comes back.
-        LtoCodeGenerator { raw: unsafe { raw::lto_codegen_create_in_local_context() }, marker: PhantomData }
+        let raw = unsafe { raw::lto_codegen_create_in_local_context() };
+        LtoCodeGenerator {
+            raw,
+            in_global_context: false,
+            read_modules: Vec::new(),
+            kept_bytes: Vec::new(),
+            marker: PhantomData,
+        }
+    }
+
+    // trace: D3
+    #[track_caller]
+    fn check_context(&self, call: &str, module: &LtoModule) {
+        let matches = if self.in_global_context {
+            module.context == LtoContext::Global
+        } else {
+            module.context == LtoContext::Generator(self.raw)
+        };
+        if !matches {
+            bad_call(format_args!("{call}: this module was read into a different context from this generator's"));
+        }
+    }
+
+    /// Reads bytes, which it copies, into this generator's context, and adds the module to what is merged.
+    ///
+    /// # Errors
+    /// What is wrong with the bytes, or what stopped the module being added.
+    ///
+    /// # Panics
+    /// If the path has a NUL byte inside it (D3).
+    #[track_caller]
+    pub fn read_module(&mut self, bytes: &[u8], path: &str) -> Result<(), Error> {
+        let path = c_string(path, "read_module");
+        let bytes = Box::<[u8]>::from(bytes);
+        let context = if self.in_global_context { LtoContext::Global } else { LtoContext::Generator(self.raw) };
+        // SAFETY: LLVM reads the length given from the copy, which the wrapper keeps as long as what comes back, and this
+        // generator keeps that wrapper until just before it goes.
+        let module = LtoModule::from_raw_or_error(
+            unsafe {
+                raw::lto_module_create_in_codegen_context(bytes.as_ptr().cast(), bytes.len(), path.as_ptr(), self.raw)
+            },
+            Some(bytes),
+            context,
+        )?;
+        // SAFETY: both are live, in one context, and the module stays so as long as the generator.
+        let failed = unsafe { raw::lto_codegen_add_module(self.raw, module.raw) };
+        self.read_modules.push(module);
+        if failed { Err(last_error()) } else { Ok(()) }
     }
 
     /// Adds a module to what is merged.
     ///
     /// # Errors
     /// What stopped it being added.
+    ///
+    /// # Panics
+    /// If the module was read into a different context from this generator's (D3).
+    #[track_caller]
     pub fn add_module(&mut self, module: &'modules LtoModule) -> Result<(), Error> {
-        // SAFETY: both are live, and the module stays so for `'modules`.
+        self.check_context("add_module", module);
+        // SAFETY: both are live, in one context, and the module stays so for `'modules`.
         if unsafe { raw::lto_codegen_add_module(self.raw, module.raw) } { Err(last_error()) } else { Ok(()) }
     }
 
     /// Makes this module the first of what is merged, in place of anything added before. The generator owns it from here on.
-    pub fn set_module(&mut self, module: LtoModule) {
+    ///
+    /// # Panics
+    /// If the module was read into a different context from this generator's (D3).
+    #[track_caller]
+    pub fn set_module(&mut self, mut module: LtoModule) {
+        self.check_context("set_module", &module);
         let raw_module = module.raw;
+        self.kept_bytes.extend(module.bytes.take());
         std::mem::forget(module);
-        // SAFETY: both are live, and the generator takes the module.
+        // SAFETY: both are live, in one context, the generator takes the module, and it keeps the bytes as long as itself.
         unsafe { raw::lto_codegen_set_module(self.raw, raw_module) };
     }
 

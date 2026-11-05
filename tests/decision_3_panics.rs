@@ -1900,6 +1900,27 @@ fn decision_22_lto_symbol_attributes_out_of_bounds_panics() {
     let _ = lto_module().symbol_attributes(0);
 }
 
+fn lto_bytes() -> Vec<u8> {
+    with_context(|context| {
+        let module = context.create_module("lto");
+        module.write_bitcode_to_memory_buffer().as_bytes().to_vec()
+    })
+}
+
+#[test]
+#[should_panic(expected = "add_module: this module was read into a different context from this generator's")]
+fn decision_3_adding_an_lto_module_from_another_context_panics() {
+    let module = lyftar::lto::LtoModule::in_local_context(&lto_bytes(), "own").expect("good bitcode");
+    let _ = lyftar::lto::LtoCodeGenerator::new().add_module(&module);
+}
+
+#[test]
+#[should_panic(expected = "set_module: this module was read into a different context from this generator's")]
+fn decision_3_setting_a_global_lto_module_on_a_local_generator_panics() {
+    let module = lyftar::lto::LtoModule::from_memory(&lto_bytes()).expect("good bitcode");
+    lyftar::lto::LtoCodeGenerator::in_local_context().set_module(module);
+}
+
 #[test]
 #[should_panic(expected = "set_cache_pruning_interval_in_seconds: 4294967295 is too long")]
 fn decision_3_an_lto_interval_too_long_panics() {

@@ -1,8 +1,10 @@
-//! A program built with Lyftar, optimized, emitted as an object file, linked by the system's linker and run.
+//! A program built with Lyftar, optimized, emitted as an object file, linked by the system's linker and run (the JIT's run is
+//! in `decision_10_jit.rs`).
 
 use std::process::Command;
 
 use lyftar::enums::IntegerPredicate;
+use lyftar::passes::PassOptions;
 use lyftar::target::{CodeGenerationFileType, TargetMachine};
 use lyftar::{Bits, Builder, Integer, with_context};
 
@@ -54,6 +56,11 @@ fn object_file_bytes() -> Vec<u8> {
             builder.return_value(i32_type.constant_null());
         }
         assert_eq!(module.verify(), Ok(()));
+        // The stack slots are gone once it is optimized, so this really changed the program.
+        assert!(module.print_to_string().contains("alloca"));
+        module.run_passes("default<O2>", Some(&machine), &PassOptions::default()).expect("the pipeline");
+        assert_eq!(module.verify(), Ok(()));
+        assert!(!module.print_to_string().contains("alloca"), "{}", module.print_to_string());
         let buffer =
             machine.emit_to_memory_buffer(&mut module, CodeGenerationFileType::Object).expect("code generation");
         buffer.as_bytes().to_vec()
@@ -61,7 +68,7 @@ fn object_file_bytes() -> Vec<u8> {
 }
 
 #[test]
-fn decision_2_a_program_is_built_emitted_linked_and_run() {
+fn decision_2_a_program_is_built_optimized_emitted_linked_and_run() {
     let directory = std::env::temp_dir().join(format!("lyftar-end-to-end-{}", std::process::id()));
     std::fs::create_dir_all(&directory).expect("a temporary directory");
     let object = directory.join("program.o");
