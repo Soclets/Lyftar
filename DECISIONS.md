@@ -206,3 +206,8 @@ held across a pass on any module does not compile. `Context` stops being a plain
 constants no longer belong to one module, D37's limit on sharing them may go; that is untested. Plain data stays free of the
 token. Lyftar impl found the problem and preferred a run-time panic; Claude proposed the token; the owner chose it: "yea". (Owner,
 2026-11-05)
+
+**D40. Verify after each Rust pass.** Lyftar verifies the IR after each Rust pass, and a failure aborts naming the pass (D3), so a
+Rust pass can't leave broken IR for the next C++ pass to crash on. This adds to the check before a pipeline, passes and emission
+that Lyftar impl already made. The benchmark measures the cost (D24), and if it hurts, it comes back to the owner. Lyftar impl
+asked; Claude proposed it; the owner chose it: "yea". (Owner, 2026-11-05)
