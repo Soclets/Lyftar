@@ -108,7 +108,14 @@ fn decision_16_object_files_are_read_back_and_disassembled() {
             .expect("code generation")
     });
     let binary = Binary::new(&object, None).expect("an object file");
-    assert!(matches!(binary.binary_type(), BinaryType::MachO64LittleEndian | BinaryType::Elf64LittleEndian));
+    let expected = if cfg!(target_os = "macos") {
+        BinaryType::MachO64LittleEndian
+    } else if cfg!(target_os = "windows") {
+        BinaryType::Coff
+    } else {
+        BinaryType::Elf64LittleEndian
+    };
+    assert_eq!(binary.binary_type(), expected);
     let mut text_size = 0;
     let mut text_bytes = None;
     let mut sections = binary.sections();

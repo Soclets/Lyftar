@@ -51,6 +51,7 @@ jobs:
           echo "LYFTAR_LLVM_CONFIG=${root}/bin/llvm-config.exe" >> "$GITHUB_ENV"
           echo "LIBCLANG_PATH=${root}/bin" >> "$GITHUB_ENV"
           echo "CXX=${root}/bin/clang-cl.exe" >> "$GITHUB_ENV"
+          echo "RUSTFLAGS=-C target-feature=+crt-static" >> "$GITHUB_ENV"
           echo "${root}/bin" >> "$GITHUB_PATH"
       # The official download leaves out the static zlib, zstd and libxml2 its libraries were built against, and names them.
       - name: Install what LLVM depends on
@@ -59,13 +60,15 @@ jobs:
           "$VCPKG_INSTALLATION_ROOT/vcpkg" install zlib zstd 'libxml2[core]' --triplet x64-windows-static
           installed="$VCPKG_INSTALLATION_ROOT/installed/x64-windows-static/lib"
           ls "$installed"
-          mkdir llvm-dependencies
-          cp "$installed/zs.lib" llvm-dependencies/zs.lib
-          cp "$installed/zstd.lib" llvm-dependencies/zstd_static.lib
-          cp "$installed/libxml2.lib" llvm-dependencies/xml2s.lib
-          echo "RUSTFLAGS=-C target-feature=+crt-static -L native=$(pwd -W)/llvm-dependencies" >> "$GITHUB_ENV"
+          root="$(dirname "$LIBCLANG_PATH")"
+          cp "$installed/zs.lib" "$root/lib/zs.lib"
+          cp "$installed/zstd.lib" "$root/lib/zstd_static.lib"
+          cp "$installed/libxml2.lib" "$root/lib/xml2s.lib"
       - run: cargo build --all-targets
-      - run: cargo test --no-fail-fast
+      - run: cargo test --no-fail-fast -- --skip as_a_plugin
+      # This LLVM is built with plugins off, and one of these hung for 50 minutes. They stay here, failing, until that's decided.
+      - run: cargo test --test kayo_passes as_a_plugin
+        timeout-minutes: 5
 
   macos-bindings:
     runs-on: macos-15
