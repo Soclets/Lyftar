@@ -107,3 +107,9 @@ session, and evnetually Lyftar's impl session". (Owner, 2026-11-05)
 
 **D21. Lyftar uses Verus.** Parts of Lyftar are proven with Verus. Which parts is not settled here. Cyborg's D66 left this
 to Lyftar's design session; the owner chose: "Should we have Verus? yes". (Owner, 2026-11-05)
+
+**D22. What Verus proves.** This settles what D21 left open. Verus proves Lyftar's own checks that stand between safe Rust
+and an `unsafe` LLVM call, such as the stale-entry check in erase (D11), index bounds, and matching widths (D3, D4). What
+Rust's compiler already enforces needs no proof. What an LLVM call does can only be assumed, so those assumptions are
+written down in one place, and `extern` declarations stay outside `verus!` blocks. Claude proposed it; the owner chose it:
+"yea". (Owner, 2026-11-05)
