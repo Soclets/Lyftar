@@ -1,5 +1,8 @@
 //! `clang-format` in LLVM's style and `clang-tidy` with warnings as errors, on the shim (D27).
 
+// The shim's checks use Homebrew's LLVM on this Mac (D25). Other platforms are not settled.
+#![cfg(target_os = "macos")]
+
 use std::path::PathBuf;
 use std::process::Command;
 

@@ -20,10 +20,12 @@ pub struct Dynamic;
 
 /// A width in bits (D6, D7), as in `Integer<Bits<64>>`.
 #[derive(Clone, Copy, Debug)]
+// trace: D6
 pub struct Bits<const N: u32>;
 
 /// An integer type: `Integer<Bits<64>>` when the width is known, and `Integer` (of [`Dynamic`] width) when it isn't.
 #[derive(Clone, Copy, Debug)]
+// trace: D7
 pub struct Integer<Width = Dynamic>(PhantomData<fn() -> Width>);
 
 /// A floating-point type, which says its format, as in `Float<Ieee754Binary<Bits<64>>>` (D9).

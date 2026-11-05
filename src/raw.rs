@@ -3,7 +3,7 @@
 //! Using them directly can break what the safe API promises, which is why every call here is `unsafe` (D15).
 //! macOS uses the committed file and every other platform generates its own during the build (D13, D14).
 
-// trace: D15
+// trace: D14, D15
 #![allow(missing_docs, non_camel_case_types, non_snake_case, non_upper_case_globals)]
 #![allow(clippy::all, clippy::pedantic)]
 

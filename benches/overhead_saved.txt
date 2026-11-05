@@ -1,0 +1,8 @@
+integer_add, specific	6.1
+integer_add, dynamic	10.1
+integer_compare, specific	5.3
+load, specific	3.0
+store, specific	4.0
+get_element_pointer	8.1
+call, two arguments	9.4
+branch into a new block	4.2

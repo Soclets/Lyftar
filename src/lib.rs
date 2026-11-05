@@ -10,6 +10,11 @@
 // Every getter would carry it, with no real risk of a mistake here.
 #![allow(clippy::must_use_candidate)]
 
+// trace: D16
+// One crate, whose modules follow how LLVM divides its C API.
+//
+// trace: D5, D8
+// Every public name is in full words, and every number says its unit.
 pub mod attributes;
 mod bad_call;
 pub mod bitcode;
@@ -63,3 +68,8 @@ pub(crate) fn abort_on_panic<R>(body: impl FnOnce() -> R) -> R {
         Err(_) => std::process::abort(),
     }
 }
+
+/// The README's Rust compiles, so it can't drift from the API.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeExamples;

@@ -4,6 +4,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+// trace: D2
 const LLVM_MAJOR: &str = "23";
 
 #[cfg(not(target_os = "macos"))]
@@ -17,7 +18,7 @@ fn main() -> Result<(), String> {
     println!("cargo:rerun-if-env-changed=LYFTAR_SANITIZE");
 
     let llvm_config = find_llvm_config()?;
-    // trace: D13
+    // trace: D2, D13
     let version = run(&llvm_config, &["--version"])?;
     if version.split('.').next() != Some(LLVM_MAJOR) {
         return Err(format!("Lyftar supports LLVM {LLVM_MAJOR} only, and {} is LLVM {version}", llvm_config.display()));
@@ -26,8 +27,11 @@ fn main() -> Result<(), String> {
     let library_directory = run(&llvm_config, &["--libdir"])?;
     println!("cargo:rustc-link-search=native={library_directory}");
     for library in run(&llvm_config, &["--link-shared", "--libs"])?.split_whitespace() {
-        let name =
-            library.strip_prefix("-l").ok_or_else(|| format!("unexpected library from llvm-config: {library}"))?;
+        // `-lLLVM` on Unix, and `LLVM-C.lib` on Windows.
+        let name = library
+            .strip_prefix("-l")
+            .or_else(|| library.strip_suffix(".lib"))
+            .ok_or_else(|| format!("unexpected library from llvm-config: {library}"))?;
         println!("cargo:rustc-link-lib=dylib={name}");
     }
     // LLVM keeps the C API of `lto.h` in a library of its own.

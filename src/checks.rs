@@ -12,6 +12,7 @@
     clippy::cast_lossless
 )]
 
+// trace: D21
 #[cfg(verus_keep_ghost)]
 use vstd::prelude::*;
 

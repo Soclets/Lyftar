@@ -1,6 +1,9 @@
 //! A program built with Lyftar, optimized, emitted as an object file, linked by the system's linker and run (the JIT's run is
 //! in `decision_10_jit.rs`).
 
+// Linking this way needs a Unix `cc`.
+#![cfg(unix)]
+
 use std::process::Command;
 
 use lyftar::enums::IntegerPredicate;

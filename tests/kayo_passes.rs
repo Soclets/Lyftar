@@ -286,7 +286,7 @@ fn plugin_path() -> std::path::PathBuf {
     let mut path = std::env::current_exe().expect("this test's path");
     path.pop();
     path.pop();
-    path.join("examples/libkayo_passes_plugin.dylib")
+    path.join(format!("examples/{}kayo_passes_plugin{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX))
 }
 
 fn opt_with_plugin(pipeline: &str, input: &str) -> String {
@@ -294,7 +294,11 @@ fn opt_with_plugin(pipeline: &str, input: &str) -> String {
     std::fs::create_dir_all(&directory).expect("a temporary directory");
     let input_path = directory.join("in.ll");
     std::fs::write(&input_path, input).expect("writing the IR");
-    let output = Command::new("/opt/homebrew/opt/llvm/bin/opt")
+    let opt = std::env::var_os("LYFTAR_LLVM_CONFIG").map_or_else(
+        || std::path::PathBuf::from("/opt/homebrew/opt/llvm/bin/opt"),
+        |config| std::path::Path::new(&config).with_file_name("opt"),
+    );
+    let output = Command::new(opt)
         .arg(format!("-load-pass-plugin={}", plugin_path().display()))
         .arg(format!("-passes={pipeline}"))
         .arg("-S")

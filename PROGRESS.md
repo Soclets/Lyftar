@@ -15,10 +15,20 @@ casts are unchecked in a release build, a `uses()` on a context constant reaches
 metadata node when an operand changes, `DbgRecord::print` crashes on a record in a block with no terminator, and
 `AtomicOrdering` and friends fall into `llvm_unreachable` on a value they do not know.
 
+Found by the positive tests: erase called a phi entry from a block in its own list a blocker; the alias analysis text dangled,
+since LLVM keeps the pointer; `LTOModule` keeps a reference to its bytes, and modules from another `libLTO` context could be
+added to a generator. `ASSUMPTIONS.md` holds what these rest on.
+
 ## Waiting on design claude
 
-Spelling of: `Byte<Bits<N>>`, pointer address spaces, specific arrays/vectors/structs, function signatures. All of these
-work through dynamic `Type`/`Value` until answered.
+- Spelling of: `Byte<Bits<N>>`, pointer address spaces, specific arrays/vectors/structs, function signatures. All of these
+  work through dynamic `Type`/`Value` until answered.
+- `replace_all_uses_with` takes a shared borrow, and LLVM would delete constants that use the value, or metadata around it, in
+  some cases. It panics there. Whether there should be an exclusive form for those cases is the owner's call; it is unbuilt.
+
+## Untested
+
+- Linux and Windows, and `.github/workflows/ci.yml`, which has not run yet.
 
 ## kayo's passes
 

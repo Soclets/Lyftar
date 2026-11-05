@@ -1,6 +1,9 @@
 //! Inside a Rust pass, a panic aborts the compiler with its message, since the IR may be half rewritten, and no panic crosses
 //! into LLVM's C++ (D3). Each case runs in a child process, as it aborts.
 
+// Checks the signal that `abort` raises, which is how a Unix process reports it.
+#![cfg(unix)]
+
 use lyftar::module::{Module, ValueToErase};
 use lyftar::passes::{Analyses, FunctionInPass, FunctionPass, ModulePass, PassOptions, PreservedAnalyses};
 use lyftar::{Bits, Builder, Integer, with_context};

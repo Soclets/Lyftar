@@ -1,0 +1,61 @@
+# trace: D13, D14
+# Linux and Windows generate their bindings during the build; macOS checks that the committed ones are current. This workflow
+# has not been run yet, so treat a first failure here as news about the workflow as much as about the code.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  LLVM_VERSION: "23.1.2"
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install LLVM
+        run: |
+          curl -fsSL https://apt.llvm.org/llvm.sh -o llvm.sh
+          sudo bash llvm.sh 23
+          sudo apt-get install -y llvm-23-dev libclang-23-dev libpolly-23-dev libzstd-dev zlib1g-dev
+          echo "LYFTAR_LLVM_CONFIG=/usr/bin/llvm-config-23" >> "$GITHUB_ENV"
+          echo "LIBCLANG_PATH=/usr/lib/llvm-23/lib" >> "$GITHUB_ENV"
+          echo "CXX=clang++-23" >> "$GITHUB_ENV"
+      - run: cargo build --all-targets
+      - run: cargo test --no-fail-fast
+
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install LLVM
+        shell: bash
+        run: |
+          name="clang+llvm-${LLVM_VERSION}-x86_64-pc-windows-msvc"
+          curl -fsSL -o llvm.tar.xz "https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/${name}.tar.xz"
+          tar -xf llvm.tar.xz
+          root="$(pwd -W)/${name}"
+          echo "LYFTAR_LLVM_CONFIG=${root}/bin/llvm-config.exe" >> "$GITHUB_ENV"
+          echo "LIBCLANG_PATH=${root}/bin" >> "$GITHUB_ENV"
+          echo "CXX=${root}/bin/clang++.exe" >> "$GITHUB_ENV"
+          echo "${root}/bin" >> "$GITHUB_PATH"
+      - run: cargo build --all-targets
+      - run: cargo test --no-fail-fast
+
+  macos-bindings:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: brew install llvm
+      - name: The committed bindings are current
+        run: |
+          prefix="$(brew --prefix llvm)"
+          LIBCLANG_PATH="$prefix/lib" cargo run --manifest-path tools/bindings/Cargo.toml -- "$prefix/include" src/raw/macos.rs
+          git diff --exit-code src/raw/macos.rs
+      - run: cargo test --no-fail-fast -- --skip decision_22_verus_proves_the_checks

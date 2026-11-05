@@ -1,3 +1,4 @@
+// trace: D12, D13
 // Regenerates the committed macOS bindings when LLVM moves (D13):
 //   cargo run --manifest-path tools/bindings/Cargo.toml -- <llvm include directory> src/raw/macos.rs
 
