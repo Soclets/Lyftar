@@ -161,3 +161,9 @@ proposed it; the owner chose it: "yea". (Owner, 2026-11-05)
 `{ i32, ptr }` is `Struct<(Integer<Bits<32>>, Pointer)>`, and `<{ i32, i32 }>` is
 `PackedStruct<(Integer<Bits<32>>, Integer<Bits<32>>)>`. A named struct stays `Dynamic`, since it can refer to itself and its
 body can come later. Lyftar impl asked; Claude proposed it; the owner chose it: "yea". (Owner, 2026-11-05)
+
+**D33. Specific function signatures.** A known signature is `Function<R, (A, B)>`, such as
+`Function<Integer<Bits<32>>, (Integer<Bits<32>>, Pointer)>` and `Function<Void, ()>`, so a call's arguments and result are
+checked at `cargo build`. Plain `Function` is dynamic. Specific calls go up to a fixed number of arguments, and longer ones
+use the dynamic form. A variadic function is `VariadicFunction<R, (A, B)>`, where only the fixed arguments are checked.
+Lyftar impl asked; Claude proposed it; the owner chose it: "yea". (Owner, 2026-11-05)
