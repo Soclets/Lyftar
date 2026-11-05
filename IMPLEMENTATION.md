@@ -26,6 +26,8 @@ changes, `DECISIONS.md` gets a new entry and this file is updated to match. Noth
    contract at the top, and Rust wraps each one once, in a safe function that checks it too. A Rust panic
    never crosses into C++. Banned: raw `new` and `delete`, C-style casts, `reinterpret_cast`, unions, pointer arithmetic,
    uninitialised variables, `goto` and variadic functions, except where LLVM's own API requires one, with a comment saying so.
+   `clang-format` in LLVM's style and `clang-tidy` with warnings as errors are required. AddressSanitizer and UBSan run as a
+   separate test run; if that goes badly, it comes back to the owner rather than being dropped. (D27)
 10. **Commits.** `kind.folder.narrowing: sentence (owner: "their words"; D1)`. Kinds: `decision`, `design`, `feature`, `fix`,
     `test`, `house`. Each commit ends with its session's trailer, such as
     `Co-Authored-By: design claude <noreply@anthropic.com>`.
@@ -61,5 +63,4 @@ A check fails on a tag that names no decision, and lists the decisions nothing t
 
 ## Not decided yet
 
-- Whether C++ runs under sanitizers, and `clang-tidy` and `clang-format`.
 - The build session's name, whether it works in its own clone, and when anything is pushed.

@@ -135,3 +135,8 @@ the owner chose: "Nah, thought again. Probably too impractical". (Owner, 2026-11
 **D26. Three cores per session.** Each Lyftar session uses at most 3 cores at once, for builds, tests and anything it starts.
 This replaces the "no limit" rule inherited from Cyborg. The owner asked for "a core limit, like 3"; Claude asked whether
 that was the rule for every session; the owner chose: "yea, each". (Owner, 2026-11-05)
+
+**D27. Checks on the C++.** `clang-format` in LLVM's style and `clang-tidy` with warnings as errors are required on the shim.
+AddressSanitizer and UBSan run as a separate test run, not in everyday `cargo test`. ThreadSanitizer is left out, since a
+context lives on one thread. Getting the sanitizers working is untested; if it goes badly, it comes back to the owner rather
+than being dropped. Claude proposed it, from Radium's C++ rule; the owner chose it: "yea". (Owner, 2026-11-05)
