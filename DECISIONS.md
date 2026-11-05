@@ -104,3 +104,6 @@ rather than the date in y/m/d order is Claude's. (Owner, 2026-11-05)
 implementation session included. The hook is copied from Cyborg's, which took the idea from TAKL. The rules themselves
 are not settled here. Claude reported the idea from Cyborg's design session; the owner chose it: "Add the hook for this
 session, and evnetually Lyftar's impl session". (Owner, 2026-11-05)
+
+**D21. Lyftar uses Verus.** Parts of Lyftar are proven with Verus. Which parts is not settled here. Cyborg's D66 left this
+to Lyftar's design session; the owner chose: "Should we have Verus? yes". (Owner, 2026-11-05)
