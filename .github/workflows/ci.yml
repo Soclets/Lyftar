@@ -60,7 +60,7 @@ jobs:
           installed="$VCPKG_INSTALLATION_ROOT/installed/x64-windows-static/lib"
           ls "$installed"
           mkdir llvm-dependencies
-          cp "$installed/zlib.lib" llvm-dependencies/zs.lib
+          cp "$installed/zs.lib" llvm-dependencies/zs.lib
           cp "$installed/zstd.lib" llvm-dependencies/zstd_static.lib
           cp "$installed/libxml2.lib" llvm-dependencies/xml2s.lib
           echo "RUSTFLAGS=-C target-feature=+crt-static -L native=$(pwd -W)/llvm-dependencies" >> "$GITHUB_ENV"
