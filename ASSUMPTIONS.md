@@ -8,6 +8,8 @@ If one turns out false, the safety promise named beside it falls with it.
 
 - **LLVM uniques types in a context.** Two values have the same type exactly when their type pointers are equal, so
   `same_identity` on pointers is enough for matching widths and types (D3, D4). `Type.h` says so.
+- **LLVM uniques literal structs, arrays, vectors and function types as well**, so a specific marker can be compared by
+  pointer with the type LLVM gives for it, and a named struct is never that pointer (D32, D33).
 - **Types and metadata strings last as long as their context** (D10, D11).
 - **A value's kind doesn't change.** A checked cast stays true for as long as the value lives (D4).
 

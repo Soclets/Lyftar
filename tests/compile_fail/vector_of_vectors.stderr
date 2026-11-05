@@ -1,0 +1,28 @@
+error[E0277]: the trait bound `lyftar::Vector<lyftar::Integer<lyftar::Bits<32>>, lyftar::Elements<2>>: VectorElementType` is not satisfied
+  --> tests/compile_fail/vector_of_vectors.rs:15:36
+   |
+15 |         let _ = context.get_type::<Vector<Vector<I32, Elements<2>>, Elements<2>>>();
+   |                         --------   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `VectorElementType` is not implemented for `lyftar::Vector<lyftar::Integer<lyftar::Bits<32>>, lyftar::Elements<2>>`
+   |                         |
+   |                         required by a bound introduced by this call
+   |
+help: the following other types implement trait `VectorElementType`
+  --> src/types.rs
+   |
+   | impl<const N: u32> VectorElementType for Integer<Bits<N>> {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `lyftar::Integer<lyftar::Bits<N>>`
+...
+   | impl<const N: u32> VectorElementType for Byte<Bits<N>> {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `lyftar::Byte<lyftar::Bits<N>>`
+...
+   | impl<F: FloatFormat> VectorElementType for Float<F> {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `lyftar::Float<F>`
+...
+   | impl<const N: u32> VectorElementType for Pointer<AddressSpace<N>> {}
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `lyftar::Pointer<AddressSpace<N>>`
+   = note: required for `lyftar::Vector<lyftar::Vector<lyftar::Integer<lyftar::Bits<32>>, lyftar::Elements<2>>, lyftar::Elements<2>>` to implement `SpecificType`
+note: required by a bound in `types::<impl lyftar::Context<'context>>::get_type`
+  --> src/types.rs
+   |
+   |     pub fn get_type<T: SpecificType>(self) -> Type<'context, T> {
+   |                        ^^^^^^^^^^^^ required by this bound in `types::<impl Context<'context>>::get_type`

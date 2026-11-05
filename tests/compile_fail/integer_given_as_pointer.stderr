@@ -2,21 +2,32 @@ error[E0277]: the trait bound `lyftar::Integer<lyftar::Bits<64>>: PointerOperand
   --> tests/compile_fail/integer_given_as_pointer.rs:23:40
    |
 23 |         let _ = builder.load(i64_type, i64_type.constant_integer(1, false), "");
-   |                         ----           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `PointerOperand` is not implemented for `lyftar::Integer<lyftar::Bits<64>>`
+   |                         ----           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `FunctionMarker` is not implemented for `lyftar::Integer<lyftar::Bits<64>>`
    |                         |
    |                         required by a bound introduced by this call
    |
-   = help: the following other types implement trait `PointerOperand`:
-             GlobalObject
-             GlobalValue
-             StackAllocationInstruction
-             lyftar::Dynamic
-             lyftar::Function
-             lyftar::Pointer<AddressSpace<N>>
-             lyftar::values::GlobalAlias
-             lyftar::values::GlobalVariable
+help: the following other types implement trait `FunctionMarker`
+  --> src/values.rs
+   |
+   |         impl<$($generics)*> FunctionMarker for $marker {}
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |         |
+   |         `VariadicFunction<R, P>`
+   |         `lyftar::Function`
+   |         `lyftar::Function<R, P>`
+...
+   | function_marker!([] Function);
+   | ----------------------------- in this macro invocation
+...
+   | function_marker!([R: ReturnType, P: TypeTuple] Function<R, P>);
+   | -------------------------------------------------------------- in this macro invocation
+...
+   | function_marker!([R: ReturnType, P: TypeTuple] VariadicFunction<R, P>);
+   | ---------------------------------------------------------------------- in this macro invocation
+   = note: required for `lyftar::Integer<lyftar::Bits<64>>` to implement `PointerOperand`
 note: required by a bound in `lyftar::Builder::<'context, 'module>::load`
   --> src/builder.rs
    |
    |     pub fn load<T: TypeMarker, P: PointerOperand>(
    |                                   ^^^^^^^^^^^^^^ required by this bound in `Builder::<'context, 'module>::load`
+   = note: this error originates in the macro `function_marker` (in Nightly builds, run with -Z macro-backtrace for more info)

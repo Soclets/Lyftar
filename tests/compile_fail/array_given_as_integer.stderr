@@ -1,0 +1,28 @@
+error[E0277]: the trait bound `lyftar::Array<lyftar::Integer<lyftar::Bits<32>>, lyftar::Elements<2>>: IntegerOperand` is not satisfied
+  --> tests/compile_fail/array_given_as_integer.rs:22:25
+   |
+22 |         let _ = builder.integer_add(array, array, "");
+   |                         ^^^^^^^^^^^ the trait `IntegerOperand` is not implemented for `lyftar::Array<lyftar::Integer<lyftar::Bits<32>>, lyftar::Elements<2>>`
+   |
+   = help: the following other types implement trait `IntegerOperand`:
+             lyftar::Dynamic
+             lyftar::Integer
+             lyftar::Integer<lyftar::Bits<N>>
+             lyftar::ScalableVector<E, MinimumElements<N>>
+             lyftar::Vector<E, lyftar::Elements<N>>
+note: required by a bound in `lyftar::Builder::<'context, 'module>::integer_add`
+  --> src/builder.rs
+   |
+   |               pub fn $name<T: IntegerOperand>(
+   |                               ^^^^^^^^^^^^^^ required by this bound in `Builder::<'context, 'module>::integer_add`
+...
+   | /     integer_binary! {
+   | |         /// Adds two integers, wrapping on overflow.
+   | |         integer_add = LLVMBuildAdd;
+   | |         ----------- required by a bound in this associated function
+   | |         /// Adds two integers, promising no signed wrap.
+...  |
+   | |         exclusive_or = LLVMBuildXor;
+   | |     }
+   | |_____- in this macro invocation
+   = note: this error originates in the macro `integer_binary` (in Nightly builds, run with -Z macro-backtrace for more info)

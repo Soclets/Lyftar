@@ -15,7 +15,7 @@ use crate::module::Module;
 use crate::raw;
 use crate::shim;
 use crate::text::{from_owned_message, from_pointer_and_length};
-use crate::types::{Dynamic, Invariant, Sealed, Type, TypeMarker};
+use crate::types::{Dynamic, Invariant, ReturnType, Sealed, Type, TypeMarker, TypeTuple, length_as_u32};
 
 /// A value: as specific as the code knows (D4), belonging to its context (invariant, D10) and borrowing its module
 /// (covariant, D11), so that holding one across a delete or a pass run doesn't compile and constants, which belong to
@@ -95,6 +95,104 @@ pub trait AtomicMarker: InstructionMarker {}
 /// A terminator.
 pub trait TerminatorMarker: InstructionMarker {}
 
+/// A function, as a value (D4, D35). Its LLVM type is a pointer, in the address space the target says (D31).
+///
+/// Plain `Function` is dynamic. A known signature is `Function<R, (A, B)>`, as in `Function<Void, ()>`, so a call's arguments
+/// and result are checked at `cargo build`, up to 12 arguments; longer ones use the dynamic form (D33).
+#[derive(Clone, Copy, Debug)]
+// trace: D33
+pub struct Function<Result = Dynamic, Parameters = Dynamic>(PhantomData<fn() -> (Result, Parameters)>);
+
+/// A variadic function with a known signature, `VariadicFunction<R, (A, B)>`, where only the fixed arguments are checked
+/// at `cargo build` (D33).
+#[derive(Clone, Copy, Debug)]
+pub struct VariadicFunction<Result, Parameters>(PhantomData<fn() -> (Result, Parameters)>);
+
+/// What says a value is a function: [`Function`] and [`VariadicFunction`].
+pub trait FunctionMarker: GlobalObjectMarker + AlignedMarker {}
+
+/// A function whose signature is written into the Rust code, for [`Module::add_specific_function`](crate::Module::add_specific_function).
+pub trait SpecificFunction: FunctionMarker {
+    #[doc(hidden)]
+    fn raw_function_type(context: Context<'_>) -> raw::LLVMTypeRef;
+}
+
+/// Whether `raw` is a function of the type `T` says.
+///
+/// # Safety
+/// `raw` must be a live LLVM value.
+unsafe fn is_function_of<T: SpecificFunction>(raw: raw::LLVMValueRef) -> bool {
+    // SAFETY: the caller promises a live value, and the type of a function is live with it. LLVM uniques function types.
+    unsafe {
+        if raw::LLVMIsAFunction(raw).is_null() {
+            return false;
+        }
+        let own_type = raw::LLVMGlobalGetValueType(raw);
+        own_type == T::raw_function_type(Context::from_raw(raw::LLVMGetTypeContext(own_type)))
+    }
+}
+
+/// Gives a function marker what every function marker has.
+macro_rules! function_marker {
+    ([$($generics:tt)*] $marker:ty) => {
+        impl<$($generics)*> UserMarker for $marker {}
+        impl<$($generics)*> ConstantMarker for $marker {}
+        impl<$($generics)*> GlobalValueMarker for $marker {}
+        impl<$($generics)*> GlobalObjectMarker for $marker {}
+        impl<$($generics)*> AlignedMarker for $marker {}
+        impl<$($generics)*> FunctionMarker for $marker {}
+    };
+}
+
+impl Sealed for Function {}
+impl ValueMarker for Function {
+    type LlvmType = Dynamic;
+    unsafe fn accepts_value(raw: raw::LLVMValueRef) -> bool {
+        // SAFETY: the caller promises a live value.
+        unsafe { !raw::LLVMIsAFunction(raw).is_null() }
+    }
+}
+function_marker!([] Function);
+
+/// The function type for a return type and parameters.
+fn raw_function_type<R: ReturnType, P: TypeTuple>(context: Context<'_>, is_variadic: bool) -> raw::LLVMTypeRef {
+    let parameters = P::raw_types(context);
+    let parameters = parameters.as_ref();
+    let count = length_as_u32(parameters.len(), "add_specific_function");
+    // SAFETY: the bounds on the markers make each type valid here, and LLVM only reads the parameters.
+    unsafe { raw::LLVMFunctionType(R::get_raw(context), parameters.as_ptr().cast_mut(), count, i32::from(is_variadic)) }
+}
+
+impl<R: ReturnType, P: TypeTuple> Sealed for Function<R, P> {}
+impl<R: ReturnType, P: TypeTuple> ValueMarker for Function<R, P> {
+    type LlvmType = Dynamic;
+    unsafe fn accepts_value(raw: raw::LLVMValueRef) -> bool {
+        // SAFETY: the caller promises a live value.
+        unsafe { is_function_of::<Self>(raw) }
+    }
+}
+function_marker!([R: ReturnType, P: TypeTuple] Function<R, P>);
+impl<R: ReturnType, P: TypeTuple> SpecificFunction for Function<R, P> {
+    fn raw_function_type(context: Context<'_>) -> raw::LLVMTypeRef {
+        raw_function_type::<R, P>(context, false)
+    }
+}
+
+impl<R: ReturnType, P: TypeTuple> Sealed for VariadicFunction<R, P> {}
+impl<R: ReturnType, P: TypeTuple> ValueMarker for VariadicFunction<R, P> {
+    type LlvmType = Dynamic;
+    unsafe fn accepts_value(raw: raw::LLVMValueRef) -> bool {
+        // SAFETY: the caller promises a live value.
+        unsafe { is_function_of::<Self>(raw) }
+    }
+}
+function_marker!([R: ReturnType, P: TypeTuple] VariadicFunction<R, P>);
+impl<R: ReturnType, P: TypeTuple> SpecificFunction for VariadicFunction<R, P> {
+    fn raw_function_type(context: Context<'_>) -> raw::LLVMTypeRef {
+        raw_function_type::<R, P>(context, true)
+    }
+}
+
 /// Declares the markers for LLVM's value classes, one per `LLVMIsA*` (D4), each spelled out (D5).
 macro_rules! value_markers {
     ($($(#[$meta:meta])* $name:ident = $is_a:ident as $llvm_type:ty : [$($marker:ident),*];)*) => {
@@ -162,9 +260,6 @@ value_markers! {
     GlobalAlias = LLVMIsAGlobalAlias as Dynamic: [UserMarker, ConstantMarker, GlobalValueMarker];
     /// Any global object.
     GlobalObject = LLVMIsAGlobalObject as Dynamic:
-        [UserMarker, ConstantMarker, GlobalValueMarker, GlobalObjectMarker, AlignedMarker];
-    /// A function. It is a value (D4), and its LLVM type is a pointer, in the address space the target says (D31).
-    Function = LLVMIsAFunction as Dynamic:
         [UserMarker, ConstantMarker, GlobalValueMarker, GlobalObjectMarker, AlignedMarker];
     /// A global variable.
     GlobalVariable = LLVMIsAGlobalVariable as Dynamic:

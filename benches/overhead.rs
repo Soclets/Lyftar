@@ -10,8 +10,9 @@ use std::time::Instant;
 
 use lyftar::enums::IntegerPredicate;
 use lyftar::raw;
-use lyftar::values::Function;
-use lyftar::{BasicBlock, Bits, Builder, Context, Dynamic, Integer, Module, Pointer, Type, Value, with_context};
+use lyftar::{
+    BasicBlock, Bits, Builder, Context, Dynamic, Function, Integer, Module, Pointer, Type, Value, with_context,
+};
 
 type I64 = Integer<Bits<64>>;
 
@@ -29,13 +30,14 @@ struct Scene<'context, 'module> {
     right: Value<'context, 'module, I64>,
     pointer: Value<'context, 'module, Pointer>,
     callee: Value<'context, 'module, Function>,
+    specific_callee: Value<'context, 'module, Function<I64, (I64, I64)>>,
     function: raw::LLVMValueRef,
 }
 
 type Step = for<'context, 'module> fn(&Scene<'context, 'module>);
 
 // SAFETY for every raw call below: the scene's values and builder are live, and the operands are what LLVM requires.
-const ROWS: [(&str, Step, Step); 8] = [
+const ROWS: [(&str, Step, Step); 9] = [
     (
         "integer_add, specific",
         |scene| unsafe {
@@ -129,6 +131,24 @@ const ROWS: [(&str, Step, Step); 8] = [
         },
     ),
     (
+        "call, two arguments, specific",
+        |scene| unsafe {
+            let function_type = raw::LLVMGlobalGetValueType(scene.specific_callee.as_raw());
+            let mut arguments = [scene.left.as_raw(), scene.right.as_raw()];
+            black_box(raw::LLVMBuildCall2(
+                scene.raw_builder,
+                function_type,
+                scene.specific_callee.as_raw(),
+                arguments.as_mut_ptr(),
+                2,
+                EMPTY,
+            ));
+        },
+        |scene| {
+            black_box(scene.builder.call(scene.specific_callee, (scene.left, scene.right), ""));
+        },
+    ),
+    (
         "branch into a new block",
         |scene| unsafe {
             let next = raw::LLVMAppendBasicBlockInContext(scene.context.as_raw(), scene.function, EMPTY);
@@ -155,6 +175,7 @@ fn best_nanoseconds_per_call(step: Step) -> f64 {
             let pointer_type = context.pointer_type(0).to_dynamic();
             let callee_type = context.function_type(i64_type, &[i64_type, i64_type], false);
             let callee = module.add_function("callee", callee_type);
+            let specific_callee = module.add_specific_function::<Function<I64, (I64, I64)>>("specific_callee");
             let function_type = context.function_type(i64_type, &[i64_type, i64_type, pointer_type], false);
             let function = module.add_function("function", function_type);
             let entry = function.append_basic_block("entry");
@@ -172,6 +193,7 @@ fn best_nanoseconds_per_call(step: Step) -> f64 {
                 right,
                 pointer,
                 callee,
+                specific_callee,
                 // SAFETY: only read here, and the function outlives the scene.
                 function: unsafe { function.as_raw() },
             };

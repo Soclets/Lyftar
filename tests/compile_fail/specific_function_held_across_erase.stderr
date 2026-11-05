@@ -1,0 +1,10 @@
+error[E0502]: cannot borrow `module` as mutable because it is also borrowed as immutable
+  --> tests/compile_fail/specific_function_held_across_erase.rs:18:9
+   |
+16 |         let function = module.add_specific_function::<Function<Void, ()>>("f");
+   |                        ------ immutable borrow occurs here
+17 |         let entry = module.value_to_erase(function);
+18 |         module.erase(&[entry]);
+   |         ^^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
+19 |         let _ = function.as_function();
+   |                 -------- immutable borrow later used here

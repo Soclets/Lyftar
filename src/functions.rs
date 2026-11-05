@@ -15,7 +15,7 @@ use crate::text::{c_string, from_borrowed, from_pointer_and_length};
 use crate::types::{Dynamic, Invariant, Type, check_address_space, length_as_u32};
 use crate::values::{
     Argument, Constant, Function, GlobalAlias, GlobalIndirectFunction, GlobalObjectMarker, GlobalValueMarker,
-    GlobalVariable, Value,
+    GlobalVariable, SpecificFunction, Value, VariadicFunction,
 };
 
 /// A calling convention: one of the named ones here, or `CallingConvention(n)` for LLVM's number `n`.
@@ -389,6 +389,22 @@ impl<'context> Module<'context> {
         global_type: Type<'context, T>,
     ) -> Value<'context, 'module, GlobalVariable> {
         self.add_global_in_address_space(name, global_type, 0)
+    }
+
+    // trace: D33
+    /// Adds a function whose signature is written into the Rust code, as in
+    /// `add_specific_function::<Function<Void, (Pointer,)>>("name")`, so calls to it are checked at `cargo build`.
+    ///
+    /// # Panics
+    /// If `name` has a NUL byte inside it (D3).
+    #[track_caller]
+    pub fn add_specific_function<'module, F: SpecificFunction>(
+        &'module self,
+        name: &str,
+    ) -> Value<'context, 'module, F> {
+        let name = c_string(name, "add_specific_function");
+        // SAFETY: the module is live, its context gives the type, and `name` is a valid C string for the call.
+        unsafe { Value::from_raw(raw::LLVMAddFunction(self.raw, name.as_ptr(), F::raw_function_type(self.context()))) }
     }
 
     /// Adds a global variable in an address space.
@@ -831,7 +847,24 @@ impl<'context, 'module> Iterator for FunctionInstructions<'context, 'module> {
     }
 }
 
-impl<'context, 'module> Value<'context, 'module, Function> {
+impl<'context, 'module, R, P> Value<'context, 'module, VariadicFunction<R, P>> {
+    /// This function as a plain, dynamic one, which every function is. Nothing needs checking. It is the way to everything
+    /// else a function has.
+    #[must_use]
+    pub fn as_function(self) -> Value<'context, 'module, Function> {
+        // SAFETY: the marker guarantees a function.
+        unsafe { Value::from_raw(self.raw) }
+    }
+}
+
+impl<'context, 'module, R, P> Value<'context, 'module, Function<R, P>> {
+    /// This function as a plain, dynamic one, which every function is. Nothing needs checking.
+    #[must_use]
+    pub fn as_function(self) -> Value<'context, 'module, Function> {
+        // SAFETY: the marker guarantees a function.
+        unsafe { Value::from_raw(self.raw) }
+    }
+
     /// Adds a new block at the end of this function.
     ///
     /// # Panics

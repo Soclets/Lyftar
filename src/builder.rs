@@ -17,16 +17,16 @@ use crate::raw;
 use crate::shim;
 use crate::text::c_string;
 use crate::types::{
-    AddressSpace, Bits, Dynamic, Float, FloatFormat, Integer, Invariant, Pointer, Type, TypeMarker, is_float_kind,
-    length_as_u32,
+    AddressSpace, Bits, Dynamic, Elements, FirstClassType, Float, FloatFormat, Integer, Invariant, MinimumElements,
+    Pointer, ReturnType, ScalableVector, Type, TypeMarker, Vector, VectorElementType, is_float_kind, length_as_u32,
 };
 use crate::values::{
     AtomicCompareExchangeInstruction, AtomicReadModifyWriteInstruction, CallBranchInstruction, CallInstruction,
     CatchPadInstruction, CatchReturnInstruction, CatchSwitchInstruction, CleanupPadInstruction,
-    CleanupReturnInstruction, ConditionalBranchInstruction, FenceInstruction, Function, GlobalAlias, GlobalObject,
-    GlobalValue, GlobalVariable, IndirectBranchInstruction, InstructionMarker, InvokeInstruction,
+    CleanupReturnInstruction, ConditionalBranchInstruction, FenceInstruction, Function, FunctionMarker, GlobalAlias,
+    GlobalObject, GlobalValue, GlobalVariable, IndirectBranchInstruction, InstructionMarker, InvokeInstruction,
     LandingPadInstruction, PhiNode, ResumeInstruction, ReturnInstruction, StackAllocationInstruction, StoreInstruction,
-    SwitchInstruction, UnconditionalBranchInstruction, UnreachableInstruction, Value, ValueMarker,
+    SwitchInstruction, UnconditionalBranchInstruction, UnreachableInstruction, Value, ValueMarker, VariadicFunction,
 };
 
 /// Builds instructions. It only exists placed in a block, so an unset position can't happen (D3).
@@ -153,6 +153,32 @@ impl IntegerOperand for Dynamic {
     }
 }
 
+/// Declares a vector of specific elements as an operand: the marker says its whole type, so nothing is left to check (D24).
+/// Its width stays `None`, so a cast to or from one is checked when the line runs, against the other type's shape.
+macro_rules! vector_operands {
+    ($vector:ident, $count:ident, $count_type:ty) => {
+        impl<E: VectorElementType + IntegerOperand, const N: $count_type> IntegerOperand for $vector<E, $count<N>> {
+            type Comparison = $vector<Integer<Bits<1>>, $count<N>>;
+            const WIDTH_IN_BITS: Option<u32> = None;
+            #[inline(always)]
+            fn check_one(_operation: &str, _value: Value<'_, '_>) {}
+            #[inline(always)]
+            fn check_pair(_operation: &str, _left: Value<'_, '_>, _right: Value<'_, '_>) {}
+        }
+        impl<E: VectorElementType + FloatOperand, const N: $count_type> FloatOperand for $vector<E, $count<N>> {
+            type Comparison = $vector<Integer<Bits<1>>, $count<N>>;
+            const SIZE_IN_BITS: Option<u32> = None;
+            #[inline(always)]
+            fn check_one(_operation: &str, _value: Value<'_, '_>) {}
+            #[inline(always)]
+            fn check_pair(_operation: &str, _left: Value<'_, '_>, _right: Value<'_, '_>) {}
+        }
+    };
+}
+// trace: D32, D24
+vector_operands!(Vector, Elements, u64);
+vector_operands!(ScalableVector, MinimumElements, u32);
+
 /// A float operand, and what a build call has to check about it when the line runs.
 pub trait FloatOperand: ValueMarker + TypeMarker {
     /// What comparing two of these gives.
@@ -242,7 +268,147 @@ macro_rules! always_a_pointer {
         })*
     };
 }
-always_a_pointer!(Function, GlobalVariable, GlobalAlias, GlobalValue, GlobalObject, StackAllocationInstruction);
+always_a_pointer!(GlobalVariable, GlobalAlias, GlobalValue, GlobalObject, StackAllocationInstruction);
+
+impl<F: FunctionMarker> PointerOperand for F {
+    type GetElementPointerResult = Dynamic;
+    const IS_DYNAMIC: bool = false;
+    // trace: D24
+    #[inline(always)]
+    fn check_pointer(_operation: &str, _value: Value<'_, '_>) {}
+    #[inline(always)]
+    fn check_pointer_or_vector(_operation: &str, _value: Value<'_, '_>) {}
+}
+
+// trace: D33
+/// A function [`Builder::call`] can call with `Arguments`. The dynamic [`Function`] takes a slice of values, checked when the
+/// line runs. A specific one takes a tuple of them, checked at `cargo build`, up to 12. A [`VariadicFunction`] takes that
+/// tuple and then a slice of the rest, as in `((format,), &[value])`, where only the tuple is checked.
+pub trait CallTarget<'context, 'module, Arguments>: FunctionMarker {
+    /// What the call gives: the result's marker for a specific function, and the call itself for the dynamic one.
+    type Output: ValueMarker;
+    #[doc(hidden)]
+    type RawArguments: AsRef<[raw::LLVMValueRef]>;
+    /// Whether `cargo build` has checked the arguments against the function's type.
+    #[doc(hidden)]
+    const TYPES_ARE_CHECKED: bool;
+    #[doc(hidden)]
+    fn raw_arguments(arguments: Arguments) -> Self::RawArguments;
+}
+
+fn raw_values<'slice, A>(values: &'slice [Value<'_, '_, A>]) -> &'slice [raw::LLVMValueRef] {
+    // SAFETY: `Value` has the layout of `LLVMValueRef`, and this keeps the slice's length and borrow.
+    unsafe { std::slice::from_raw_parts(values.as_ptr().cast(), values.len()) }
+}
+
+impl<'context, 'module, 'slice, A> CallTarget<'context, 'module, &'slice [Value<'context, 'module, A>]> for Function {
+    type Output = CallInstruction;
+    type RawArguments = &'slice [raw::LLVMValueRef];
+    const TYPES_ARE_CHECKED: bool = false;
+    fn raw_arguments(arguments: &'slice [Value<'context, 'module, A>]) -> Self::RawArguments {
+        raw_values(arguments)
+    }
+}
+
+impl<'context, 'module, 'slice, A, const N: usize>
+    CallTarget<'context, 'module, &'slice [Value<'context, 'module, A>; N]> for Function
+{
+    type Output = CallInstruction;
+    type RawArguments = &'slice [raw::LLVMValueRef];
+    const TYPES_ARE_CHECKED: bool = false;
+    fn raw_arguments(arguments: &'slice [Value<'context, 'module, A>; N]) -> Self::RawArguments {
+        raw_values(arguments)
+    }
+}
+
+impl<'context, 'module, 'slice, A> CallTarget<'context, 'module, &'slice Vec<Value<'context, 'module, A>>>
+    for Function
+{
+    type Output = CallInstruction;
+    type RawArguments = &'slice [raw::LLVMValueRef];
+    const TYPES_ARE_CHECKED: bool = false;
+    fn raw_arguments(arguments: &'slice Vec<Value<'context, 'module, A>>) -> Self::RawArguments {
+        raw_values(arguments)
+    }
+}
+
+/// The arguments of a variadic call, on the stack unless there are many, so a build call doesn't allocate (D24).
+#[doc(hidden)]
+pub struct RawVariadicArguments {
+    near: [raw::LLVMValueRef; 16],
+    near_count: usize,
+    far: Vec<raw::LLVMValueRef>,
+}
+
+impl AsRef<[raw::LLVMValueRef]> for RawVariadicArguments {
+    fn as_ref(&self) -> &[raw::LLVMValueRef] {
+        if self.far.is_empty() { &self.near[..self.near_count] } else { &self.far }
+    }
+}
+
+fn raw_variadic_arguments(fixed: &[raw::LLVMValueRef], rest: &[raw::LLVMValueRef]) -> RawVariadicArguments {
+    let count = fixed.len() + rest.len();
+    let mut arguments = RawVariadicArguments { near: [std::ptr::null_mut(); 16], near_count: 0, far: Vec::new() };
+    if count <= arguments.near.len() {
+        arguments.near[..fixed.len()].copy_from_slice(fixed);
+        arguments.near[fixed.len()..count].copy_from_slice(rest);
+        arguments.near_count = count;
+    } else {
+        arguments.far.reserve_exact(count);
+        arguments.far.extend_from_slice(fixed);
+        arguments.far.extend_from_slice(rest);
+    }
+    arguments
+}
+
+macro_rules! call_targets {
+    ($($count:literal: ($($name:ident),*);)*) => {
+        $(
+            impl<'context, 'module, R: ReturnType, $($name: FirstClassType),*>
+                CallTarget<'context, 'module, ($(Value<'context, 'module, $name>,)*)> for Function<R, ($($name,)*)>
+            {
+                type Output = R;
+                type RawArguments = [raw::LLVMValueRef; $count];
+                const TYPES_ARE_CHECKED: bool = true;
+                #[allow(non_snake_case, clippy::unused_unit)]
+                fn raw_arguments(arguments: ($(Value<'context, 'module, $name>,)*)) -> Self::RawArguments {
+                    let ($($name,)*) = arguments;
+                    [$($name.raw),*]
+                }
+            }
+
+            impl<'context, 'module, R: ReturnType, Rest: AsRef<[Value<'context, 'module>]>, $($name: FirstClassType),*>
+                CallTarget<'context, 'module, (($(Value<'context, 'module, $name>,)*), Rest)>
+                for VariadicFunction<R, ($($name,)*)>
+            {
+                type Output = R;
+                type RawArguments = RawVariadicArguments;
+                const TYPES_ARE_CHECKED: bool = false;
+                #[allow(non_snake_case)]
+                fn raw_arguments(arguments: (($(Value<'context, 'module, $name>,)*), Rest)) -> Self::RawArguments {
+                    let (($($name,)*), rest) = arguments;
+                    let fixed: [raw::LLVMValueRef; $count] = [$($name.raw),*];
+                    raw_variadic_arguments(&fixed, raw_values(rest.as_ref()))
+                }
+            }
+        )*
+    };
+}
+call_targets! {
+    0: ();
+    1: (A);
+    2: (A, B);
+    3: (A, B, C);
+    4: (A, B, C, D);
+    5: (A, B, C, D, E);
+    6: (A, B, C, D, E, F);
+    7: (A, B, C, D, E, F, G);
+    8: (A, B, C, D, E, F, G, H);
+    9: (A, B, C, D, E, F, G, H, I);
+    10: (A, B, C, D, E, F, G, H, I, J);
+    11: (A, B, C, D, E, F, G, H, I, J, K);
+    12: (A, B, C, D, E, F, G, H, I, J, K, L);
+}
 
 impl PointerOperand for Dynamic {
     type GetElementPointerResult = Dynamic;
@@ -1768,7 +1934,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("load");
         self.check_module("load", pointer);
         P::check_pointer("load", pointer.to_dynamic());
-        if !T::EXACT {
+        if !T::LOADABLE {
             check_loadable("load", loaded_type);
         }
         // SAFETY: the checks above are what LLVM requires.
@@ -1793,7 +1959,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_module("store", value);
         self.check_module("store", pointer);
         P::check_pointer("store", pointer.to_dynamic());
-        if !<T::LlvmType as TypeMarker>::EXACT {
+        if !<T::LlvmType as TypeMarker>::LOADABLE {
             // SAFETY: the value is live.
             check_loadable("store", unsafe { Type::<'context, Dynamic>::from_raw(raw::LLVMTypeOf(value.raw)) });
         }
@@ -1991,7 +2157,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         if !unsafe { shim::lyftar_builder_can_insert_phi(self.raw) } {
             bad_call(format_args!("phi: phis must come first in a block"));
         }
-        if !T::EXACT {
+        if !T::FIRST_CLASS {
             check_first_class("phi", phi_type);
         }
         // SAFETY: the checks above are what LLVM requires.
@@ -2029,35 +2195,47 @@ impl<'context, 'module> Builder<'context, 'module> {
         count
     }
 
-    /// Calls a function directly.
+    // trace: D33
+    /// Calls a function directly. See [`CallTarget`] for what `arguments` is: a tuple for a specific function, checked at
+    /// `cargo build`, and a slice for the dynamic one, checked here.
     ///
     /// # Panics
     /// If the arguments don't fit its type, a value belongs to another module, or the block is already terminated (D3).
     #[track_caller]
-    pub fn call<A>(
+    pub fn call<F: CallTarget<'context, 'module, Arguments>, Arguments>(
         &self,
-        function: Value<'context, 'module, Function>,
-        arguments: &[Value<'context, 'module, A>],
+        function: Value<'context, 'module, F>,
+        arguments: Arguments,
         name: &str,
-    ) -> Value<'context, 'module, CallInstruction> {
+    ) -> Value<'context, 'module, F::Output> {
         self.check_open("call");
         self.check_module("call", function);
         // SAFETY: the marker guarantees a function.
         let function_type: Type<'context> = unsafe { Type::from_raw(raw::LLVMGlobalGetValueType(function.raw)) };
-        let count = self.check_call("call", function_type, arguments);
+        let raw_arguments = F::raw_arguments(arguments);
+        let raw_arguments = raw_arguments.as_ref();
+        // SAFETY: `Value` has the layout of `LLVMValueRef`, and each of these came from a live `Value`.
+        let values: &[Value<'context, 'module>] =
+            unsafe { std::slice::from_raw_parts(raw_arguments.as_ptr().cast(), raw_arguments.len()) };
+        let count = if F::TYPES_ARE_CHECKED {
+            self.check_values_module("call", values);
+            length_as_u32(values.len(), "call")
+        } else {
+            self.check_call("call", function_type, values)
+        };
         // SAFETY: the checks above are what LLVM requires; it only reads the arguments.
         let result = unsafe {
             raw::LLVMBuildCall2(
                 self.raw,
                 function_type.raw,
                 function.raw,
-                arguments.as_ptr().cast_mut().cast(),
+                raw_arguments.as_ptr().cast_mut(),
                 count,
                 EMPTY.as_ptr(),
             )
         };
         set_name(result, name);
-        // SAFETY: LLVM just built a call, live for `'module`.
+        // SAFETY: LLVM just built a call of a function `F` describes, so it gives what `F::Output` says, live for `'module`.
         unsafe { Value::from_raw(result) }
     }
 
@@ -2187,7 +2365,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("variable_argument");
         self.check_module("variable_argument", list);
         P::check_pointer("variable_argument", list.to_dynamic());
-        if !T::EXACT {
+        if !T::FIRST_CLASS {
             check_first_class("variable_argument", argument_type);
         }
         // SAFETY: the checks above are what LLVM requires.

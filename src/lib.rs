@@ -55,10 +55,10 @@ pub use builder::Builder;
 pub use context::{Context, with_context};
 pub use module::Module;
 pub use types::{
-    AddressSpace, Bits, BrainFloat, Byte, Dynamic, Float, Ieee754Binary, Integer, Pointer, PowerPcDoubleDouble, Type,
-    X87Extended,
+    AddressSpace, Array, Bits, BrainFloat, Byte, Dynamic, Elements, Float, Ieee754Binary, Integer, MinimumElements,
+    PackedStruct, Pointer, PowerPcDoubleDouble, ScalableVector, Struct, Type, Vector, Void, X87Extended,
 };
-pub use values::{Function, Value};
+pub use values::{Function, Value, VariadicFunction};
 
 // trace: D3
 /// Runs `body`, and aborts the process if it panics: this is for Rust code that LLVM's C++ calls back into, where a panic

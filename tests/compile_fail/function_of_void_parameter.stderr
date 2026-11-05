@@ -1,0 +1,25 @@
+error[E0277]: the trait bound `lyftar::Void: FirstClassType` is not satisfied
+  --> tests/compile_fail/function_of_void_parameter.rs:16:48
+   |
+16 |         let _ = module.add_specific_function::<Function<Void, (Void,)>>("f");
+   |                        ---------------------   ^^^^^^^^^^^^^^^^^^^^^^^ the trait `FirstClassType` is not implemented for `lyftar::Void`
+   |                        |
+   |                        required by a bound introduced by this call
+   |
+   = help: the following other types implement trait `FirstClassType`:
+             PackedStruct<E>
+             lyftar::Array<E, Elements<N>>
+             lyftar::Byte<lyftar::Bits<N>>
+             lyftar::Float<F>
+             lyftar::Integer<lyftar::Bits<N>>
+             lyftar::Pointer<AddressSpace<N>>
+             lyftar::ScalableVector<E, MinimumElements<N>>
+             lyftar::Struct<E>
+             lyftar::Vector<E, Elements<N>>
+   = note: required for `(lyftar::Void,)` to implement `TypeTuple`
+   = note: required for `lyftar::Function<lyftar::Void, (lyftar::Void,)>` to implement `SpecificFunction`
+note: required by a bound in `functions::<impl Module<'context>>::add_specific_function`
+  --> src/functions.rs
+   |
+   |     pub fn add_specific_function<'module, F: SpecificFunction>(
+   |                                              ^^^^^^^^^^^^^^^^ required by this bound in `functions::<impl Module<'context>>::add_specific_function`

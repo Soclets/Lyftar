@@ -259,7 +259,7 @@ impl<'context> Module<'context> {
     }
 }
 
-impl<'context, 'module> Value<'context, 'module, Function> {
+impl<'context, 'module, R, P> Value<'context, 'module, Function<R, P>> {
     /// Adds a copy of this function to its module, with the same name made unique.
     ///
     /// # Panics
@@ -339,7 +339,7 @@ impl Analyses<'_> {
     }
 }
 
-/// A function's dominator tree. BasicBlocks added since it was made count as unreachable.
+/// A function's dominator tree. Blocks added since it was made count as unreachable.
 #[derive(Clone, Copy)]
 pub struct DominatorTree<'context, 'module> {
     raw: *mut c_void,
@@ -455,7 +455,7 @@ impl<'context, 'module> DominatorTree<'context, 'module> {
     }
 }
 
-/// A function's natural loops. BasicBlocks added since it was made are in no loop.
+/// A function's natural loops. Blocks added since it was made are in no loop.
 #[derive(Clone, Copy)]
 pub struct LoopInfo<'context, 'module> {
     raw: *mut c_void,

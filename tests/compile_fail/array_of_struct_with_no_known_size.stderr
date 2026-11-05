@@ -1,0 +1,25 @@
+error[E0277]: the trait bound `lyftar::ScalableVector<lyftar::Integer<lyftar::Bits<32>>, lyftar::MinimumElements<2>>: ArrayElementType` is not satisfied
+  --> tests/compile_fail/array_of_struct_with_no_known_size.rs:15:36
+   |
+15 |         let _ = context.get_type::<Array<Struct<(ScalableVector<I32, MinimumElements<2>>,)>, Elements<2>>>();
+   |                         --------   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `ArrayElementType` is not implemented for `lyftar::ScalableVector<lyftar::Integer<lyftar::Bits<32>>, lyftar::MinimumElements<2>>`
+   |                         |
+   |                         required by a bound introduced by this call
+   |
+   = help: the following other types implement trait `ArrayElementType`:
+             PackedStruct<E>
+             lyftar::Array<E, lyftar::Elements<N>>
+             lyftar::Byte<lyftar::Bits<N>>
+             lyftar::Float<F>
+             lyftar::Integer<lyftar::Bits<N>>
+             lyftar::Pointer<AddressSpace<N>>
+             lyftar::Struct<E>
+             lyftar::Vector<E, lyftar::Elements<N>>
+   = note: required for `(lyftar::ScalableVector<lyftar::Integer<lyftar::Bits<32>>, lyftar::MinimumElements<2>>,)` to implement `ArrayElementTuple`
+   = note: required for `lyftar::Struct<(lyftar::ScalableVector<lyftar::Integer<lyftar::Bits<32>>, lyftar::MinimumElements<2>>,)>` to implement `ArrayElementType`
+   = note: required for `lyftar::Array<lyftar::Struct<(lyftar::ScalableVector<lyftar::Integer<lyftar::Bits<32>>, lyftar::MinimumElements<2>>,)>, lyftar::Elements<2>>` to implement `SpecificType`
+note: required by a bound in `types::<impl lyftar::Context<'context>>::get_type`
+  --> src/types.rs
+   |
+   |     pub fn get_type<T: SpecificType>(self) -> Type<'context, T> {
+   |                        ^^^^^^^^^^^^ required by this bound in `types::<impl Context<'context>>::get_type`

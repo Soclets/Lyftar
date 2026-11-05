@@ -1,8 +1,9 @@
-integer_add, specific	6.1
-integer_add, dynamic	10.1
-integer_compare, specific	5.3
+integer_add, specific	6.2
+integer_add, dynamic	6.5
+integer_compare, specific	5.0
 load, specific	3.0
-store, specific	4.0
-get_element_pointer	8.1
-call, two arguments	9.4
-branch into a new block	4.2
+store, specific	4.4
+get_element_pointer	5.7
+call, two arguments	7.8
+call, two arguments, specific	6.5
+branch into a new block	3.8

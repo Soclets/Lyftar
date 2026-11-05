@@ -64,6 +64,41 @@ pub struct AddressSpace<const N: u32>;
 // trace: D31
 pub struct Pointer<Space = AddressSpace<0>>(PhantomData<fn() -> Space>);
 
+/// How many elements an array or a fixed vector has, as in `Array<Integer<Bits<32>>, Elements<4>>` (D32).
+#[derive(Clone, Copy, Debug)]
+pub struct Elements<const N: u64>;
+
+/// How many elements a scalable vector has at the least, as in `ScalableVector<Integer<Bits<32>>, MinimumElements<4>>` (D32).
+#[derive(Clone, Copy, Debug)]
+pub struct MinimumElements<const N: u32>;
+
+/// An array, as in `Array<Integer<Bits<32>>, Elements<4>>` for `[4 x i32]` (D32).
+#[derive(Clone, Copy, Debug)]
+// trace: D32
+pub struct Array<Element, Count>(PhantomData<fn() -> (Element, Count)>);
+
+/// A fixed vector, as in `Vector<Integer<Bits<32>>, Elements<4>>` for `<4 x i32>` (D32).
+#[derive(Clone, Copy, Debug)]
+pub struct Vector<Element, Count>(PhantomData<fn() -> (Element, Count)>);
+
+/// A scalable vector, as in `ScalableVector<Integer<Bits<32>>, MinimumElements<4>>` for `<vscale x 4 x i32>` (D32).
+#[derive(Clone, Copy, Debug)]
+pub struct ScalableVector<Element, Count>(PhantomData<fn() -> (Element, Count)>);
+
+/// A literal struct, as in `Struct<(Integer<Bits<32>>, Pointer)>` for `{ i32, ptr }`, with up to 12 elements. A named struct
+/// is [`Dynamic`], since it can refer to itself and its body can come later (D32).
+#[derive(Clone, Copy, Debug)]
+pub struct Struct<ElementTypes>(PhantomData<fn() -> ElementTypes>);
+
+/// A packed literal struct, as in `PackedStruct<(Integer<Bits<32>>, Integer<Bits<32>>)>` for `<{ i32, i32 }>`, with up to 12
+/// elements (D32).
+#[derive(Clone, Copy, Debug)]
+pub struct PackedStruct<ElementTypes>(PhantomData<fn() -> ElementTypes>);
+
+/// `void`, what a function gives back when it gives nothing, as in `Function<Void, ()>` (D33).
+#[derive(Clone, Copy, Debug)]
+pub struct Void;
+
 mod sealed {
     pub trait Sealed {}
 }
@@ -74,6 +109,18 @@ pub trait TypeMarker: Sealed + 'static {
     /// Whether two values of this marker always have the same LLVM type, so `cargo build` has already checked it (D24).
     #[doc(hidden)]
     const EXACT: bool;
+
+    /// Whether every type of this marker can be loaded and stored, so `cargo build` has already checked that (D24).
+    #[doc(hidden)]
+    const LOADABLE: bool = Self::EXACT;
+
+    /// Whether every type of this marker can be what an instruction gives, so `cargo build` has already checked that (D24).
+    #[doc(hidden)]
+    const FIRST_CLASS: bool = Self::EXACT;
+
+    /// Whether every type of this marker has a size that doesn't depend on the machine's vectors.
+    #[doc(hidden)]
+    const FIXED_SIZE: bool = Self::EXACT;
 
     /// Whether `raw` is such a type.
     ///
@@ -277,6 +324,199 @@ pub(crate) fn check_address_space(operation: &str, address_space: u32) {
         bad_call(format_args!("{operation}: address space {address_space} is not below 2^24"));
     }
 }
+
+/// A type written into the Rust code that can be a function's parameter, or a struct's element (D32, D33).
+pub trait FirstClassType: SpecificType {}
+
+/// A type written into the Rust code that can be an array's element: a [`FirstClassType`] with a known size (D32).
+pub trait ArrayElementType: FirstClassType {}
+
+/// A type written into the Rust code that can be a vector's element (D32).
+pub trait VectorElementType: ArrayElementType {}
+
+/// What a function written into the Rust code can give back: a [`FirstClassType`], or [`Void`] (D33).
+pub trait ReturnType: SpecificType {}
+impl<T: FirstClassType> ReturnType for T {}
+impl ReturnType for Void {}
+
+/// A tuple of types written into the Rust code, for a struct's elements or a function's parameters. It goes up to 12, and a
+/// longer list uses the dynamic form (D32, D33).
+pub trait TypeTuple: Sealed + 'static {
+    #[doc(hidden)]
+    type RawTypes: AsRef<[raw::LLVMTypeRef]>;
+    #[doc(hidden)]
+    const ALL_FIXED_SIZE: bool;
+    #[doc(hidden)]
+    fn raw_types(context: Context<'_>) -> Self::RawTypes;
+}
+
+/// A [`TypeTuple`] all of whose types have a known size, so a struct of them can be an array's element (D32).
+pub trait ArrayElementTuple: TypeTuple {}
+
+macro_rules! type_tuples {
+    ($($count:literal: ($($name:ident),*);)*) => {
+        $(
+            impl<$($name),*> Sealed for ($($name,)*) {}
+            impl<$($name: FirstClassType),*> TypeTuple for ($($name,)*) {
+                type RawTypes = [raw::LLVMTypeRef; $count];
+                const ALL_FIXED_SIZE: bool = true $(&& <$name as TypeMarker>::FIXED_SIZE)*;
+                #[allow(unused_variables)]
+                fn raw_types(context: Context<'_>) -> Self::RawTypes {
+                    [$($name::get_raw(context)),*]
+                }
+            }
+            impl<$($name: ArrayElementType),*> ArrayElementTuple for ($($name,)*) {}
+        )*
+    };
+}
+// trace: D32, D33
+type_tuples! {
+    0: ();
+    1: (A);
+    2: (A, B);
+    3: (A, B, C);
+    4: (A, B, C, D);
+    5: (A, B, C, D, E);
+    6: (A, B, C, D, E, F);
+    7: (A, B, C, D, E, F, G);
+    8: (A, B, C, D, E, F, G, H);
+    9: (A, B, C, D, E, F, G, H, I);
+    10: (A, B, C, D, E, F, G, H, I, J);
+    11: (A, B, C, D, E, F, G, H, I, J, K);
+    12: (A, B, C, D, E, F, G, H, I, J, K, L);
+}
+
+/// Whether `raw` is the type `T`. LLVM uniques these types in a context, so it is that type exactly when it is that pointer.
+///
+/// # Safety
+/// `raw` must be a live LLVM type.
+unsafe fn is_uniqued_type<T: SpecificType>(raw: raw::LLVMTypeRef) -> bool {
+    // SAFETY: the caller promises a live type, so its context is live, and this only asks LLVM for a type there.
+    raw == T::get_raw(unsafe { Context::from_raw(raw::LLVMGetTypeContext(raw)) })
+}
+
+impl<E: ArrayElementType, const N: u64> Sealed for Array<E, Elements<N>> {}
+impl<E: ArrayElementType, const N: u64> TypeMarker for Array<E, Elements<N>> {
+    const EXACT: bool = true;
+    unsafe fn accepts_type(raw: raw::LLVMTypeRef) -> bool {
+        // SAFETY: the caller promises a live type.
+        unsafe { is_uniqued_type::<Self>(raw) }
+    }
+}
+impl<E: ArrayElementType, const N: u64> SpecificType for Array<E, Elements<N>> {
+    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+        // SAFETY: the marker's bound makes the element valid, and an array can have any length.
+        unsafe { raw::LLVMArrayType2(E::get_raw(context), N) }
+    }
+}
+impl<E: ArrayElementType, const N: u64> FirstClassType for Array<E, Elements<N>> {}
+impl<E: ArrayElementType, const N: u64> ArrayElementType for Array<E, Elements<N>> {}
+
+impl<E: VectorElementType, const N: u64> Sealed for Vector<E, Elements<N>> {}
+impl<E: VectorElementType, const N: u64> TypeMarker for Vector<E, Elements<N>> {
+    const EXACT: bool = true;
+    unsafe fn accepts_type(raw: raw::LLVMTypeRef) -> bool {
+        // SAFETY: the caller promises a live type.
+        unsafe { is_uniqued_type::<Self>(raw) }
+    }
+}
+impl<E: VectorElementType, const N: u64> SpecificType for Vector<E, Elements<N>> {
+    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+        // LLVM's vectors have between 1 and 2^32 - 1 elements, so this fails at `cargo build` when written wrong.
+        const { assert!(N >= 1 && N <= u32::MAX as u64, "an LLVM vector has between 1 and 2^32 - 1 elements") };
+        // The check above keeps this in range.
+        #[allow(clippy::cast_possible_truncation)]
+        // SAFETY: the marker's bound makes the element valid, and N was just checked.
+        unsafe {
+            raw::LLVMVectorType(E::get_raw(context), N as u32)
+        }
+    }
+}
+impl<E: VectorElementType, const N: u64> FirstClassType for Vector<E, Elements<N>> {}
+impl<E: VectorElementType, const N: u64> ArrayElementType for Vector<E, Elements<N>> {}
+
+impl<E: VectorElementType, const N: u32> Sealed for ScalableVector<E, MinimumElements<N>> {}
+impl<E: VectorElementType, const N: u32> TypeMarker for ScalableVector<E, MinimumElements<N>> {
+    const EXACT: bool = true;
+    const FIXED_SIZE: bool = false;
+    unsafe fn accepts_type(raw: raw::LLVMTypeRef) -> bool {
+        // SAFETY: the caller promises a live type.
+        unsafe { is_uniqued_type::<Self>(raw) }
+    }
+}
+impl<E: VectorElementType, const N: u32> SpecificType for ScalableVector<E, MinimumElements<N>> {
+    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+        // LLVM's vectors have at least 1 element, so this fails at `cargo build` when written wrong.
+        const { assert!(N >= 1, "an LLVM scalable vector has at least 1 element") };
+        // SAFETY: the marker's bound makes the element valid, and N was just checked.
+        unsafe { raw::LLVMScalableVectorType(E::get_raw(context), N) }
+    }
+}
+impl<E: VectorElementType, const N: u32> FirstClassType for ScalableVector<E, MinimumElements<N>> {}
+
+/// Declares a literal struct's marker.
+macro_rules! struct_marker {
+    ($marker:ident, $packed:literal) => {
+        impl<E: TypeTuple> Sealed for $marker<E> {}
+        impl<E: TypeTuple> TypeMarker for $marker<E> {
+            const EXACT: bool = true;
+            // LLVM decides whether a struct holding a scalable vector can be loaded, which `load` asks it when the line runs.
+            const LOADABLE: bool = E::ALL_FIXED_SIZE;
+            const FIXED_SIZE: bool = E::ALL_FIXED_SIZE;
+            unsafe fn accepts_type(raw: raw::LLVMTypeRef) -> bool {
+                // SAFETY: the caller promises a live type.
+                unsafe { is_uniqued_type::<Self>(raw) }
+            }
+        }
+        impl<E: TypeTuple> SpecificType for $marker<E> {
+            fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+                let elements = E::raw_types(context);
+                let elements = elements.as_ref();
+                let count = length_as_u32(elements.len(), "get_type");
+                // SAFETY: the marker's bound makes each element valid, and LLVM only reads them.
+                unsafe {
+                    raw::LLVMStructTypeInContext(context.raw, elements.as_ptr().cast_mut(), count, i32::from($packed))
+                }
+            }
+        }
+        impl<E: TypeTuple> FirstClassType for $marker<E> {}
+        impl<E: ArrayElementTuple> ArrayElementType for $marker<E> {}
+    };
+}
+struct_marker!(Struct, false);
+struct_marker!(PackedStruct, true);
+
+// trace: D33
+impl Sealed for Void {}
+impl TypeMarker for Void {
+    const EXACT: bool = true;
+    const LOADABLE: bool = false;
+    const FIRST_CLASS: bool = false;
+    const FIXED_SIZE: bool = false;
+    unsafe fn accepts_type(raw: raw::LLVMTypeRef) -> bool {
+        // SAFETY: the caller promises a live type.
+        unsafe { raw::LLVMGetTypeKind(raw) == raw::LLVMTypeKind::LLVMVoidTypeKind }
+    }
+}
+impl SpecificType for Void {
+    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+        // SAFETY: the context is live, as it is a `Context`.
+        unsafe { raw::LLVMVoidTypeInContext(context.raw) }
+    }
+}
+
+impl<const N: u32> FirstClassType for Integer<Bits<N>> {}
+impl<const N: u32> ArrayElementType for Integer<Bits<N>> {}
+impl<const N: u32> VectorElementType for Integer<Bits<N>> {}
+impl<const N: u32> FirstClassType for Byte<Bits<N>> {}
+impl<const N: u32> ArrayElementType for Byte<Bits<N>> {}
+impl<const N: u32> VectorElementType for Byte<Bits<N>> {}
+impl<F: FloatFormat> FirstClassType for Float<F> {}
+impl<F: FloatFormat> ArrayElementType for Float<F> {}
+impl<F: FloatFormat> VectorElementType for Float<F> {}
+impl<const N: u32> FirstClassType for Pointer<AddressSpace<N>> {}
+impl<const N: u32> ArrayElementType for Pointer<AddressSpace<N>> {}
+impl<const N: u32> VectorElementType for Pointer<AddressSpace<N>> {}
 
 impl<'context, T> Type<'context, T> {
     /// Wraps a raw type.

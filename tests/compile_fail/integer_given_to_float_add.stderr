@@ -4,17 +4,12 @@ error[E0277]: the trait bound `lyftar::Integer<lyftar::Bits<64>>: FloatOperand` 
 23 |         let _ = builder.float_add(i64_type.constant_integer(1, false), i64_type.constant_integer(2, false), "");
    |                         ^^^^^^^^^ the trait `FloatOperand` is not implemented for `lyftar::Integer<lyftar::Bits<64>>`
    |
-help: the following other types implement trait `FloatOperand`
-  --> src/builder.rs
-   |
-   | impl<F: FloatFormat> FloatOperand for Float<F> {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `lyftar::Float<F>`
-...
-   | impl FloatOperand for Float<Dynamic> {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `lyftar::Float`
-...
-   | impl FloatOperand for Dynamic {
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `lyftar::Dynamic`
+   = help: the following other types implement trait `FloatOperand`:
+             lyftar::Dynamic
+             lyftar::Float
+             lyftar::Float<F>
+             lyftar::ScalableVector<E, MinimumElements<N>>
+             lyftar::Vector<E, Elements<N>>
 note: required by a bound in `lyftar::Builder::<'context, 'module>::float_add`
   --> src/builder.rs
    |

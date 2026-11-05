@@ -26,10 +26,9 @@ hang without them.
 
 ## Waiting on design claude
 
-- Spelling of: pointer address spaces, specific arrays/vectors/structs, function signatures. All of these work through dynamic
-  `Type`/`Value` until answered.
-- Spelling of the value markers (`Value<Function>`, `Value<GlobalVariable>`, `Value<Instruction>`) and of `BasicBlock`. Design claude
-  is taking these to the owner as well, so they stay easy to rename.
+Nothing. D30 to D35 are built. Told design claude what they leave to the code: 12 as the fixed maximum for specific calls and
+structs, `add_specific_function`, `builder.call` taking a tuple or a slice, `BasicBlockAsValue` for the marker, and constants of
+specific aggregates going through `checked_cast`.
 
 ## Untested
 

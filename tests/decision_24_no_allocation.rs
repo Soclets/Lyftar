@@ -5,7 +5,7 @@ use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 
 use lyftar::enums::IntegerPredicate;
-use lyftar::{Bits, Builder, Integer, Pointer, with_context};
+use lyftar::{Bits, Builder, Function, Integer, Pointer, VariadicFunction, Void, with_context};
 
 type I64 = Integer<Bits<64>>;
 
@@ -49,7 +49,13 @@ fn decision_24_build_calls_allocate_nothing() {
         let right = function.parameter(1).checked_cast::<I64>();
         let pointer = function.parameter(2).checked_cast::<Pointer>();
 
+        let specific = module.add_specific_function::<Function<I64, (I64, I64)>>("specific");
+        let variadic = module.add_specific_function::<VariadicFunction<Void, (I64,)>>("variadic");
+        let rest = [left.to_dynamic(); 3];
+
         let before = ALLOCATIONS.with(Cell::get);
+        let specific_result = builder.call(specific, (left, right), "specific_result");
+        builder.call(variadic, ((specific_result,), &rest), "");
         let sum = builder.integer_add(left, right, "sum");
         let compared = builder.integer_compare(IntegerPredicate::Equal, sum, right, "compared");
         let loaded = builder.load(i64_type, pointer, "loaded");

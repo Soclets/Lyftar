@@ -46,7 +46,27 @@ fn object_file() -> Vec<u8> {
 ```
 
 A value says as much as the code knows. `Value<Integer<Bits<64>>>` is checked at `cargo build`, and a dynamic `Value` is
-checked when the line runs. A bad build call panics and names the problem, and what can really fail, such as reading a file,
+checked when the line runs. Types spell out what they are: `Pointer<AddressSpace<5>>`, `Array<Integer<Bits<32>>, Elements<4>>`,
+`Struct<(Integer<Bits<32>>, Pointer)>`, and a function's signature, whose calls are checked at `cargo build`:
+
+```rust
+use lyftar::{Bits, Builder, Function, Integer, Value, Void, with_context};
+
+type I32 = Integer<Bits<32>>;
+
+with_context(|context| {
+    let module = context.create_module("example");
+    let add = module.add_specific_function::<Function<I32, (I32, I32)>>("add");
+    let caller = module.add_specific_function::<Function<Void, ()>>("caller");
+    let builder = Builder::at_end_of(caller.append_basic_block("entry"));
+    let one = context.get_type::<I32>().constant_integer(1, false);
+    let _sum: Value<'_, '_, I32> = builder.call(add, (one, one), "sum");
+    builder.return_void();
+    module.verify().expect("valid IR");
+});
+```
+
+ A bad build call panics and names the problem, and what can really fail, such as reading a file,
 returns an error. A value borrows its module, so one held across a delete or a pass run doesn't compile.
 
 ## Writing a pass
@@ -106,7 +126,7 @@ cargo run --manifest-path tools/coverage/Cargo.toml
 Run the AddressSanitizer and UBSan tests, which need nightly Rust:
 
 ```bash
-LYFTAR_SANITIZE=1 RUSTFLAGS="-Zsanitizer=address" cargo +nightly test --target aarch64-apple-darwin --target-dir target/sanitize --test decision_2_end_to_end --test decision_3_panics --test decision_3_pass_aborts --test decision_4_build_calls --test decision_10_jit --test decision_11_deletion --test decision_1_passes --test decision_16_modules --test decision_16_threads --test decision_30_bytes --test kayo_passes --no-fail-fast -- --skip plugin
+LYFTAR_SANITIZE=1 RUSTFLAGS="-Zsanitizer=address" cargo +nightly test --target aarch64-apple-darwin --target-dir target/sanitize --test decision_2_end_to_end --test decision_3_panics --test decision_3_pass_aborts --test decision_4_build_calls --test decision_10_jit --test decision_11_deletion --test decision_1_passes --test decision_16_modules --test decision_16_threads --test decision_30_bytes --test decision_31_pointers --test decision_32_aggregates --test decision_33_functions --test kayo_passes --no-fail-fast -- --skip plugin
 ```
 
 Measure what Lyftar adds over raw LLVM calls, beside the saved table, and save a new one with `-- --save`:
