@@ -96,8 +96,8 @@ impl<'context, 'module, T: InstructionMarker> Value<'context, 'module, T> {
         // SAFETY: the marker guarantees an instruction, and the entries are copied and freed right after.
         unsafe {
             let entries = raw::LLVMInstructionGetAllMetadataOtherThanDebugLoc(self.raw, &raw mut count);
-            let found = crate::metadata::copy_entries(entries, count);
-            found
+
+            crate::metadata::copy_entries(entries, count)
         }
     }
 

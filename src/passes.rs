@@ -32,14 +32,14 @@ pub enum PreservedAnalyses {
 /// A pass over a whole module.
 pub trait ModulePass {
     /// Runs the pass.
-    fn run<'context>(&mut self, module: &mut Module<'context>, analyses: &Analyses<'_>) -> PreservedAnalyses;
+    fn run(&mut self, module: &mut Module<'_>, analyses: &Analyses<'_>) -> PreservedAnalyses;
 }
 
 /// A pass over one function at a time. LLVM is in the middle of walking the module's functions, so it can change only this
 /// function, which [`FunctionInPass`] enforces.
 pub trait FunctionPass {
     /// Runs the pass.
-    fn run<'context>(&mut self, function: &mut FunctionInPass<'context>, analyses: &Analyses<'_>) -> PreservedAnalyses;
+    fn run(&mut self, function: &mut FunctionInPass<'_>, analyses: &Analyses<'_>) -> PreservedAnalyses;
 }
 
 /// What a function pass works on: this function, exclusively, and its module to read.
@@ -877,7 +877,8 @@ impl<'pipeline> PassBuilder<'pipeline> {
         PassBuilder { raw, marker: PhantomData }
     }
 
-    /// Makes a module pass available in pipeline text under `name`. `make` makes one each time the text names it.
+    /// Makes a module pass available in pipeline text under `name`. `make` makes one each time the text names it, and LLVM can
+    /// call it more than that as it works out what level a name belongs to.
     pub fn register_module_pass<P: ModulePass + 'pipeline, F: FnMut() -> P + 'pipeline>(
         &mut self,
         name: &str,
@@ -910,7 +911,8 @@ impl<'pipeline> PassBuilder<'pipeline> {
         }
     }
 
-    /// Makes a function pass available in pipeline text under `name`. `make` makes one each time the text names it.
+    /// Makes a function pass available in pipeline text under `name`. `make` makes one each time the text names it, and LLVM
+    /// can call it more than that as it works out what level a name belongs to.
     pub fn register_function_pass<P: FunctionPass + 'pipeline, F: FnMut() -> P + 'pipeline>(
         &mut self,
         name: &str,
@@ -998,6 +1000,8 @@ impl<'pipeline> PassBuilder<'pipeline> {
 }
 
 /// How a pipeline is set up. The fields default to LLVM's own defaults.
+// One flag each is how LLVM says these.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PassOptions {
     /// Runs the verifier after each pass.
@@ -1102,7 +1106,7 @@ fn raw_machine(machine: Option<&TargetMachine>) -> raw::LLVMTargetMachineRef {
     machine.map_or(std::ptr::null_mut(), |found| found.raw)
 }
 
-impl<'context> Module<'context> {
+impl Module<'_> {
     // trace: D11
     /// Runs LLVM's own passes over this module from pipeline text, such as `default<O3>`.
     ///
@@ -1246,7 +1250,8 @@ macro_rules! pass_plugin {
         #[unsafe(no_mangle)]
         pub extern "C" fn llvmGetPassPluginInfo() -> $crate::shim::PluginInformation {
             extern "C" fn register_callbacks(builder: *mut ::std::ffi::c_void) {
-                $crate::passes::run_plugin_registration(builder, $register);
+                // SAFETY: LLVM gives a live `PassBuilder` here, and keeps a plugin's callbacks for good.
+                unsafe { $crate::passes::run_plugin_registration(builder, $register) };
             }
             $crate::shim::PluginInformation {
                 // LLVM_PLUGIN_API_VERSION in llvm/Plugins/PassPlugin.h.
@@ -1261,11 +1266,13 @@ macro_rules! pass_plugin {
 }
 
 /// What [`pass_plugin!`](crate::pass_plugin) calls. A panic in it aborts `opt` or `clang`, since it is running inside LLVM.
+///
+/// # Safety
+/// `builder` must be a live `llvm::PassBuilder`, which keeps what is registered for good.
 #[doc(hidden)]
-pub fn run_plugin_registration(builder: *mut c_void, register: fn(&mut PassBuilder<'static>)) {
+pub unsafe fn run_plugin_registration(builder: *mut c_void, register: fn(&mut PassBuilder<'static>)) {
     crate::abort_on_panic(|| {
-        // SAFETY: LLVM gives a live `PassBuilder`, and a plugin's callbacks stay for good, since the plugin is never
-        // unloaded while LLVM runs.
+        // SAFETY: the caller promises a live `PassBuilder` that keeps what is registered for good.
         let mut builder: PassBuilder<'static> = unsafe { PassBuilder::from_raw(builder) };
         register(&mut builder);
     });

@@ -364,7 +364,7 @@ impl LtoModule {
         unsafe { raw::lto_module_has_ctor_dtor(self.raw) }
     }
 
-    /// Whether this is bitcode for ThinLTO.
+    /// Whether this is bitcode for `ThinLTO`.
     #[must_use]
     pub fn is_thin(&self) -> bool {
         // SAFETY: the module is live.
@@ -652,8 +652,8 @@ impl<'modules> LtoCodeGenerator<'modules> {
             crate::abort_on_panic(|| {
                 // SAFETY: LLVM passes back the state given with this function, which is the handler, and a message for this
                 // call, copied here.
-                let (handler, message) = unsafe { (&mut *state.cast::<F>(), from_borrowed(message)) };
                 use raw::lto_codegen_diagnostic_severity_t as S;
+                let (handler, message) = unsafe { (&mut *state.cast::<F>(), from_borrowed(message)) };
                 let severity = match severity {
                     S::LTO_DS_ERROR => LtoDiagnosticSeverity::Error,
                     S::LTO_DS_WARNING => LtoDiagnosticSeverity::Warning,
@@ -733,7 +733,7 @@ impl<'data> LtoInput<'data> {
     }
 }
 
-/// Runs ThinLTO over modules.
+/// Runs `ThinLTO` over modules.
 pub struct ThinLtoCodeGenerator {
     raw: raw::thinlto_code_gen_t,
 }
@@ -944,7 +944,7 @@ impl ThinLtoCodeGenerator {
     }
 }
 
-/// Gives LLVM's code generator options, as `llc` takes them, for ThinLTO.
+/// Gives LLVM's code generator options, as `llc` takes them, for `ThinLTO`.
 ///
 /// # Safety
 /// LLVM's options are plain global data, so no other thread may be using LLVM during this call.

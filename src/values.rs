@@ -23,8 +23,11 @@ use crate::types::{Dynamic, Invariant, Pointer, Sealed, Type, TypeMarker};
 #[repr(transparent)]
 pub struct Value<'context, 'module, T = Dynamic> {
     pub(crate) raw: raw::LLVMValueRef,
-    marker: PhantomData<(Invariant<'context>, &'module (), fn() -> T)>,
+    marker: ValueLifetimes<'context, 'module, T>,
 }
+
+/// What a `Value` carries with no data: an invariant context, a covariant module borrow, and what it knows.
+type ValueLifetimes<'context, 'module, T> = PhantomData<(Invariant<'context>, &'module (), fn() -> T)>;
 
 impl<T> Clone for Value<'_, '_, T> {
     fn clone(&self) -> Self {
@@ -609,7 +612,7 @@ impl<'context, 'module, T: UserMarker> Value<'context, 'module, T> {
     fn check_operand_index(self, operation: &str, index: u32) {
         let count = self.operand_count();
         if !checks::index_in_bounds(index, count) {
-            bad_call(format_args!("{operation}: index {index} is out of bounds for {} operands", count));
+            bad_call(format_args!("{operation}: index {index} is out of bounds for {count} operands"));
         }
     }
 

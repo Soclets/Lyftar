@@ -107,9 +107,9 @@ pub trait IntegerOperand: ValueMarker + TypeMarker {
     /// The width, when the Rust code spells it out.
     const WIDTH_IN_BITS: Option<u32>;
     #[doc(hidden)]
-    fn check_one(operation: &str, value: raw::LLVMValueRef);
+    fn check_one(operation: &str, value: Value<'_, '_>);
     #[doc(hidden)]
-    fn check_pair(operation: &str, left: raw::LLVMValueRef, right: raw::LLVMValueRef);
+    fn check_pair(operation: &str, left: Value<'_, '_>, right: Value<'_, '_>);
 }
 
 impl<const N: u32> IntegerOperand for Integer<Bits<N>> {
@@ -118,20 +118,20 @@ impl<const N: u32> IntegerOperand for Integer<Bits<N>> {
     // trace: D24
     // The type is spelled out, so `cargo build` already checked it.
     #[inline(always)]
-    fn check_one(_operation: &str, _value: raw::LLVMValueRef) {}
+    fn check_one(_operation: &str, _value: Value<'_, '_>) {}
     #[inline(always)]
-    fn check_pair(_operation: &str, _left: raw::LLVMValueRef, _right: raw::LLVMValueRef) {}
+    fn check_pair(_operation: &str, _left: Value<'_, '_>, _right: Value<'_, '_>) {}
 }
 
 impl IntegerOperand for Integer<Dynamic> {
     type Comparison = Integer<Bits<1>>;
     const WIDTH_IN_BITS: Option<u32> = None;
     #[inline(always)]
-    fn check_one(_operation: &str, _value: raw::LLVMValueRef) {}
+    fn check_one(_operation: &str, _value: Value<'_, '_>) {}
     #[inline]
     #[track_caller]
-    fn check_pair(operation: &str, left: raw::LLVMValueRef, right: raw::LLVMValueRef) {
-        check_same_type(operation, left, right);
+    fn check_pair(operation: &str, left: Value<'_, '_>, right: Value<'_, '_>) {
+        check_same_type(operation, left.raw, right.raw);
     }
 }
 
@@ -139,15 +139,15 @@ impl IntegerOperand for Dynamic {
     type Comparison = Dynamic;
     const WIDTH_IN_BITS: Option<u32> = None;
     #[track_caller]
-    fn check_one(operation: &str, value: raw::LLVMValueRef) {
+    fn check_one(operation: &str, value: Value<'_, '_>) {
         // SAFETY: the value came from a live `Value`.
-        if !is_integer_like(unsafe { raw::LLVMTypeOf(value) }) {
-            bad_operand(operation, value, "an integer or a vector of integers");
+        if !is_integer_like(unsafe { raw::LLVMTypeOf(value.raw) }) {
+            bad_operand(operation, value.raw, "an integer or a vector of integers");
         }
     }
     #[track_caller]
-    fn check_pair(operation: &str, left: raw::LLVMValueRef, right: raw::LLVMValueRef) {
-        check_same_type(operation, left, right);
+    fn check_pair(operation: &str, left: Value<'_, '_>, right: Value<'_, '_>) {
+        check_same_type(operation, left.raw, right.raw);
         <Self as IntegerOperand>::check_one(operation, left);
     }
 }
@@ -159,9 +159,9 @@ pub trait FloatOperand: ValueMarker + TypeMarker {
     /// The size of the format, when the Rust code spells it out.
     const SIZE_IN_BITS: Option<u32>;
     #[doc(hidden)]
-    fn check_one(operation: &str, value: raw::LLVMValueRef);
+    fn check_one(operation: &str, value: Value<'_, '_>);
     #[doc(hidden)]
-    fn check_pair(operation: &str, left: raw::LLVMValueRef, right: raw::LLVMValueRef);
+    fn check_pair(operation: &str, left: Value<'_, '_>, right: Value<'_, '_>);
 }
 
 impl<F: FloatFormat> FloatOperand for Float<F> {
@@ -169,20 +169,20 @@ impl<F: FloatFormat> FloatOperand for Float<F> {
     const SIZE_IN_BITS: Option<u32> = Some(F::SIZE_IN_BITS);
     // trace: D24
     #[inline(always)]
-    fn check_one(_operation: &str, _value: raw::LLVMValueRef) {}
+    fn check_one(_operation: &str, _value: Value<'_, '_>) {}
     #[inline(always)]
-    fn check_pair(_operation: &str, _left: raw::LLVMValueRef, _right: raw::LLVMValueRef) {}
+    fn check_pair(_operation: &str, _left: Value<'_, '_>, _right: Value<'_, '_>) {}
 }
 
 impl FloatOperand for Float<Dynamic> {
     type Comparison = Integer<Bits<1>>;
     const SIZE_IN_BITS: Option<u32> = None;
     #[inline(always)]
-    fn check_one(_operation: &str, _value: raw::LLVMValueRef) {}
+    fn check_one(_operation: &str, _value: Value<'_, '_>) {}
     #[inline]
     #[track_caller]
-    fn check_pair(operation: &str, left: raw::LLVMValueRef, right: raw::LLVMValueRef) {
-        check_same_type(operation, left, right);
+    fn check_pair(operation: &str, left: Value<'_, '_>, right: Value<'_, '_>) {
+        check_same_type(operation, left.raw, right.raw);
     }
 }
 
@@ -190,15 +190,15 @@ impl FloatOperand for Dynamic {
     type Comparison = Dynamic;
     const SIZE_IN_BITS: Option<u32> = None;
     #[track_caller]
-    fn check_one(operation: &str, value: raw::LLVMValueRef) {
+    fn check_one(operation: &str, value: Value<'_, '_>) {
         // SAFETY: the value came from a live `Value`.
-        if !is_float_like(unsafe { raw::LLVMTypeOf(value) }) {
-            bad_operand(operation, value, "a float or a vector of floats");
+        if !is_float_like(unsafe { raw::LLVMTypeOf(value.raw) }) {
+            bad_operand(operation, value.raw, "a float or a vector of floats");
         }
     }
     #[track_caller]
-    fn check_pair(operation: &str, left: raw::LLVMValueRef, right: raw::LLVMValueRef) {
-        check_same_type(operation, left, right);
+    fn check_pair(operation: &str, left: Value<'_, '_>, right: Value<'_, '_>) {
+        check_same_type(operation, left.raw, right.raw);
         <Self as FloatOperand>::check_one(operation, left);
     }
 }
@@ -211,10 +211,10 @@ pub trait PointerOperand: ValueMarker {
     const IS_DYNAMIC: bool;
     /// Checks for one pointer.
     #[doc(hidden)]
-    fn check_pointer(operation: &str, value: raw::LLVMValueRef);
+    fn check_pointer(operation: &str, value: Value<'_, '_>);
     /// Checks for one pointer or a vector of them, as `getelementptr` takes.
     #[doc(hidden)]
-    fn check_pointer_or_vector(operation: &str, value: raw::LLVMValueRef);
+    fn check_pointer_or_vector(operation: &str, value: Value<'_, '_>);
 }
 
 /// Declares a marker whose value is always a pointer.
@@ -225,9 +225,9 @@ macro_rules! always_a_pointer {
             const IS_DYNAMIC: bool = false;
             // trace: D24
             #[inline(always)]
-            fn check_pointer(_operation: &str, _value: raw::LLVMValueRef) {}
+            fn check_pointer(_operation: &str, _value: Value<'_, '_>) {}
             #[inline(always)]
-            fn check_pointer_or_vector(_operation: &str, _value: raw::LLVMValueRef) {}
+            fn check_pointer_or_vector(_operation: &str, _value: Value<'_, '_>) {}
         })*
     };
 }
@@ -245,21 +245,21 @@ impl PointerOperand for Dynamic {
     type GetElementPointerResult = Dynamic;
     const IS_DYNAMIC: bool = true;
     #[track_caller]
-    fn check_pointer(operation: &str, value: raw::LLVMValueRef) {
+    fn check_pointer(operation: &str, value: Value<'_, '_>) {
         // SAFETY: the value came from a live `Value`.
         let is_pointer =
-            unsafe { raw::LLVMGetTypeKind(raw::LLVMTypeOf(value)) == raw::LLVMTypeKind::LLVMPointerTypeKind };
+            unsafe { raw::LLVMGetTypeKind(raw::LLVMTypeOf(value.raw)) == raw::LLVMTypeKind::LLVMPointerTypeKind };
         if !is_pointer {
-            bad_operand(operation, value, "a pointer");
+            bad_operand(operation, value.raw, "a pointer");
         }
     }
 
     #[track_caller]
-    fn check_pointer_or_vector(operation: &str, value: raw::LLVMValueRef) {
+    fn check_pointer_or_vector(operation: &str, value: Value<'_, '_>) {
         use raw::LLVMTypeKind as K;
         // SAFETY: the value came from a live `Value`.
         let is_pointer = unsafe {
-            let value_type = raw::LLVMTypeOf(value);
+            let value_type = raw::LLVMTypeOf(value.raw);
             let scalar = match raw::LLVMGetTypeKind(value_type) {
                 K::LLVMVectorTypeKind | K::LLVMScalableVectorTypeKind => raw::LLVMGetElementType(value_type),
                 _ => value_type,
@@ -267,7 +267,7 @@ impl PointerOperand for Dynamic {
             raw::LLVMGetTypeKind(scalar) == K::LLVMPointerTypeKind
         };
         if !is_pointer {
-            bad_operand(operation, value, "a pointer or a vector of pointers");
+            bad_operand(operation, value.raw, "a pointer or a vector of pointers");
         }
     }
 }
@@ -277,14 +277,14 @@ pub trait ConditionOperand: ValueMarker {
     #[doc(hidden)]
     const IS_BOOLEAN: bool;
     #[doc(hidden)]
-    fn check_condition(operation: &str, value: raw::LLVMValueRef);
+    fn check_condition(operation: &str, value: Value<'_, '_>);
 }
 
 impl ConditionOperand for Integer<Bits<1>> {
     const IS_BOOLEAN: bool = true;
     // trace: D24
     #[inline(always)]
-    fn check_condition(_operation: &str, _value: raw::LLVMValueRef) {}
+    fn check_condition(_operation: &str, _value: Value<'_, '_>) {}
 }
 
 /// Checks that a value is exactly `i1`.
@@ -304,16 +304,16 @@ fn check_boolean(operation: &str, value: raw::LLVMValueRef) {
 impl ConditionOperand for Integer<Dynamic> {
     const IS_BOOLEAN: bool = false;
     #[track_caller]
-    fn check_condition(operation: &str, value: raw::LLVMValueRef) {
-        check_boolean(operation, value);
+    fn check_condition(operation: &str, value: Value<'_, '_>) {
+        check_boolean(operation, value.raw);
     }
 }
 
 impl ConditionOperand for Dynamic {
     const IS_BOOLEAN: bool = false;
     #[track_caller]
-    fn check_condition(operation: &str, value: raw::LLVMValueRef) {
-        check_boolean(operation, value);
+    fn check_condition(operation: &str, value: Value<'_, '_>) {
+        check_boolean(operation, value.raw);
     }
 }
 
@@ -420,7 +420,7 @@ macro_rules! integer_binary {
                 self.check_open(stringify!($name));
                 self.check_module(stringify!($name), left);
                 self.check_module(stringify!($name), right);
-                T::check_pair(stringify!($name), left.raw, right.raw);
+                T::check_pair(stringify!($name), left.to_dynamic(), right.to_dynamic());
                 // SAFETY: the checks above are what LLVM requires.
                 let result = unsafe { raw::$build(self.raw, left.raw, right.raw, EMPTY.as_ptr()) };
                 set_name(result, name);
@@ -449,7 +449,7 @@ macro_rules! float_binary {
                 self.check_open(stringify!($name));
                 self.check_module(stringify!($name), left);
                 self.check_module(stringify!($name), right);
-                T::check_pair(stringify!($name), left.raw, right.raw);
+                T::check_pair(stringify!($name), left.to_dynamic(), right.to_dynamic());
                 // SAFETY: the checks above are what LLVM requires.
                 let result = unsafe { raw::$build(self.raw, left.raw, right.raw, EMPTY.as_ptr()) };
                 set_name(result, name);
@@ -476,7 +476,7 @@ macro_rules! integer_unary {
             ) -> Value<'context, 'module, T> {
                 self.check_open(stringify!($name));
                 self.check_module(stringify!($name), value);
-                T::check_one(stringify!($name), value.raw);
+                T::check_one(stringify!($name), value.to_dynamic());
                 // SAFETY: the checks above are what LLVM requires.
                 let result = unsafe { raw::$build(self.raw, value.raw, EMPTY.as_ptr()) };
                 set_name(result, name);
@@ -505,7 +505,7 @@ macro_rules! checked_cast {
             ) -> Value<'context, 'module, D> {
                 self.check_open(stringify!($name));
                 self.check_module(stringify!($name), value);
-                self.check_cast(stringify!($name), raw::LLVMOpcode::$opcode, value, target);
+                Self::check_cast(stringify!($name), raw::LLVMOpcode::$opcode, value, target);
                 // SAFETY: the checks above are what LLVM requires.
                 let result = unsafe { raw::$build(self.raw, value.raw, target.raw, EMPTY.as_ptr()) };
                 set_name(result, name);
@@ -792,7 +792,6 @@ impl<'context, 'module> Builder<'context, 'module> {
 
     #[track_caller]
     fn check_cast<S, D>(
-        &self,
         operation: &str,
         opcode: raw::LLVMOpcode,
         value: Value<'context, 'module, S>,
@@ -885,7 +884,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, T> {
         self.check_open("float_negate");
         self.check_module("float_negate", value);
-        T::check_one("float_negate", value.raw);
+        T::check_one("float_negate", value.to_dynamic());
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildFNeg(self.raw, value.raw, EMPTY.as_ptr()) };
         set_name(result, name);
@@ -940,7 +939,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("integer_compare");
         self.check_module("integer_compare", left);
         self.check_module("integer_compare", right);
-        T::check_pair("integer_compare", left.raw, right.raw);
+        T::check_pair("integer_compare", left.to_dynamic(), right.to_dynamic());
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildICmp(self.raw, predicate.to_raw(), left.raw, right.raw, EMPTY.as_ptr()) };
         set_name(result, name);
@@ -963,7 +962,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("pointer_compare");
         self.check_module("pointer_compare", left);
         self.check_module("pointer_compare", right);
-        T::check_pointer("pointer_compare", left.raw);
+        T::check_pointer("pointer_compare", left.to_dynamic());
         check_same_type("pointer_compare", left.raw, right.raw);
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildICmp(self.raw, predicate.to_raw(), left.raw, right.raw, EMPTY.as_ptr()) };
@@ -987,7 +986,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("float_compare");
         self.check_module("float_compare", left);
         self.check_module("float_compare", right);
-        T::check_pair("float_compare", left.raw, right.raw);
+        T::check_pair("float_compare", left.to_dynamic(), right.to_dynamic());
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildFCmp(self.raw, predicate.to_raw(), left.raw, right.raw, EMPTY.as_ptr()) };
         set_name(result, name);
@@ -1050,7 +1049,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("pointer_difference");
         self.check_module("pointer_difference", left);
         self.check_module("pointer_difference", right);
-        T::check_pointer("pointer_difference", left.raw);
+        T::check_pointer("pointer_difference", left.to_dynamic());
         check_same_type("pointer_difference", left.raw, right.raw);
         if !element_type.is_sized() {
             bad_call(format_args!("pointer_difference: {} has no size", element_type.describe()));
@@ -1084,7 +1083,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("truncate");
         self.check_module("truncate", value);
         if S::WIDTH_IN_BITS.is_none() || D::WIDTH_IN_BITS.is_none() {
-            self.check_cast("truncate", raw::LLVMOpcode::LLVMTrunc, value, target);
+            Self::check_cast("truncate", raw::LLVMOpcode::LLVMTrunc, value, target);
         }
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildTrunc(self.raw, value.raw, target.raw, EMPTY.as_ptr()) };
@@ -1113,7 +1112,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("zero_extend");
         self.check_module("zero_extend", value);
         if S::WIDTH_IN_BITS.is_none() || D::WIDTH_IN_BITS.is_none() {
-            self.check_cast("zero_extend", raw::LLVMOpcode::LLVMZExt, value, target);
+            Self::check_cast("zero_extend", raw::LLVMOpcode::LLVMZExt, value, target);
         }
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildZExt(self.raw, value.raw, target.raw, EMPTY.as_ptr()) };
@@ -1142,7 +1141,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("sign_extend");
         self.check_module("sign_extend", value);
         if S::WIDTH_IN_BITS.is_none() || D::WIDTH_IN_BITS.is_none() {
-            self.check_cast("sign_extend", raw::LLVMOpcode::LLVMSExt, value, target);
+            Self::check_cast("sign_extend", raw::LLVMOpcode::LLVMSExt, value, target);
         }
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildSExt(self.raw, value.raw, target.raw, EMPTY.as_ptr()) };
@@ -1171,7 +1170,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("float_truncate");
         self.check_module("float_truncate", value);
         if S::SIZE_IN_BITS.is_none() || D::SIZE_IN_BITS.is_none() {
-            self.check_cast("float_truncate", raw::LLVMOpcode::LLVMFPTrunc, value, target);
+            Self::check_cast("float_truncate", raw::LLVMOpcode::LLVMFPTrunc, value, target);
         }
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildFPTrunc(self.raw, value.raw, target.raw, EMPTY.as_ptr()) };
@@ -1200,7 +1199,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("float_extend");
         self.check_module("float_extend", value);
         if S::SIZE_IN_BITS.is_none() || D::SIZE_IN_BITS.is_none() {
-            self.check_cast("float_extend", raw::LLVMOpcode::LLVMFPExt, value, target);
+            Self::check_cast("float_extend", raw::LLVMOpcode::LLVMFPExt, value, target);
         }
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildFPExt(self.raw, value.raw, target.raw, EMPTY.as_ptr()) };
@@ -1223,7 +1222,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("float_to_unsigned_integer");
         self.check_module("float_to_unsigned_integer", value);
         if S::SIZE_IN_BITS.is_none() || D::WIDTH_IN_BITS.is_none() {
-            self.check_cast("float_to_unsigned_integer", raw::LLVMOpcode::LLVMFPToUI, value, target);
+            Self::check_cast("float_to_unsigned_integer", raw::LLVMOpcode::LLVMFPToUI, value, target);
         }
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildFPToUI(self.raw, value.raw, target.raw, EMPTY.as_ptr()) };
@@ -1246,7 +1245,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("float_to_signed_integer");
         self.check_module("float_to_signed_integer", value);
         if S::SIZE_IN_BITS.is_none() || D::WIDTH_IN_BITS.is_none() {
-            self.check_cast("float_to_signed_integer", raw::LLVMOpcode::LLVMFPToSI, value, target);
+            Self::check_cast("float_to_signed_integer", raw::LLVMOpcode::LLVMFPToSI, value, target);
         }
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildFPToSI(self.raw, value.raw, target.raw, EMPTY.as_ptr()) };
@@ -1269,7 +1268,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("unsigned_integer_to_float");
         self.check_module("unsigned_integer_to_float", value);
         if S::WIDTH_IN_BITS.is_none() || D::SIZE_IN_BITS.is_none() {
-            self.check_cast("unsigned_integer_to_float", raw::LLVMOpcode::LLVMUIToFP, value, target);
+            Self::check_cast("unsigned_integer_to_float", raw::LLVMOpcode::LLVMUIToFP, value, target);
         }
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildUIToFP(self.raw, value.raw, target.raw, EMPTY.as_ptr()) };
@@ -1292,7 +1291,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("signed_integer_to_float");
         self.check_module("signed_integer_to_float", value);
         if S::WIDTH_IN_BITS.is_none() || D::SIZE_IN_BITS.is_none() {
-            self.check_cast("signed_integer_to_float", raw::LLVMOpcode::LLVMSIToFP, value, target);
+            Self::check_cast("signed_integer_to_float", raw::LLVMOpcode::LLVMSIToFP, value, target);
         }
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildSIToFP(self.raw, value.raw, target.raw, EMPTY.as_ptr()) };
@@ -1315,7 +1314,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("pointer_to_integer");
         self.check_module("pointer_to_integer", value);
         if S::IS_DYNAMIC || D::WIDTH_IN_BITS.is_none() {
-            self.check_cast("pointer_to_integer", raw::LLVMOpcode::LLVMPtrToInt, value, target);
+            Self::check_cast("pointer_to_integer", raw::LLVMOpcode::LLVMPtrToInt, value, target);
         }
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildPtrToInt(self.raw, value.raw, target.raw, EMPTY.as_ptr()) };
@@ -1337,7 +1336,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, D> {
         self.check_open("integer_to_pointer");
         self.check_module("integer_to_pointer", value);
-        self.check_cast("integer_to_pointer", raw::LLVMOpcode::LLVMIntToPtr, value, target);
+        Self::check_cast("integer_to_pointer", raw::LLVMOpcode::LLVMIntToPtr, value, target);
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildIntToPtr(self.raw, value.raw, target.raw, EMPTY.as_ptr()) };
         set_name(result, name);
@@ -1444,7 +1443,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, D> {
         self.check_open("cast");
         self.check_module("cast", value);
-        self.check_cast("cast", opcode.to_raw(), value, target);
+        Self::check_cast("cast", opcode.to_raw(), value, target);
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildCast(self.raw, opcode.to_raw(), value.raw, target.raw, EMPTY.as_ptr()) };
         set_name(result, name);
@@ -1466,7 +1465,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, D> {
         self.check_open("pointer_cast");
         self.check_module("pointer_cast", value);
-        S::check_pointer("pointer_cast", value.raw);
+        S::check_pointer("pointer_cast", value.to_dynamic());
         // SAFETY: both live; the shim only reads them.
         let valid = unsafe {
             shim::lyftar_cast_is_valid(raw::LLVMOpcode::LLVMPtrToInt, value.raw, target.raw)
@@ -1497,7 +1496,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, D> {
         self.check_open("integer_cast");
         self.check_module("integer_cast", value);
-        S::check_one("integer_cast", value.raw);
+        S::check_one("integer_cast", value.to_dynamic());
         // SAFETY: both live.
         if !is_integer_like(target.raw) || !same_shape(unsafe { raw::LLVMTypeOf(value.raw) }, target.raw) {
             bad_call(format_args!("integer_cast: can't cast {} to {}", value.describe(), target.describe()));
@@ -1523,7 +1522,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, D> {
         self.check_open("float_cast");
         self.check_module("float_cast", value);
-        S::check_one("float_cast", value.raw);
+        S::check_one("float_cast", value.to_dynamic());
         // SAFETY: both live.
         if !is_float_like(target.raw) || !same_shape(unsafe { raw::LLVMTypeOf(value.raw) }, target.raw) {
             bad_call(format_args!("float_cast: can't cast {} to {}", value.describe(), target.describe()));
@@ -1623,7 +1622,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     pub fn heap_free<P: PointerOperand>(&self, pointer: Value<'context, 'module, P>) -> Value<'context, 'module> {
         self.check_open("heap_free");
         self.check_module("heap_free", pointer);
-        P::check_pointer("heap_free", pointer.raw);
+        P::check_pointer("heap_free", pointer.to_dynamic());
         // SAFETY: the checks above are what LLVM requires.
         unsafe { Value::from_raw(raw::LLVMBuildFree(self.raw, pointer.raw)) }
     }
@@ -1645,7 +1644,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_module("memory_set", pointer);
         self.check_module("memory_set", byte);
         self.check_module("memory_set", length_in_bytes);
-        P::check_pointer("memory_set", pointer.raw);
+        P::check_pointer("memory_set", pointer.to_dynamic());
         check_single_integer("memory_set", length_in_bytes.raw);
         check_optional_alignment("memory_set", alignment_in_bytes);
         // SAFETY: the checks above are what LLVM requires.
@@ -1744,8 +1743,8 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_module(operation, destination);
         self.check_module(operation, source);
         self.check_module(operation, length_in_bytes);
-        D::check_pointer(operation, destination.raw);
-        S::check_pointer(operation, source.raw);
+        D::check_pointer(operation, destination.to_dynamic());
+        S::check_pointer(operation, source.to_dynamic());
         check_single_integer(operation, length_in_bytes.raw);
         check_optional_alignment(operation, destination_alignment_in_bytes);
         check_optional_alignment(operation, source_alignment_in_bytes);
@@ -1765,7 +1764,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, T> {
         self.check_open("load");
         self.check_module("load", pointer);
-        P::check_pointer("load", pointer.raw);
+        P::check_pointer("load", pointer.to_dynamic());
         if !T::EXACT {
             check_loadable("load", loaded_type);
         }
@@ -1790,7 +1789,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("store");
         self.check_module("store", value);
         self.check_module("store", pointer);
-        P::check_pointer("store", pointer.raw);
+        P::check_pointer("store", pointer.to_dynamic());
         if !<T::LlvmType as TypeMarker>::EXACT {
             // SAFETY: the value is live.
             check_loadable("store", unsafe { Type::<'context, Dynamic>::from_raw(raw::LLVMTypeOf(value.raw)) });
@@ -1903,7 +1902,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> u32 {
         self.check_open(operation);
         self.check_module(operation, pointer);
-        P::check_pointer_or_vector(operation, pointer.raw);
+        P::check_pointer_or_vector(operation, pointer.to_dynamic());
         self.check_values_module(operation, indices);
         let count = length_as_u32(indices.len(), operation);
         // SAFETY: only reads them; `Value` has the layout of `LLVMValueRef`.
@@ -1931,7 +1930,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, P::GetElementPointerResult> {
         self.check_open("struct_get_element_pointer");
         self.check_module("struct_get_element_pointer", pointer);
-        P::check_pointer("struct_get_element_pointer", pointer.raw);
+        P::check_pointer("struct_get_element_pointer", pointer.to_dynamic());
         let count = struct_type.struct_element_count();
         if !checks::index_in_bounds(index, count) {
             bad_call(format_args!(
@@ -2074,7 +2073,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, CallInstruction> {
         self.check_open("call_indirect");
         self.check_module("call_indirect", callee);
-        P::check_pointer("call_indirect", callee.raw);
+        P::check_pointer("call_indirect", callee.to_dynamic());
         let count = self.check_call("call_indirect", function_type, arguments);
         // SAFETY: the checks above are what LLVM requires; it only reads the arguments.
         let result = unsafe {
@@ -2108,7 +2107,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, CallInstruction> {
         self.check_open("call_with_operand_bundles");
         self.check_module("call_with_operand_bundles", callee);
-        P::check_pointer("call_with_operand_bundles", callee.raw);
+        P::check_pointer("call_with_operand_bundles", callee.to_dynamic());
         let count = self.check_call("call_with_operand_bundles", function_type, arguments);
         self.check_bundles("call_with_operand_bundles", bundles);
         // SAFETY: the checks above are what LLVM requires; it only reads the arguments and bundles.
@@ -2184,7 +2183,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, T> {
         self.check_open("variable_argument");
         self.check_module("variable_argument", list);
-        P::check_pointer("variable_argument", list.raw);
+        P::check_pointer("variable_argument", list.to_dynamic());
         if !T::EXACT {
             check_first_class("variable_argument", argument_type);
         }
@@ -2459,7 +2458,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open(name);
         self.check_module(name, pointer);
         self.check_module(name, value);
-        P::check_pointer(name, pointer.raw);
+        P::check_pointer(name, pointer.to_dynamic());
         if matches!(ordering, AtomicOrdering::NotAtomic | AtomicOrdering::Unordered) {
             bad_call(format_args!("{name}: an atomicrmw can't be {ordering:?}"));
         }
@@ -2559,7 +2558,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_module(name, pointer);
         self.check_module(name, expected);
         self.check_module(name, replacement);
-        P::check_pointer(name, pointer.raw);
+        P::check_pointer(name, pointer.to_dynamic());
         if !<T::LlvmType as TypeMarker>::EXACT {
             check_same_type(name, expected.raw, replacement.raw);
         }
@@ -2574,10 +2573,9 @@ impl<'context, 'module> Builder<'context, 'module> {
         {
             bad_call(format_args!("{name}: a cmpxchg can't be {success_ordering:?} then {failure_ordering:?}"));
         }
-        use raw::LLVMTypeKind as K;
         // SAFETY: the value is live.
         let kind = unsafe { raw::LLVMGetTypeKind(raw::LLVMTypeOf(expected.raw)) };
-        if !matches!(kind, K::LLVMIntegerTypeKind | K::LLVMPointerTypeKind) {
+        if !matches!(kind, raw::LLVMTypeKind::LLVMIntegerTypeKind | raw::LLVMTypeKind::LLVMPointerTypeKind) {
             bad_call(format_args!("{name}: {} isn't an integer or a pointer", expected.describe()));
         }
     }
@@ -2683,7 +2681,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, ConditionalBranchInstruction> {
         self.check_terminator_position("conditional_branch");
         self.check_module("conditional_branch", condition);
-        C::check_condition("conditional_branch", condition.raw);
+        C::check_condition("conditional_branch", condition.to_dynamic());
         self.check_destination("conditional_branch", then_destination);
         self.check_destination("conditional_branch", else_destination);
         // SAFETY: the checks above are what LLVM requires.
@@ -2724,7 +2722,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, IndirectBranchInstruction> {
         self.check_terminator_position("indirect_branch");
         self.check_module("indirect_branch", address);
-        P::check_pointer("indirect_branch", address.raw);
+        P::check_pointer("indirect_branch", address.to_dynamic());
         // SAFETY: the checks above are what LLVM requires.
         unsafe { Value::from_raw(raw::LLVMBuildIndirectBr(self.raw, address.raw, destination_count_hint)) }
     }
@@ -2748,7 +2746,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, CallBranchInstruction> {
         self.check_terminator_position("call_branch");
         self.check_module("call_branch", callee);
-        P::check_pointer("call_branch", callee.raw);
+        P::check_pointer("call_branch", callee.to_dynamic());
         let count = self.check_call("call_branch", function_type, arguments);
         self.check_bundles("call_branch", bundles);
         self.check_destination("call_branch", default_destination);
@@ -2794,7 +2792,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, InvokeInstruction> {
         self.check_terminator_position("invoke");
         self.check_module("invoke", callee);
-        P::check_pointer("invoke", callee.raw);
+        P::check_pointer("invoke", callee.to_dynamic());
         let count = self.check_call("invoke", function_type, arguments);
         self.check_destination("invoke", normal_destination);
         self.check_destination("invoke", unwind_destination);
@@ -2835,7 +2833,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, InvokeInstruction> {
         self.check_terminator_position("invoke_with_operand_bundles");
         self.check_module("invoke_with_operand_bundles", callee);
-        P::check_pointer("invoke_with_operand_bundles", callee.raw);
+        P::check_pointer("invoke_with_operand_bundles", callee.to_dynamic());
         let count = self.check_call("invoke_with_operand_bundles", function_type, arguments);
         self.check_bundles("invoke_with_operand_bundles", bundles);
         self.check_destination("invoke_with_operand_bundles", normal_destination);

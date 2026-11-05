@@ -18,27 +18,24 @@ entry:
 declare void @nobody()
 ";
 
-fn run_module_pass<P: ModulePass>(pass: P, pipeline: &str) {
-    let mut holder = Some(pass);
+// LLVM can call a registered pass's maker more than once while it reads the text, so these take a maker.
+fn run_module_pass<P: ModulePass + 'static>(make: fn() -> P) {
     with_context(|context| {
         let mut module = context.parse_ir_text(IR).expect("the test's IR");
         module
-            .run_passes_with(pipeline, None, &PassOptions::default(), |builder| {
-                let mut pass = holder.take();
-                builder.register_module_pass("test-pass", move || pass.take().expect("the pass is made once"));
+            .run_passes_with("test-pass", None, &PassOptions::default(), |builder| {
+                builder.register_module_pass("test-pass", make);
             })
             .expect("the pipeline");
     });
 }
 
-fn run_function_pass<P: FunctionPass>(pass: P) {
-    let mut holder = Some(pass);
+fn run_function_pass<P: FunctionPass + 'static>(make: fn() -> P) {
     with_context(|context| {
         let mut module = context.parse_ir_text(IR).expect("the test's IR");
         module
             .run_passes_with("function(test-pass)", None, &PassOptions::default(), |builder| {
-                let mut pass = holder.take();
-                builder.register_function_pass("test-pass", move || Once { pass: pass.take(), done: false });
+                builder.register_function_pass("test-pass", move || Once { pass: make(), done: false });
             })
             .expect("the pipeline");
     });
@@ -46,7 +43,7 @@ fn run_function_pass<P: FunctionPass>(pass: P) {
 
 // A function pass is made once by name and runs on each function, so this runs the case on `f` only.
 struct Once<P> {
-    pass: Option<P>,
+    pass: P,
     done: bool,
 }
 
@@ -56,10 +53,7 @@ impl<P: FunctionPass> FunctionPass for Once<P> {
             return PreservedAnalyses::All;
         }
         self.done = true;
-        match &mut self.pass {
-            Some(pass) => pass.run(function, analyses),
-            None => PreservedAnalyses::All,
-        }
+        self.pass.run(function, analyses)
     }
 }
 
@@ -212,18 +206,18 @@ impl ModulePass for ReplacesItsModule {
 /// Runs case `name` in this process.
 fn run_case(name: &str) {
     match name {
-        "panics" => run_function_pass(PanicsInPass),
-        "lies" => run_function_pass(Lies),
-        "lies_in_module_pass" => run_module_pass(LiesInModulePass, "test-pass"),
-        "erases_elsewhere_by_value" => run_function_pass(ErasesElsewhereByValue),
-        "erases_elsewhere_by_block" => run_function_pass(ErasesElsewhereByBlock),
-        "erases_elsewhere_through_the_module" => run_function_pass(ErasesElsewhereThroughTheModule),
-        "inlines_elsewhere" => run_function_pass(InlinesElsewhere),
-        "analyses_for_another_module" => run_module_pass(AnalysesForAnotherModule, "test-pass"),
-        "analyses_of_a_declaration" => run_module_pass(AnalysesOfADeclaration, "test-pass"),
-        "block_from_another_function" => run_module_pass(BlockFromAnotherFunction, "test-pass"),
-        "loop_for_another_function" => run_module_pass(LoopForAnotherFunction, "test-pass"),
-        "replaces_its_module" => run_module_pass(ReplacesItsModule, "test-pass"),
+        "panics" => run_function_pass(|| PanicsInPass),
+        "lies" => run_function_pass(|| Lies),
+        "lies_in_module_pass" => run_module_pass(|| LiesInModulePass),
+        "erases_elsewhere_by_value" => run_function_pass(|| ErasesElsewhereByValue),
+        "erases_elsewhere_by_block" => run_function_pass(|| ErasesElsewhereByBlock),
+        "erases_elsewhere_through_the_module" => run_function_pass(|| ErasesElsewhereThroughTheModule),
+        "inlines_elsewhere" => run_function_pass(|| InlinesElsewhere),
+        "analyses_for_another_module" => run_module_pass(|| AnalysesForAnotherModule),
+        "analyses_of_a_declaration" => run_module_pass(|| AnalysesOfADeclaration),
+        "block_from_another_function" => run_module_pass(|| BlockFromAnotherFunction),
+        "loop_for_another_function" => run_module_pass(|| LoopForAnotherFunction),
+        "replaces_its_module" => run_module_pass(|| ReplacesItsModule),
         _ => {}
     }
 }

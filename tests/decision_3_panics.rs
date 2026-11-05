@@ -233,7 +233,7 @@ panics!(
 
 panics!(
     decision_3_an_instruction_after_a_terminator_panics,
-    "integer_add: the block already ends in a terminator",
+    "integer_add: the block already ends in a terminator, or the builder is before a phi",
     |context| {
         let module = context.create_module("m");
         let (function, _, builder) = function_in(&module, "f");
@@ -1718,17 +1718,21 @@ panics!(
         let _ = module.value_to_erase(other.add_global("g", context.get_type::<I64>()));
     }
 );
-panics!(decision_11_a_stale_entry_panics, "erase: this entry is stale", |context| {
-    let mut module = context.create_module("m");
-    let (entry, other): (ValueToErase, ValueToErase) = {
-        let global = module.add_global("g", context.get_type::<I64>());
-        let second = module.add_global("h", context.get_type::<I64>());
-        (module.value_to_erase(global), module.value_to_erase(second))
-    };
-    // The first erase changes the module's generation, so what it did can't be known about `other`.
-    module.erase(&[entry]);
-    module.erase(&[other]);
-});
+panics!(
+    decision_11_a_stale_entry_panics,
+    "erase: this entry is stale: it was chosen before something exclusive",
+    |context| {
+        let mut module = context.create_module("m");
+        let (entry, other): (ValueToErase, ValueToErase) = {
+            let global = module.add_global("g", context.get_type::<I64>());
+            let second = module.add_global("h", context.get_type::<I64>());
+            (module.value_to_erase(global), module.value_to_erase(second))
+        };
+        // The first erase changes the module's generation, so what it did can't be known about `other`.
+        module.erase(&[entry]);
+        module.erase(&[other]);
+    }
+);
 panics!(decision_11_an_entry_used_twice_panics, "erase: this entry is stale", |context| {
     let mut module = context.create_module("m");
     let entry = {
@@ -1944,18 +1948,6 @@ const CAN_NOT_BE_BUILT_IN_A_TEST: &[&str] = &[
     "contents: this section doesn't fit in memory",
 ];
 
-// These abort the compiler, as they run inside a pass, so `tests/decision_3_pass_aborts.rs` checks them from outside.
-const CHECKED_FROM_OUTSIDE: &[&str] = &[
-    " a function pass can only erase from its own function, and ",
-    " a function pass can only change its own function",
-    " a function pass can only inline into its own function, and ",
-    ": this pass's analyses are for another module",
-    " has no body",
-    " isn't in this tree's function",
-    "loop_for: %",
-    "a module pass replaced its module with another",
-];
-
 /// The pieces of a message's text with no `{...}` in them, long enough to say something.
 fn literal_pieces(message: &str) -> Vec<String> {
     let mut pieces = Vec::new();
@@ -1978,7 +1970,8 @@ fn literal_pieces(message: &str) -> Vec<String> {
 
 #[test]
 fn decision_3_every_message_in_the_crate_has_a_test() {
-    let tests = include_str!("decision_3_panics.rs");
+    // What aborts a pass runs in a child process, in the other file.
+    let tests = concat!(include_str!("decision_3_panics.rs"), include_str!("decision_3_pass_aborts.rs"));
     let source_directory = concat!(env!("CARGO_MANIFEST_DIR"), "/src");
     let mut missing = Vec::new();
     for entry in std::fs::read_dir(source_directory).expect("the source") {
@@ -2005,11 +1998,9 @@ fn decision_3_every_message_in_the_crate_has_a_test() {
             let message = rest[..end].replace("\\n", "");
             let joined: String = message.split_whitespace().collect::<Vec<_>>().join(" ");
             let pieces = literal_pieces(&joined);
-            let mentioned = |text: &str| pieces.iter().any(|piece| text.contains(piece.as_str()));
-            if pieces.is_empty()
-                || mentioned(tests)
-                || CAN_NOT_BE_BUILT_IN_A_TEST.iter().any(|known| mentioned(known))
-                || CHECKED_FROM_OUTSIDE.iter().any(|known| mentioned(known))
+            // The start of a piece is enough, since a test's expected text can stop short of a long message's end.
+            let mentioned = |text: &str| pieces.iter().any(|piece| text.contains(&piece[..piece.len().min(24)]));
+            if pieces.is_empty() || mentioned(tests) || CAN_NOT_BE_BUILT_IN_A_TEST.iter().any(|known| mentioned(known))
             {
                 continue;
             }

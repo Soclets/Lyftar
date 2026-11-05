@@ -38,6 +38,8 @@ impl GenericValue {
     }
 
     /// A pointer.
+    // Nothing reads through it here: LLVM holds it as a number until generated code uses it, which is `unsafe` to run.
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     #[must_use]
     pub fn from_pointer(pointer: *mut c_void) -> Self {
         // SAFETY: the pointer is only held as a number; LLVM makes a new value for the caller to own.
@@ -349,6 +351,8 @@ impl<'context> ExecutionEngine<'context> {
     }
 
     /// Tells the JIT where a global lives, for a declaration with no body.
+    // Nothing reads through it here: LLVM holds it as a number until generated code uses it, which is `unsafe` to run.
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     pub fn add_global_mapping<T: GlobalValueMarker>(&self, global: Value<'context, '_, T>, address: *mut c_void) {
         // SAFETY: both are live, and the address is only held until generated code uses it, which is `unsafe` to run.
         unsafe { raw::LLVMAddGlobalMapping(self.raw, global.raw, address) };
@@ -435,7 +439,7 @@ impl JitEventListener {
         Self::from_raw_option(unsafe { raw::LLVMCreateIntelJITEventListener() })
     }
 
-    /// OProfile, if LLVM was built with it.
+    /// `OProfile`, if LLVM was built with it.
     #[must_use]
     pub fn oprofile() -> Option<Self> {
         // SAFETY: takes nothing; a null means LLVM wasn't built with it.
@@ -480,6 +484,8 @@ impl SymbolStringPoolEntry {
 }
 
 /// How ORC treats a symbol.
+// One flag each is how LLVM says these.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct JitSymbolFlags {
     /// Visible outside its JIT dynamic library.
@@ -785,7 +791,7 @@ impl Jit {
         unsafe {
             raw::LLVMOrcSymbolStringPoolClearDeadEntries(raw::LLVMOrcExecutionSessionGetSymbolStringPool(
                 self.session(),
-            ))
+            ));
         };
     }
 

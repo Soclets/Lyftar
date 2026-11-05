@@ -87,7 +87,12 @@ impl Blake3Hasher {
     pub fn finalize_at(&self, seek_in_bytes: u64, output: &mut [u8]) {
         // SAFETY: the hasher is set up, and LLVM writes the length given.
         unsafe {
-            raw::llvm_blake3_hasher_finalize_seek(&raw const self.raw, seek_in_bytes, output.as_mut_ptr(), output.len())
+            raw::llvm_blake3_hasher_finalize_seek(
+                &raw const self.raw,
+                seek_in_bytes,
+                output.as_mut_ptr(),
+                output.len(),
+            );
         };
     }
 

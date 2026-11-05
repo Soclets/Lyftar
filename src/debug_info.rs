@@ -142,7 +142,7 @@ llvm_enum! {
         D = LLVMDWARFSourceLanguageD,
         /// Python.
         Python = LLVMDWARFSourceLanguagePython,
-        /// OpenCL.
+        /// `OpenCL`.
         OpenCl = LLVMDWARFSourceLanguageOpenCL,
         /// Go.
         Go = LLVMDWARFSourceLanguageGo,
@@ -154,7 +154,7 @@ llvm_enum! {
         CPlusPlus03 = LLVMDWARFSourceLanguageC_plus_plus_03,
         /// C++11.
         CPlusPlus11 = LLVMDWARFSourceLanguageC_plus_plus_11,
-        /// OCaml.
+        /// The language OCaml.
         OCaml = LLVMDWARFSourceLanguageOCaml,
         /// Rust.
         Rust = LLVMDWARFSourceLanguageRust,
@@ -172,7 +172,7 @@ llvm_enum! {
         Fortran03 = LLVMDWARFSourceLanguageFortran03,
         /// Fortran 2008.
         Fortran08 = LLVMDWARFSourceLanguageFortran08,
-        /// RenderScript.
+        /// `RenderScript`.
         RenderScript = LLVMDWARFSourceLanguageRenderScript,
         /// BLISS.
         Bliss = LLVMDWARFSourceLanguageBLISS,
@@ -208,9 +208,9 @@ llvm_enum! {
         GlslEs = LLVMDWARFSourceLanguageGLSL_ES,
         /// HLSL.
         Hlsl = LLVMDWARFSourceLanguageHLSL,
-        /// OpenCL C++.
+        /// `OpenCL` C++.
         OpenClCPlusPlus = LLVMDWARFSourceLanguageOpenCL_CPP,
-        /// C++ for OpenCL.
+        /// C++ for `OpenCL`.
         CPlusPlusForOpenCl = LLVMDWARFSourceLanguageCPP_for_OpenCL,
         /// SYCL.
         Sycl = LLVMDWARFSourceLanguageSYCL,
@@ -224,7 +224,7 @@ llvm_enum! {
         Metal = LLVMDWARFSourceLanguageMetal,
         /// MIPS assembler.
         MipsAssembler = LLVMDWARFSourceLanguageMips_Assembler,
-        /// Google's RenderScript.
+        /// Google's `RenderScript`.
         GoogleRenderScript = LLVMDWARFSourceLanguageGOOGLE_RenderScript,
         /// Borland Delphi.
         BorlandDelphi = LLVMDWARFSourceLanguageBORLAND_Delphi,
@@ -2449,7 +2449,6 @@ impl<'context, 'module> DebugInfoBuilder<'context, 'module> {
 
     #[track_caller]
     fn check_record_pieces(
-        &self,
         operation: &str,
         variable: Metadata<'context, 'module>,
         expression: Metadata<'context, 'module>,
@@ -2473,7 +2472,7 @@ impl<'context, 'module> DebugInfoBuilder<'context, 'module> {
         location: Metadata<'context, 'module>,
         instruction: Value<'context, 'module, I>,
     ) -> DebugRecord<'context, 'module> {
-        self.check_record_pieces("insert_declare_before", variable, expression, location);
+        Self::check_record_pieces("insert_declare_before", variable, expression, location);
         // SAFETY: just checked, and both values are live for `'module`.
         DebugRecord {
             raw: unsafe {
@@ -2503,7 +2502,7 @@ impl<'context, 'module> DebugInfoBuilder<'context, 'module> {
         location: Metadata<'context, 'module>,
         block: Block<'context, 'module>,
     ) -> DebugRecord<'context, 'module> {
-        self.check_record_pieces("insert_declare_at_end", variable, expression, location);
+        Self::check_record_pieces("insert_declare_at_end", variable, expression, location);
         // SAFETY: just checked, and both are live for `'module`.
         DebugRecord {
             raw: unsafe {
@@ -2533,7 +2532,7 @@ impl<'context, 'module> DebugInfoBuilder<'context, 'module> {
         location: Metadata<'context, 'module>,
         instruction: Value<'context, 'module, I>,
     ) -> DebugRecord<'context, 'module> {
-        self.check_record_pieces("insert_value_before", variable, expression, location);
+        Self::check_record_pieces("insert_value_before", variable, expression, location);
         // SAFETY: just checked, and both values are live for `'module`.
         DebugRecord {
             raw: unsafe {
@@ -2563,7 +2562,7 @@ impl<'context, 'module> DebugInfoBuilder<'context, 'module> {
         location: Metadata<'context, 'module>,
         block: Block<'context, 'module>,
     ) -> DebugRecord<'context, 'module> {
-        self.check_record_pieces("insert_value_at_end", variable, expression, location);
+        Self::check_record_pieces("insert_value_at_end", variable, expression, location);
         // SAFETY: just checked, and both are live for `'module`.
         DebugRecord {
             raw: unsafe {

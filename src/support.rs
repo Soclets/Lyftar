@@ -58,6 +58,8 @@ pub fn search_for_address_of_symbol(name: &str) -> Option<*mut c_void> {
     (!found.is_null()).then_some(found)
 }
 
+// Nothing reads through it here: LLVM holds it as a number until generated code uses it, which is `unsafe` to run.
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 /// Makes a symbol visible to the JIT at an address.
 ///
 /// # Panics

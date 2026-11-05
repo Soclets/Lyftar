@@ -451,7 +451,7 @@ impl<'context, 'module, T: ConstantMarker> Value<'context, 'module, T> {
     }
 }
 
-impl<'context, 'module> Value<'context, 'module, ConstantExpression> {
+impl Value<'_, '_, ConstantExpression> {
     /// This constant expression's operation.
     #[must_use]
     pub fn constant_opcode(self) -> Opcode {
@@ -852,8 +852,8 @@ impl<'context, 'module> Value<'context, 'module> {
     #[must_use]
     #[track_caller]
     pub fn constant_pointer_cast(self, target: Type<'context>) -> Value<'context, 'module> {
-        self.check_constant_dynamic("constant_pointer_cast");
         use raw::LLVMTypeKind as K;
+        self.check_constant_dynamic("constant_pointer_cast");
         if self.get_type().raw_kind() != K::LLVMPointerTypeKind
             || !matches!(target.raw_kind(), K::LLVMPointerTypeKind | K::LLVMIntegerTypeKind)
         {

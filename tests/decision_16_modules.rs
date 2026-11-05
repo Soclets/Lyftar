@@ -64,7 +64,7 @@ fn decision_11_linking_moves_definitions_and_reports_conflicts() {
         assert!(destination.get_function("answer").is_some());
         let conflicting = context.create_module("conflicting");
         add_answer_function(&conflicting);
-        let error = destination.link_in(conflicting).err().expect("a duplicate definition");
+        let error = destination.link_in(conflicting).expect_err("a duplicate definition");
         assert!(error.message().contains("answer"), "{}", error.message());
     });
 }

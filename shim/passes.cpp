@@ -660,7 +660,10 @@ extern "C" bool lyftar_inline_call(LLVMValueRef call, char **message) {
 // changed nothing, and didn't tell the truth.
 extern "C" uint64_t lyftar_structural_hash_of_module(LLVMModuleRef module) {
   require(module != nullptr, "lyftar_structural_hash_of_module: null module");
-  return StructuralHash(*unwrap(module), true);
+  // LLVM's hash leaves out declarations, whose number still says the module changed.
+  const Module &found = *unwrap(module);
+  return StructuralHash(found, true) + found.size() + found.global_size() +
+         found.alias_size() + found.ifunc_size();
 }
 
 // Contract: `function` is a function. As above, for it alone.

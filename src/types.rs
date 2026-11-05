@@ -72,7 +72,7 @@ pub trait TypeMarker: Sealed + 'static {
 /// A type written fully into the Rust code, so it can be made from the context alone.
 pub trait SpecificType: TypeMarker {
     #[doc(hidden)]
-    fn get_raw(context: raw::LLVMContextRef) -> raw::LLVMTypeRef;
+    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef;
 }
 
 /// A floating-point format that the Rust code spells out, and so how many bits a value of it takes.
@@ -82,7 +82,7 @@ pub trait FloatFormat: 'static {
     #[doc(hidden)]
     const RAW_KIND: raw::LLVMTypeKind;
     #[doc(hidden)]
-    fn get_raw(context: raw::LLVMContextRef) -> raw::LLVMTypeRef;
+    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef;
 }
 
 /// Declares a floating-point format.
@@ -91,9 +91,9 @@ macro_rules! float_format {
         impl FloatFormat for $format {
             const SIZE_IN_BITS: u32 = $size;
             const RAW_KIND: raw::LLVMTypeKind = raw::LLVMTypeKind::$kind;
-            fn get_raw(context: raw::LLVMContextRef) -> raw::LLVMTypeRef {
-                // SAFETY: the context is live, as it came from a `Context`.
-                unsafe { raw::$get(context) }
+            fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+                // SAFETY: the context is live, as it is a `Context`.
+                unsafe { raw::$get(context.raw) }
             }
         }
     };
@@ -160,11 +160,11 @@ impl<const N: u32> TypeMarker for Integer<Bits<N>> {
     }
 }
 impl<const N: u32> SpecificType for Integer<Bits<N>> {
-    fn get_raw(context: raw::LLVMContextRef) -> raw::LLVMTypeRef {
+    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
         // LLVM's integer widths run from 1 to 2^23 bits, so this fails at `cargo build` when written wrong.
         const { assert!(N >= 1 && N <= (1 << 23), "an LLVM integer is between 1 and 2^23 bits wide") };
-        // SAFETY: the context is live, as it came from a `Context`, and N was just checked.
-        unsafe { raw::LLVMIntTypeInContext(context, N) }
+        // SAFETY: the context is live, as it is a `Context`, and N was just checked.
+        unsafe { raw::LLVMIntTypeInContext(context.raw, N) }
     }
 }
 
@@ -186,7 +186,7 @@ impl<F: FloatFormat> TypeMarker for Float<F> {
     }
 }
 impl<F: FloatFormat> SpecificType for Float<F> {
-    fn get_raw(context: raw::LLVMContextRef) -> raw::LLVMTypeRef {
+    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
         F::get_raw(context)
     }
 }
@@ -717,7 +717,7 @@ impl<'context> Context<'context> {
     /// The type `T`, when the Rust code spells it out.
     #[must_use]
     pub fn get_type<T: SpecificType>(self) -> Type<'context, T> {
-        Type { raw: T::get_raw(self.raw), marker: PhantomData }
+        Type { raw: T::get_raw(self), marker: PhantomData }
     }
 
     /// An integer type whose width is only known when the line runs.

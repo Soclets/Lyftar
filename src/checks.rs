@@ -4,6 +4,14 @@
 //! sets `verus_keep_ghost`. Run them with `tools/verus.sh`. What LLVM itself does is assumed, and those assumptions are
 //! written down in `ASSUMPTIONS.md`.
 
+// Verus reads this file, and knows plain arithmetic rather than these library calls.
+#![allow(
+    clippy::manual_range_contains,
+    clippy::manual_is_power_of_two,
+    clippy::bool_to_int_with_if,
+    clippy::cast_lossless
+)]
+
 #[cfg(verus_keep_ghost)]
 use vstd::prelude::*;
 

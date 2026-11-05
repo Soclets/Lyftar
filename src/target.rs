@@ -82,7 +82,7 @@ llvm_enum! {
 }
 
 llvm_enum! {
-    /// What GlobalISel does when it can't handle something.
+    /// What `GlobalISel` does when it can't handle something.
     pub enum GlobalInstructionSelectionAbortMode: LLVMGlobalISelAbortMode {
         /// Fall back to the other selector, quietly.
         Disable = LLVMGlobalISelAbortDisable,
@@ -487,13 +487,13 @@ impl TargetMachine {
         unsafe { raw::LLVMSetTargetMachineFastISel(self.raw, i32::from(enable)) };
     }
 
-    /// Sets whether it uses GlobalISel.
+    /// Sets whether it uses `GlobalISel`.
     pub fn set_global_instruction_selection(&mut self, enable: bool) {
         // SAFETY: the machine is live.
         unsafe { raw::LLVMSetTargetMachineGlobalISel(self.raw, i32::from(enable)) };
     }
 
-    /// Sets what GlobalISel does when it can't handle something.
+    /// Sets what `GlobalISel` does when it can't handle something.
     pub fn set_global_instruction_selection_abort(&mut self, mode: GlobalInstructionSelectionAbortMode) {
         // SAFETY: the machine is live.
         unsafe { raw::LLVMSetTargetMachineGlobalISelAbort(self.raw, mode.to_raw()) };
@@ -582,7 +582,7 @@ impl Drop for TargetData<'_> {
     }
 }
 
-impl<'data> TargetData<'data> {
+impl TargetData<'_> {
     /// Wraps a layout something else owns for `'data`.
     pub(crate) fn borrowed(raw: raw::LLVMTargetDataRef) -> Self {
         TargetData { raw, owned: false, marker: PhantomData }
@@ -655,7 +655,7 @@ impl TargetData<'_> {
     }
 
     #[track_caller]
-    fn check_sized<T>(&self, operation: &str, checked: Type<'_, T>) {
+    fn check_sized<T>(operation: &str, checked: Type<'_, T>) {
         if !checked.is_sized() {
             bad_call(format_args!("{operation}: {} has no size", checked.describe()));
         }
@@ -668,7 +668,7 @@ impl TargetData<'_> {
     #[must_use]
     #[track_caller]
     pub fn size_of_type_in_bits<T>(&self, of: Type<'_, T>) -> u64 {
-        self.check_sized("size_of_type_in_bits", of);
+        Self::check_sized("size_of_type_in_bits", of);
         // SAFETY: both are live, and the type was just checked.
         unsafe { raw::LLVMSizeOfTypeInBits(self.raw, of.raw) }
     }
@@ -680,7 +680,7 @@ impl TargetData<'_> {
     #[must_use]
     #[track_caller]
     pub fn store_size_in_bytes<T>(&self, of: Type<'_, T>) -> u64 {
-        self.check_sized("store_size_in_bytes", of);
+        Self::check_sized("store_size_in_bytes", of);
         // SAFETY: both are live, and the type was just checked.
         unsafe { raw::LLVMStoreSizeOfType(self.raw, of.raw) }
     }
@@ -692,7 +692,7 @@ impl TargetData<'_> {
     #[must_use]
     #[track_caller]
     pub fn allocation_size_in_bytes<T>(&self, of: Type<'_, T>) -> u64 {
-        self.check_sized("allocation_size_in_bytes", of);
+        Self::check_sized("allocation_size_in_bytes", of);
         // SAFETY: both are live, and the type was just checked.
         unsafe { raw::LLVMABISizeOfType(self.raw, of.raw) }
     }
@@ -704,7 +704,7 @@ impl TargetData<'_> {
     #[must_use]
     #[track_caller]
     pub fn abi_alignment_in_bytes<T>(&self, of: Type<'_, T>) -> u32 {
-        self.check_sized("abi_alignment_in_bytes", of);
+        Self::check_sized("abi_alignment_in_bytes", of);
         // SAFETY: both are live, and the type was just checked.
         unsafe { raw::LLVMABIAlignmentOfType(self.raw, of.raw) }
     }
@@ -716,7 +716,7 @@ impl TargetData<'_> {
     #[must_use]
     #[track_caller]
     pub fn call_frame_alignment_in_bytes<T>(&self, of: Type<'_, T>) -> u32 {
-        self.check_sized("call_frame_alignment_in_bytes", of);
+        Self::check_sized("call_frame_alignment_in_bytes", of);
         // SAFETY: both are live, and the type was just checked.
         unsafe { raw::LLVMCallFrameAlignmentOfType(self.raw, of.raw) }
     }
@@ -728,7 +728,7 @@ impl TargetData<'_> {
     #[must_use]
     #[track_caller]
     pub fn preferred_alignment_in_bytes<T>(&self, of: Type<'_, T>) -> u32 {
-        self.check_sized("preferred_alignment_in_bytes", of);
+        Self::check_sized("preferred_alignment_in_bytes", of);
         // SAFETY: both are live, and the type was just checked.
         unsafe { raw::LLVMPreferredAlignmentOfType(self.raw, of.raw) }
     }
@@ -741,7 +741,7 @@ impl TargetData<'_> {
     }
 
     #[track_caller]
-    fn check_struct(&self, operation: &str, checked: Type<'_>) {
+    fn check_struct(operation: &str, checked: Type<'_>) {
         if checked.raw_kind() != raw::LLVMTypeKind::LLVMStructTypeKind || !checked.is_sized() {
             bad_call(format_args!("{operation}: {} is not a sized struct", checked.describe()));
         }
@@ -754,7 +754,7 @@ impl TargetData<'_> {
     #[must_use]
     #[track_caller]
     pub fn element_at_offset(&self, struct_type: Type<'_>, offset_in_bytes: u64) -> u32 {
-        self.check_struct("element_at_offset", struct_type);
+        Self::check_struct("element_at_offset", struct_type);
         // SAFETY: just checked, and LLVM's search holds for any offset.
         unsafe { raw::LLVMElementAtOffset(self.raw, struct_type.raw, offset_in_bytes) }
     }
@@ -766,7 +766,7 @@ impl TargetData<'_> {
     #[must_use]
     #[track_caller]
     pub fn offset_of_element_in_bytes(&self, struct_type: Type<'_>, element: u32) -> u64 {
-        self.check_struct("offset_of_element_in_bytes", struct_type);
+        Self::check_struct("offset_of_element_in_bytes", struct_type);
         let count = struct_type.struct_element_count();
         if !checks::index_in_bounds(element, count) {
             bad_call(format_args!("offset_of_element_in_bytes: {} has no element {element}", struct_type.describe()));
@@ -776,7 +776,7 @@ impl TargetData<'_> {
     }
 }
 
-impl<'context> Module<'context> {
+impl Module<'_> {
     /// This module's data layout.
     #[must_use]
     pub fn target_data(&self) -> TargetData<'_> {

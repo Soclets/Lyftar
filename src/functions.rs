@@ -134,7 +134,7 @@ impl<'context, 'module, T: GlobalValueMarker> Value<'context, 'module, T> {
     }
 }
 
-impl<'context, 'module, T: GlobalObjectMarker> Value<'context, 'module, T> {
+impl<'module, T: GlobalObjectMarker> Value<'_, 'module, T> {
     /// This global's section, if it has one.
     #[must_use]
     pub fn section(self) -> Option<String> {
@@ -176,7 +176,7 @@ pub struct ModuleRef<'context, 'module> {
     marker: PhantomData<(Invariant<'context>, &'module ())>,
 }
 
-impl<'context, 'module> ModuleRef<'context, 'module> {
+impl<'context> ModuleRef<'context, '_> {
     /// The raw module.
     ///
     /// # Safety
