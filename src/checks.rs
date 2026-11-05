@@ -223,3 +223,10 @@ pub(crate) fn sorted_has_no_duplicates(sorted: &[usize]) -> bool {
 pub(crate) fn aggregate_index_in_bounds(index: u64, count: u64) -> bool {
     index < count
 }
+
+// trace: D22
+/// Whether LLVM can hold this calling convention: it keeps 10 bits for one.
+#[cfg_attr(verus_keep_ghost, verus_spec(result => ensures result == (number <= 1023)))]
+pub(crate) fn calling_convention_is_valid(number: u32) -> bool {
+    number <= 1023
+}

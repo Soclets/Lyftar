@@ -209,8 +209,12 @@ pub trait PointerOperand: ValueMarker {
     type GetElementPointerResult: ValueMarker;
     #[doc(hidden)]
     const IS_DYNAMIC: bool;
+    /// Checks for one pointer.
     #[doc(hidden)]
     fn check_pointer(operation: &str, value: raw::LLVMValueRef);
+    /// Checks for one pointer or a vector of them, as `getelementptr` takes.
+    #[doc(hidden)]
+    fn check_pointer_or_vector(operation: &str, value: raw::LLVMValueRef);
 }
 
 /// Declares a marker whose value is always a pointer.
@@ -222,6 +226,8 @@ macro_rules! always_a_pointer {
             // trace: D24
             #[inline(always)]
             fn check_pointer(_operation: &str, _value: raw::LLVMValueRef) {}
+            #[inline(always)]
+            fn check_pointer_or_vector(_operation: &str, _value: raw::LLVMValueRef) {}
         })*
     };
 }
@@ -240,6 +246,16 @@ impl PointerOperand for Dynamic {
     const IS_DYNAMIC: bool = true;
     #[track_caller]
     fn check_pointer(operation: &str, value: raw::LLVMValueRef) {
+        // SAFETY: the value came from a live `Value`.
+        let is_pointer =
+            unsafe { raw::LLVMGetTypeKind(raw::LLVMTypeOf(value)) == raw::LLVMTypeKind::LLVMPointerTypeKind };
+        if !is_pointer {
+            bad_operand(operation, value, "a pointer");
+        }
+    }
+
+    #[track_caller]
+    fn check_pointer_or_vector(operation: &str, value: raw::LLVMValueRef) {
         use raw::LLVMTypeKind as K;
         // SAFETY: the value came from a live `Value`.
         let is_pointer = unsafe {
@@ -761,7 +777,9 @@ impl<'context, 'module> Builder<'context, 'module> {
     fn check_open(&self, operation: &str) {
         // SAFETY: the builder is live and placed.
         if !unsafe { shim::lyftar_builder_is_open(self.raw) } {
-            bad_call(format_args!("{operation}: the block already ends in a terminator"));
+            bad_call(format_args!(
+                "{operation}: the block already ends in a terminator, or the builder is before a phi"
+            ));
         }
     }
 
@@ -954,14 +972,6 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_module("pointer_compare", right);
         T::check_pointer("pointer_compare", left.raw);
         check_same_type("pointer_compare", left.raw, right.raw);
-        if T::IS_DYNAMIC {
-            // SAFETY: the value is live.
-            let is_vector =
-                unsafe { raw::LLVMGetTypeKind(raw::LLVMTypeOf(left.raw)) != raw::LLVMTypeKind::LLVMPointerTypeKind };
-            if is_vector {
-                bad_operand("pointer_compare", left.raw, "a single pointer");
-            }
-        }
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildICmp(self.raw, predicate.to_raw(), left.raw, right.raw, EMPTY.as_ptr()) };
         set_name(result, name);
@@ -1583,7 +1593,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("stack_allocate_array");
         check_sized("stack_allocate_array", allocated_type);
         self.check_module("stack_allocate_array", count);
-        C::check_one("stack_allocate_array", count.raw);
+        check_single_integer("stack_allocate_array", count.raw);
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildArrayAlloca(self.raw, allocated_type.raw, count.raw, EMPTY.as_ptr()) };
         set_name(result, name);
@@ -1620,7 +1630,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_open("heap_allocate_array");
         check_sized("heap_allocate_array", allocated_type);
         self.check_module("heap_allocate_array", count);
-        C::check_one("heap_allocate_array", count.raw);
+        check_single_integer("heap_allocate_array", count.raw);
         // SAFETY: the checks above are what LLVM requires.
         let result = unsafe { raw::LLVMBuildArrayMalloc(self.raw, allocated_type.raw, count.raw, EMPTY.as_ptr()) };
         set_name(result, name);
@@ -1659,7 +1669,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_module("memory_set", byte);
         self.check_module("memory_set", length_in_bytes);
         P::check_pointer("memory_set", pointer.raw);
-        L::check_one("memory_set", length_in_bytes.raw);
+        check_single_integer("memory_set", length_in_bytes.raw);
         check_optional_alignment("memory_set", alignment_in_bytes);
         // SAFETY: the checks above are what LLVM requires.
         unsafe {
@@ -1759,7 +1769,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         self.check_module(operation, length_in_bytes);
         D::check_pointer(operation, destination.raw);
         S::check_pointer(operation, source.raw);
-        L::check_one(operation, length_in_bytes.raw);
+        check_single_integer(operation, length_in_bytes.raw);
         check_optional_alignment(operation, destination_alignment_in_bytes);
         check_optional_alignment(operation, source_alignment_in_bytes);
     }
@@ -1916,7 +1926,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> u32 {
         self.check_open(operation);
         self.check_module(operation, pointer);
-        P::check_pointer(operation, pointer.raw);
+        P::check_pointer_or_vector(operation, pointer.raw);
         self.check_values_module(operation, indices);
         let count = length_as_u32(indices.len(), operation);
         // SAFETY: only reads them; `Value` has the layout of `LLVMValueRef`.
@@ -2723,11 +2733,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, SwitchInstruction> {
         self.check_terminator_position("switch");
         self.check_module("switch", value);
-        T::check_one("switch", value.raw);
-        // SAFETY: the value is live.
-        if unsafe { raw::LLVMGetTypeKind(raw::LLVMTypeOf(value.raw)) } != raw::LLVMTypeKind::LLVMIntegerTypeKind {
-            bad_operand("switch", value.raw, "a single integer");
-        }
+        check_single_integer("switch", value.raw);
         self.check_destination("switch", default_destination);
         // SAFETY: the checks above are what LLVM requires.
         unsafe { Value::from_raw(raw::LLVMBuildSwitch(self.raw, value.raw, default_destination.raw, case_count_hint)) }
@@ -3171,6 +3177,14 @@ fn check_integer_or_pointer(operation: &str, value: raw::LLVMValueRef) {
     let kind = unsafe { raw::LLVMGetTypeKind(raw::LLVMTypeOf(value)) };
     if !matches!(kind, K::LLVMIntegerTypeKind | K::LLVMPointerTypeKind) {
         bad_operand(operation, value, "an integer or a pointer");
+    }
+}
+
+#[track_caller]
+fn check_single_integer(operation: &str, value: raw::LLVMValueRef) {
+    // SAFETY: the value came from a live `Value`.
+    if unsafe { raw::LLVMGetTypeKind(raw::LLVMTypeOf(value)) } != raw::LLVMTypeKind::LLVMIntegerTypeKind {
+        bad_operand(operation, value, "a single integer");
     }
 }
 

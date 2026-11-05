@@ -73,17 +73,21 @@ pub fn add_symbol(name: &str, address: *mut c_void) {
 ///
 /// LLVM exits the process on an option it doesn't know.
 ///
+/// # Safety
+/// LLVM's options are plain global data, so no other thread may be using LLVM during this call.
+///
 /// # Panics
 /// If a string has a NUL byte inside it (D3).
 #[track_caller]
-pub fn parse_command_line_options(arguments: &[&str], overview: &str) {
+pub unsafe fn parse_command_line_options(arguments: &[&str], overview: &str) {
     let owned: Vec<CString> = arguments.iter().map(|item| c_string(item, "parse_command_line_options")).collect();
     let pointers: Vec<*const c_char> = owned.iter().map(|item| item.as_ptr()).collect();
     let overview = c_string(overview, "parse_command_line_options");
     let Ok(count) = i32::try_from(pointers.len()) else {
         crate::bad_call::bad_call(format_args!("parse_command_line_options: too many options"))
     };
-    // SAFETY: the list and strings last for the call, and LLVM keeps none of them.
+    // SAFETY: the list and strings last for the call, and LLVM keeps none of them; the caller promises no other thread is in
+    // LLVM.
     unsafe { raw::LLVMParseCommandLineOptions(count, pointers.as_ptr(), overview.as_ptr()) };
 }
 

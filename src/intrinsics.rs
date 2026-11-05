@@ -3,7 +3,7 @@
 use crate::bad_call::bad_call;
 use crate::context::Context;
 use crate::raw;
-use crate::text::{from_owned_message, from_pointer_and_length};
+use crate::text::from_pointer_and_length;
 use crate::types::Type;
 
 /// An intrinsic, from [`Intrinsic::find`].
@@ -33,27 +33,6 @@ impl Intrinsic {
         // SAFETY: an `Intrinsic` only holds an id LLVM gave back; the text is copied right away.
         let text = unsafe { raw::LLVMIntrinsicGetName(self.0, &raw mut length) };
         from_pointer_and_length(text, length)
-    }
-
-    /// This intrinsic's name with the overload types spelled in, as a declaration has it.
-    ///
-    /// # Panics
-    /// If it isn't overloaded on that many types (D3).
-    #[must_use]
-    #[track_caller]
-    pub fn overloaded_name(self, overload_types: &[Type<'_>]) -> String {
-        self.check_overloads("overloaded_name", overload_types);
-        let mut length = 0;
-        // SAFETY: the overloads were just checked and LLVM only reads them; it allocates the name for the caller to free.
-        let text = unsafe {
-            raw::LLVMIntrinsicCopyOverloadedName(
-                self.0,
-                overload_types.as_ptr().cast_mut().cast(),
-                overload_types.len(),
-                &raw mut length,
-            )
-        };
-        from_owned_message(text)
     }
 
     /// This intrinsic's function type for the given overload types.

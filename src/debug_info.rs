@@ -1233,27 +1233,32 @@ impl<'context, 'module> DebugInfoBuilder<'context, 'module> {
         }
     }
 
-    /// A function's type: the return type, then the parameter types. An empty slot is `void`.
+    /// A function's type: what it returns, where none is `void`, and its parameter types.
     ///
     /// # Panics
-    /// If `file` isn't a file, or a parameter isn't a type (D3).
+    /// If `file` isn't a file, or one of the others isn't a type (D3).
     #[must_use]
     #[track_caller]
     pub fn create_subroutine_type(
         &self,
         file: Metadata<'context, 'module>,
+        return_type: Option<Metadata<'context, 'module>>,
         parameter_types: &[Metadata<'context, 'module>],
         flags: DebugInfoFlags,
     ) -> Metadata<'context, 'module> {
         check("create_subroutine_type", file, Class::File);
         check_list("create_subroutine_type", parameter_types, Class::Type);
-        let count = length_as_u32(parameter_types.len(), "create_subroutine_type");
-        // SAFETY: just checked; LLVM only reads the types, and `Metadata` has the layout of `LLVMMetadataRef`.
+        // LLVM wants the return type first in one list, null for `void`.
+        let mut types = Vec::with_capacity(parameter_types.len() + 1);
+        types.push(check_optional("create_subroutine_type", return_type, Class::Type));
+        types.extend(parameter_types.iter().map(|parameter| parameter.raw));
+        let count = length_as_u32(types.len(), "create_subroutine_type");
+        // SAFETY: just checked; LLVM only reads the types.
         unsafe {
             Metadata::from_raw(raw::LLVMDIBuilderCreateSubroutineType(
                 self.raw,
                 file.raw,
-                parameter_types.as_ptr().cast_mut().cast(),
+                types.as_mut_ptr(),
                 count,
                 flags.to_raw(),
             ))

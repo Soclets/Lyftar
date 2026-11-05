@@ -8,6 +8,13 @@ Freeform notes for whoever picks this up after a compaction. `coverage.json` hol
   nothing from a normal build, so users of Lyftar pull in no Verus crate. Verus is at `~/.local/verus` with toolchain 1.99.1.
 - `getTerminator()` asserts on an unterminated block in LLVM 23: use `hasTerminator()` or `getTerminatorOrNull()`.
 
+## Soundness notes
+
+Things found by reading LLVM against the API, each with a guard: `LLVMGetRelocationTypeName` leaves off the NUL, the C API's
+casts are unchecked in a release build, a `uses()` on a context constant reaches other modules, LLVM can delete an unresolved
+metadata node when an operand changes, `DbgRecord::print` crashes on a record in a block with no terminator, and
+`AtomicOrdering` and friends fall into `llvm_unreachable` on a value they do not know.
+
 ## Waiting on design claude
 
 Spelling of: `Byte<Bits<N>>`, pointer address spaces, specific arrays/vectors/structs, function signatures. All of these

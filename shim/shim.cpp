@@ -8,10 +8,12 @@
 
 #include "llvm-c/Core.h"
 #include "llvm-c/Linker.h"
+#include "llvm-c/Object.h"
 #include "llvm-c/Target.h"
 #include "llvm-c/Types.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/BasicBlock.h"
@@ -36,6 +38,7 @@
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/ValueHandle.h"
+#include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/CBindingWrapping.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -252,6 +255,30 @@ extern "C" bool lyftar_value_can_replace_uses(LLVMValueRef value,
   return !mixed && (first == nullptr || second == nullptr || first == second);
 }
 
+// Contract: returns whether LLVM lets an operand of `value` change. A constant other than a global is shared across its
+// context, so LLVM keeps its operands fixed.
+extern "C" bool lyftar_value_operands_can_change(LLVMValueRef value) {
+  require(value != nullptr, "lyftar_value_operands_can_change: null value");
+  const Value *checked = unwrap(value);
+  return !isa<Constant>(checked) || isa<GlobalValue>(checked);
+}
+
+// Contract: `function` is a function. Returns whether `value` is an instruction or block in that function.
+// trace: D11
+extern "C" bool lyftar_value_is_in_function(LLVMValueRef value,
+                                            LLVMValueRef function) {
+  require(value != nullptr && function != nullptr,
+          "lyftar_value_is_in_function: null argument");
+  const Value *wanted = unwrap(function);
+  if (const auto *instruction = dyn_cast<Instruction>(unwrap(value))) {
+    return instruction->getFunction() == wanted;
+  }
+  if (const auto *block = dyn_cast<BasicBlock>(unwrap(value))) {
+    return block->getParent() == wanted;
+  }
+  return false;
+}
+
 // Contract: returns whether `value` is something `lyftar_erase_values` can erase, other than a block.
 // trace: D11
 extern "C" bool lyftar_value_is_erasable(LLVMValueRef value) {
@@ -314,13 +341,13 @@ extern "C" LLVMValueRef lyftar_erase_find_blocker(const LLVMValueRef *values,
       if (going.contains(user) || isa<BlockAddress>(user)) {
         continue;
       }
-      if (const auto *constant = dyn_cast<Constant>(user)) {
-        if (constant->isConstantUsed()) {
-          return wrap(value);
-        }
-        continue;
+      // A global's initializer, an alias's target and a function's personality are real uses, even when nothing uses that
+      // global. Only a constant expression or aggregate that nothing uses can go.
+      const auto *constant = dyn_cast<Constant>(user);
+      if (constant == nullptr || isa<GlobalValue>(constant) ||
+          constant->isConstantUsed()) {
+        return wrap(value);
       }
-      return wrap(value);
     }
   }
   return nullptr;
@@ -424,7 +451,11 @@ extern "C" bool lyftar_builder_is_open(LLVMBuilderRef builder) {
   const IRBuilder<> *placed = unwrap(builder);
   const BasicBlock *block = placed->GetInsertBlock();
   require(block != nullptr, "lyftar_builder_is_open: builder has no position");
-  return placed->GetInsertPoint() != block->end() || !block->hasTerminator();
+  const auto position = placed->GetInsertPoint();
+  if (position == block->end()) {
+    return !block->hasTerminator();
+  }
+  return !isa<PHINode>(*position);
 }
 
 // Contract: `builder` is placed in a block. Returns whether a terminator can go there: only at the end of a block that
@@ -525,6 +556,31 @@ extern "C" bool lyftar_type_has_null_value(LLVMTypeRef checked) {
   }
   return !type->isVoidTy() && !type->isFunctionTy() && !type->isLabelTy() &&
          !type->isMetadataTy() && !type->isX86_AMXTy();
+}
+
+// Contract: `name` is a C string, `type_parameters` has `type_parameter_count` types, and `integer_parameters` has
+// `integer_parameter_count` numbers. Returns whether LLVM accepts them, since LLVM doesn't check them in a release build
+// when asked for the type directly.
+extern "C" bool lyftar_target_extension_type_is_valid(
+    LLVMContextRef context, const char *name, const LLVMTypeRef *type_parameters,
+    uint32_t type_parameter_count, const uint32_t *integer_parameters,
+    uint32_t integer_parameter_count) {
+  require(context != nullptr && name != nullptr &&
+              (type_parameters != nullptr || type_parameter_count == 0) &&
+              (integer_parameters != nullptr || integer_parameter_count == 0),
+          "lyftar_target_extension_type_is_valid: bad argument");
+  SmallVector<Type *, 4> types;
+  for (uint32_t index = 0; index < type_parameter_count; ++index) {
+    types.push_back(unwrap(type_parameters[index]));
+  }
+  Expected<TargetExtType *> result = TargetExtType::getOrError(
+      *unwrap(context), name, types,
+      ArrayRef<unsigned>(integer_parameters, integer_parameter_count));
+  if (!result) {
+    consumeError(result.takeError());
+    return false;
+  }
+  return true;
 }
 
 // Contract: returns whether a global can hold a value of type `checked`.
@@ -933,28 +989,60 @@ extern "C" bool lyftar_intrinsic_overloads_match(uint32_t id,
   if (id == 0 || id >= Intrinsic::num_intrinsics) {
     return false;
   }
-  SmallVector<Type *, 4> types;
-  for (size_t index = 0; index < count; ++index) {
-    types.push_back(unwrap(overloads[index]));
-  }
+  const auto intrinsic = static_cast<Intrinsic::ID>(id);
   SmallVector<Intrinsic::IITDescriptor, 8> descriptors;
-  Intrinsic::getIntrinsicInfoTableEntries(static_cast<Intrinsic::ID>(id),
-                                          descriptors);
-  ArrayRef<Intrinsic::IITDescriptor> table = descriptors;
-  if (count == 0) {
-    return !Intrinsic::isOverloaded(static_cast<Intrinsic::ID>(id));
-  }
-  if (!Intrinsic::isOverloaded(static_cast<Intrinsic::ID>(id))) {
-    return false;
-  }
-  // Each overload slot is counted, so a wrong count is known without building anything.
+  const ArrayRef<Intrinsic::IITDescriptor> table =
+      std::get<0>(Intrinsic::getIntrinsicInfoTableEntries(intrinsic, descriptors));
+  // Each overload slot is counted from the table, so a wrong count is known without building anything.
   unsigned slots = 0;
   for (const Intrinsic::IITDescriptor &descriptor : table) {
-    if (descriptor.Kind == Intrinsic::IITDescriptor::Overloaded) {
+    if (descriptor.Kind == Intrinsic::IITDescriptor::Overloaded ||
+        descriptor.Kind == Intrinsic::IITDescriptor::VecOfAnyPtrsToElt) {
       slots = std::max(slots, descriptor.getOverloadIndex() + 1);
     }
   }
-  return slots == count;
+  if (slots != count) {
+    return false;
+  }
+  // LLVM derives the rest of the signature from each overload type by casts it doesn't check, so each must be the kind
+  // the intrinsic says.
+  for (const Intrinsic::IITDescriptor &descriptor : table) {
+    if (descriptor.Kind != Intrinsic::IITDescriptor::Overloaded) {
+      continue;
+    }
+    const unsigned index = descriptor.getOverloadIndex();
+    require(index < count, "lyftar_intrinsic_overloads_match: bad table");
+    const Type *type = unwrap(overloads[index]);
+    const auto [vector_kind, element_kind] = descriptor.getOverloadConstraints();
+    const bool is_vector = isa<VectorType>(type);
+    if (vector_kind == Intrinsic::IITDescriptor::VC_Vector && !is_vector) {
+      return false;
+    }
+    if (vector_kind == Intrinsic::IITDescriptor::VC_Scalar && is_vector) {
+      return false;
+    }
+    const Type *scalar = type->getScalarType();
+    switch (element_kind) {
+    case Intrinsic::IITDescriptor::EC_Integer:
+      if (!scalar->isIntegerTy()) {
+        return false;
+      }
+      break;
+    case Intrinsic::IITDescriptor::EC_Float:
+      if (!scalar->isFloatingPointTy()) {
+        return false;
+      }
+      break;
+    case Intrinsic::IITDescriptor::EC_Pointer:
+      if (!scalar->isPointerTy()) {
+        return false;
+      }
+      break;
+    default:
+      break;
+    }
+  }
+  return true;
 }
 
 // Contract: `allocation` is an `alloca` in a function in a module, and `size_in_bytes` points to room for one number.
@@ -1069,6 +1157,36 @@ extern "C" void lyftar_temporary_metadata_dispose(LLVMMetadataRef metadata) {
   MDNode *node = cast<MDNode>(unwrap(metadata));
   node->replaceAllUsesWith(nullptr);
   MDNode::deleteTemporary(node);
+}
+
+// Contract: `metadata` is metadata. Returns whether it is a node whose operand can change without LLVM deleting it: LLVM can
+// delete an unresolved node when an operand changes.
+// trace: D3
+extern "C" bool lyftar_metadata_node_can_change_operand(LLVMMetadataRef metadata) {
+  require(metadata != nullptr,
+          "lyftar_metadata_node_can_change_operand: null metadata");
+  const auto *node = dyn_cast<MDNode>(unwrap(metadata));
+  return node != nullptr && node->isResolved();
+}
+
+// Contract: `module` is a module the caller holds exclusively. Reads in the bodies of everything not read yet. Returns null
+// on success, and otherwise an error the caller owns.
+// trace: D11
+extern "C" LLVMErrorRef lyftar_module_materialize_all(LLVMModuleRef module) {
+  require(module != nullptr, "lyftar_module_materialize_all: null module");
+  return wrap(unwrap(module)->materializeAll());
+}
+
+// Contract: `relocation` is a live cursor on a relocation. Gives back the name of its type, for the caller to free with
+// `LLVMDisposeMessage`. LLVM's own `LLVMGetRelocationTypeName` leaves the NUL off the end.
+extern "C" char *lyftar_relocation_type_name(LLVMRelocationIteratorRef relocation) {
+  require(relocation != nullptr, "lyftar_relocation_type_name: null cursor");
+  SmallString<64> name;
+  // LLVM's C API gives no other way to get from its handle to the relocation.
+  reinterpret_cast<const object::relocation_iterator *>(relocation)
+      ->operator*()
+      .getTypeName(name);
+  return LLVMCreateMessage(name.c_str());
 }
 
 // Contract: `record` is a debug record. Returns whether it has no instruction after it yet, because its block has no

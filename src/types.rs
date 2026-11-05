@@ -877,8 +877,23 @@ impl<'context> Context<'context> {
         integer_parameters: &[u32],
     ) -> Type<'context> {
         let name = c_string(name, "target_extension_type");
-        // SAFETY: LLVM only reads the parameters, whose counts are passed with them. `Type` has the layout of
-        // `LLVMTypeRef`.
+        // SAFETY: the shim only reads them, and `Type` has the layout of `LLVMTypeRef`.
+        let valid = unsafe {
+            crate::shim::lyftar_target_extension_type_is_valid(
+                self.raw,
+                name.as_ptr(),
+                type_parameters.as_ptr().cast(),
+                length_as_u32(type_parameters.len(), "target_extension_type"),
+                integer_parameters.as_ptr(),
+                length_as_u32(integer_parameters.len(), "target_extension_type"),
+            )
+        };
+        if !valid {
+            bad_call(format_args!(
+                "target_extension_type: LLVM has rules for {name:?}, and these parameters break them"
+            ));
+        }
+        // SAFETY: just checked; LLVM only reads the parameters, whose counts are passed with them.
         let raw = unsafe {
             raw::LLVMTargetExtTypeInContext(
                 self.raw,

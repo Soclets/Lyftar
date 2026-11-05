@@ -31,6 +31,18 @@ impl CallingConvention {
     pub const COLD: Self = CallingConvention(raw::LLVMCallConv::LLVMColdCallConv.0);
     /// `tailcc`, which LLVM numbers 18.
     pub const TAIL: Self = CallingConvention(18);
+
+    /// LLVM's number for this convention.
+    ///
+    /// # Panics
+    /// If LLVM can't hold it, past 1023 (D3).
+    #[track_caller]
+    pub(crate) fn checked_number(self, operation: &str) -> u32 {
+        if !checks::calling_convention_is_valid(self.0) {
+            bad_call(format_args!("{operation}: calling convention {} is past LLVM's 1023", self.0));
+        }
+        self.0
+    }
 }
 
 impl<'context, 'module, T: GlobalValueMarker> Value<'context, 'module, T> {
@@ -511,6 +523,32 @@ impl<'context> Module<'context> {
         Comdat { raw: unsafe { raw::LLVMGetOrInsertComdat(self.raw, name.as_ptr()) }, marker: PhantomData }
     }
 
+    /// An intrinsic's name with the overload types spelled in, as a declaration has it.
+    ///
+    /// # Panics
+    /// If the types don't fit the intrinsic (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn intrinsic_overloaded_name(
+        &self,
+        intrinsic: crate::intrinsics::Intrinsic,
+        overload_types: &[Type<'context>],
+    ) -> String {
+        intrinsic.check_overloads("intrinsic_overloaded_name", overload_types);
+        let mut length = 0;
+        // SAFETY: the overloads were just checked and LLVM only reads them; it allocates the name for the caller to free.
+        let text = unsafe {
+            raw::LLVMIntrinsicCopyOverloadedName2(
+                self.raw,
+                intrinsic.0,
+                overload_types.as_ptr().cast_mut().cast(),
+                overload_types.len(),
+                &raw mut length,
+            )
+        };
+        crate::text::from_owned_message(text)
+    }
+
     /// The declaration of an intrinsic, with the types it is overloaded on.
     ///
     /// # Panics
@@ -936,9 +974,14 @@ impl<'context, 'module> Value<'context, 'module, Function> {
     }
 
     /// Sets this function's calling convention.
+    ///
+    /// # Panics
+    /// If LLVM can't hold it, past 1023 (D3).
+    #[track_caller]
     pub fn set_calling_convention(self, convention: CallingConvention) {
-        // SAFETY: the marker guarantees a function.
-        unsafe { raw::LLVMSetFunctionCallConv(self.raw, convention.0) };
+        let number = convention.checked_number("set_calling_convention");
+        // SAFETY: the marker guarantees a function, and the number was just checked.
+        unsafe { raw::LLVMSetFunctionCallConv(self.raw, number) };
     }
 
     /// The name of this function's garbage collector, if it has one.

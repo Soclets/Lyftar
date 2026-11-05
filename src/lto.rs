@@ -50,12 +50,15 @@ pub fn runtime_library_symbols() -> Vec<String> {
 
 /// Gives LLVM's code generator options, as `llc` takes them, for `libLTO`.
 ///
+/// # Safety
+/// LLVM's options are plain global data, so no other thread may be using LLVM during this call.
+///
 /// # Panics
 /// If an option has a NUL byte inside it (D3).
 #[track_caller]
-pub fn set_debug_options(options: &[&str]) {
+pub unsafe fn set_debug_options(options: &[&str]) {
     with_c_list("set_debug_options", options, |list, count| {
-        // SAFETY: the list lasts for the call, and LLVM copies what it keeps.
+        // SAFETY: the list lasts for the call, and LLVM copies what it keeps; the caller promises no other thread is in LLVM.
         unsafe { raw::lto_set_debug_options(list, count) };
     });
 }
@@ -598,23 +601,29 @@ impl<'modules> LtoCodeGenerator<'modules> {
 
     /// Gives its code generator options, as `llc` takes them, separated by spaces.
     ///
+    /// # Safety
+    /// LLVM's options are plain global data, so no other thread may be using LLVM during the next compile.
+    ///
     /// # Panics
     /// If `options` has a NUL byte inside it (D3).
     #[track_caller]
-    pub fn debug_options(&mut self, options: &str) {
+    pub unsafe fn debug_options(&mut self, options: &str) {
         let options = c_string(options, "debug_options");
-        // SAFETY: the generator is live, and LLVM copies the valid C string.
+        // SAFETY: the generator is live, and LLVM copies the valid C string; the caller keeps other threads out of LLVM.
         unsafe { raw::lto_codegen_debug_options(self.raw, options.as_ptr()) };
     }
 
     /// Gives its code generator options, as `llc` takes them, one per item.
     ///
+    /// # Safety
+    /// LLVM's options are plain global data, so no other thread may be using LLVM during the next compile.
+    ///
     /// # Panics
     /// If an option has a NUL byte inside it (D3).
     #[track_caller]
-    pub fn debug_options_list(&mut self, options: &[&str]) {
+    pub unsafe fn debug_options_list(&mut self, options: &[&str]) {
         with_c_list("debug_options_list", options, |list, count| {
-            // SAFETY: the generator is live, and LLVM copies what it keeps.
+            // SAFETY: the generator is live, and LLVM copies what it keeps; the caller keeps other threads out of LLVM.
             unsafe { raw::lto_codegen_debug_options_array(self.raw, list, count) };
         });
     }
@@ -937,12 +946,15 @@ impl ThinLtoCodeGenerator {
 
 /// Gives LLVM's code generator options, as `llc` takes them, for ThinLTO.
 ///
+/// # Safety
+/// LLVM's options are plain global data, so no other thread may be using LLVM during this call.
+///
 /// # Panics
 /// If an option has a NUL byte inside it (D3).
 #[track_caller]
-pub fn set_thin_debug_options(options: &[&str]) {
+pub unsafe fn set_thin_debug_options(options: &[&str]) {
     with_c_list("set_thin_debug_options", options, |list, count| {
-        // SAFETY: the list lasts for the call, and LLVM copies what it keeps.
+        // SAFETY: the list lasts for the call, and LLVM copies what it keeps; the caller promises no other thread is in LLVM.
         unsafe { raw::thinlto_debug_options(list, count) };
     });
 }

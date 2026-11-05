@@ -1,7 +1,7 @@
 //! The plain enumerations of LLVM's C API, spelled out (D5).
 //!
 //! Each one can hold a value this Lyftar doesn't name, which only a mismatched LLVM could produce: LLVM's own value is
-//! kept in `Unknown` rather than turning it into undefined behaviour.
+//! kept in `Unknown`, which can be read but not handed back.
 
 use crate::raw;
 
@@ -17,11 +17,18 @@ macro_rules! llvm_enum {
         }
 
         impl $name {
+            // trace: D3
+            /// LLVM's value. `Unknown` only comes from reading what this Lyftar doesn't name, and LLVM's own switches on
+            /// these fall into undefined behaviour on a value they don't know, so handing one back is a bug.
             #[allow(dead_code)]
+            #[track_caller]
             pub(crate) fn to_raw(self) -> raw::$raw {
                 match self {
                     $(Self::$variant => raw::$raw::$raw_variant,)*
-                    Self::Unknown(value) => raw::$raw(value),
+                    Self::Unknown(value) => crate::bad_call::bad_call(format_args!(
+                        "{}: LLVM's value {value} is one this Lyftar doesn't name, so it can't go back to LLVM",
+                        stringify!($name)
+                    )),
                 }
             }
 

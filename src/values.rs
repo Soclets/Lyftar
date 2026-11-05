@@ -11,6 +11,7 @@ use crate::block::Block;
 use crate::checks;
 use crate::context::Context;
 use crate::enums::ValueCategory;
+use crate::module::Module;
 use crate::raw;
 use crate::shim;
 use crate::text::{from_owned_message, from_pointer_and_length};
@@ -379,6 +380,7 @@ impl<'context, 'module> Use<'context, 'module> {
 /// The uses of a value, from [`Value::uses`].
 pub struct Uses<'context, 'module> {
     next: raw::LLVMUseRef,
+    module: raw::LLVMModuleRef,
     marker: PhantomData<(Invariant<'context>, &'module ())>,
 }
 
@@ -386,14 +388,25 @@ impl<'context, 'module> Iterator for Uses<'context, 'module> {
     type Item = Use<'context, 'module>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.next.is_null() {
-            return None;
+        while !self.next.is_null() {
+            let current = self.next;
+            // SAFETY: `current` is live, since nothing can delete it while `'module` lasts.
+            self.next = unsafe { raw::LLVMGetNextUse(current) };
+            // Only uses in this iterator's module, when it is for a constant shared across modules. A constant user that
+            // reaches no global can be anywhere, and has no module of its own to hold on to, so it isn't one of them.
+            // SAFETY: the use's user is live.
+            let in_module = self.module.is_null()
+                || unsafe {
+                    let user = raw::LLVMGetUser(current);
+                    !shim::lyftar_value_is_context_constant(user)
+                        && shim::lyftar_value_belongs_to_module(user, self.module)
+                };
+            if in_module {
+                // SAFETY: the same use.
+                return Some(unsafe { Use::from_raw(current) });
+            }
         }
-        let current = self.next;
-        // SAFETY: `current` is live, since nothing can delete it while `'module` lasts.
-        self.next = unsafe { raw::LLVMGetNextUse(current) };
-        // SAFETY: the same use.
-        Some(unsafe { Use::from_raw(current) })
+        None
     }
 }
 
@@ -490,11 +503,30 @@ impl<'context, 'module, T> Value<'context, 'module, T> {
         unsafe { raw::LLVMIsNull(self.raw) != 0 }
     }
 
-    /// The uses of this value, none for a constant with no use list.
+    /// The uses of this value.
+    ///
+    /// # Panics
+    /// If this value belongs to the context, so its uses can be in any module: [`Value::uses_in`] says which (D3).
     #[must_use]
+    #[track_caller]
     pub fn uses(self) -> Uses<'context, 'module> {
-        // SAFETY: the value is live for `'module`.
-        Uses { next: unsafe { raw::LLVMGetFirstUse(self.raw) }, marker: PhantomData }
+        // trace: D11
+        // SAFETY: the value is live for `'module`; the shim only reads it.
+        if unsafe { shim::lyftar_value_is_context_constant(self.raw) } {
+            bad_call(format_args!(
+                "uses: {} belongs to the context, so its uses can be in any module: use uses_in",
+                self.print_to_string()
+            ));
+        }
+        // SAFETY: the value is tied to a module, as just checked, which is where all its uses are, live for `'module`.
+        Uses { next: unsafe { raw::LLVMGetFirstUse(self.raw) }, module: std::ptr::null_mut(), marker: PhantomData }
+    }
+
+    /// The uses of this value in one module, for a constant that belongs to the context and can be used in several.
+    #[must_use]
+    pub fn uses_in<'borrow>(self, module: &'borrow Module<'context>) -> Uses<'context, 'borrow> {
+        // SAFETY: the value is live; the iterator gives only the uses in this module, which last as long as this borrow.
+        Uses { next: unsafe { raw::LLVMGetFirstUse(self.raw) }, module: module.raw, marker: PhantomData }
     }
 
     /// Replaces every use of this value with `replacement`.
@@ -602,10 +634,15 @@ impl<'context, 'module, T: UserMarker> Value<'context, 'module, T> {
     /// Sets the operand at `index`.
     ///
     /// # Panics
-    /// If there is no such operand, or the new one has another type, or it belongs to another module (D3).
+    /// If there is no such operand, or the new one has another type, or it belongs to another module, or this is a constant
+    /// other than a global, whose operands LLVM keeps fixed because it shares one copy of each constant (D3).
     #[track_caller]
     pub fn set_operand<U>(self, index: u32, operand: Value<'context, 'module, U>) {
         self.check_operand_index("set_operand", index);
+        // SAFETY: the value is live; the shim only reads it.
+        if !unsafe { shim::lyftar_value_operands_can_change(self.raw) } {
+            bad_call(format_args!("set_operand: the operands of {} can't change", self.print_to_string()));
+        }
         // SAFETY: the index was just checked and both values are live.
         unsafe {
             let old = raw::LLVMGetOperand(self.raw, index);

@@ -102,10 +102,28 @@ impl<'context> FunctionInPass<'context> {
     /// Erases these values and blocks together, as [`Module::erase`] does.
     ///
     /// # Panics
-    /// As [`Module::erase`] does (D3).
+    /// As [`Module::erase`] does, and if an entry is outside this function, since LLVM is walking the module's functions
+    /// (D3).
     #[track_caller]
     pub fn erase(&mut self, entries: &[ValueToErase]) {
+        for entry in entries {
+            self.check_in_function("erase", *entry);
+        }
         self.module.erase(entries);
+    }
+
+    #[track_caller]
+    fn check_in_function(&self, operation: &str, entry: ValueToErase) {
+        if !self.module.entry_is_current(entry) {
+            bad_call(format_args!(
+                "{operation}: this entry is stale: it was chosen before something exclusive happened to this module, or it \
+                 came from another module"
+            ));
+        }
+        // SAFETY: the entry is current, so it is live and in this module, and the shim only reads it.
+        if !unsafe { shim::lyftar_value_is_in_function(entry.raw, self.function) } {
+            bad_call(format_args!("{operation}: a function pass can only change its own function"));
+        }
     }
 
     /// A handle on a value that survives changes and says whether the value is still there (D11).
@@ -145,6 +163,7 @@ impl<'context> FunctionInPass<'context> {
     /// As [`Module::inline_call`] does (D3).
     #[track_caller]
     pub fn inline_call(&mut self, call: CallToInline) -> Result<(), Error> {
+        self.check_in_function("inline_call", call.entry);
         self.module.inline_call(call)
     }
 }

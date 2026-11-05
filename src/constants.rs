@@ -27,6 +27,9 @@ impl<'context, W> Type<'context, Integer<W>> {
     #[must_use]
     #[track_caller]
     pub fn constant_integer_from_words(self, words: &[u64]) -> Value<'context, 'static, Integer<W>> {
+        if words.is_empty() {
+            bad_call(format_args!("constant_integer_from_words: there must be at least one word"));
+        }
         let count = length_as_u32(words.len(), "constant_integer_from_words");
         // SAFETY: `Integer` guarantees an integer type; LLVM reads `count` words.
         unsafe { Value::from_raw(raw::LLVMConstIntOfArbitraryPrecision(self.raw, count, words.as_ptr())) }
@@ -109,6 +112,10 @@ impl<'context, T> Type<'context, T> {
     #[must_use]
     #[track_caller]
     pub fn constant_array<'module, V>(self, values: &[Value<'context, 'module, V>]) -> Value<'context, 'module> {
+        // SAFETY: only reads the type.
+        if !unsafe { shim::lyftar_is_valid_array_element(self.raw) } {
+            bad_call(format_args!("constant_array: {} can't be an array's element", self.print_to_string()));
+        }
         check_constants("constant_array", values, Some(self.raw));
         // SAFETY: LLVM only reads the values, which were just checked; `Value` has the layout of `LLVMValueRef`.
         unsafe {
@@ -237,6 +244,12 @@ impl<'context> Context<'context> {
         is_packed: bool,
     ) -> Value<'context, 'module> {
         check_constants("constant_struct", values, None);
+        for value in values {
+            // SAFETY: the value is live, and the shim only reads its type.
+            if !unsafe { shim::lyftar_is_valid_struct_element(raw::LLVMTypeOf(value.raw)) } {
+                bad_call(format_args!("constant_struct: {} can't go in a struct", value.print_to_string()));
+            }
+        }
         let count = length_as_u32(values.len(), "constant_struct");
         // SAFETY: LLVM only reads the values, which were just checked.
         unsafe {
@@ -261,6 +274,10 @@ impl<'context> Context<'context> {
         };
         // SAFETY: the value is live.
         check_constants("constant_vector", values, Some(unsafe { raw::LLVMTypeOf(first.raw) }));
+        // SAFETY: the value is live, and the shim only reads its type.
+        if !unsafe { shim::lyftar_is_valid_vector_element(raw::LLVMTypeOf(first.raw)) } {
+            bad_call(format_args!("constant_vector: {} can't be a vector's element", first.print_to_string()));
+        }
         let count = length_as_u32(values.len(), "constant_vector");
         // SAFETY: LLVM only reads the values, which were just checked.
         unsafe { Value::from_raw(raw::LLVMConstVector(values.as_ptr().cast_mut().cast(), count)) }
@@ -331,6 +348,19 @@ impl<'context, 'module> Value<'context, 'module, ConstantDataSequential> {
     pub fn is_constant_string(self) -> bool {
         // SAFETY: the marker guarantees what LLVM asks for.
         unsafe { raw::LLVMIsConstantString(self.raw) != 0 }
+    }
+
+    /// This constant's text, if it is an array of `i8`, with any NUL at its end left off.
+    #[must_use]
+    pub fn as_string(self) -> Option<Vec<u8>> {
+        if !self.is_constant_string() {
+            return None;
+        }
+        let mut length = 0;
+        // SAFETY: just checked that it is a string; the bytes are copied right away.
+        let text = unsafe { raw::LLVMGetAsString(self.raw, &raw mut length) };
+        // SAFETY: LLVM says where the bytes are and how many.
+        Some(unsafe { std::slice::from_raw_parts(text.cast::<u8>(), length) }.to_vec())
     }
 
     /// This constant's bytes as written.

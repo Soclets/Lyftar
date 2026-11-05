@@ -111,13 +111,13 @@ impl<'context, 'module> Value<'context, 'module, MetadataAsValue> {
         unsafe { !raw::LLVMIsAValueAsMetadata(self.raw).is_null() }
     }
 
-    /// The operands of this metadata node, each as a value.
+    /// The operands of this metadata node, each as a value, none where the operand is null.
     ///
     /// # Panics
     /// If this doesn't wrap a metadata node (D3).
     #[must_use]
     #[track_caller]
-    pub fn node_operands(self) -> Vec<Value<'context, 'module>> {
+    pub fn node_operands(self) -> Vec<Option<Value<'context, 'module>>> {
         if !self.is_metadata_node() {
             bad_call(format_args!("node_operands: {} is not a metadata node", self.print_to_string()));
         }
@@ -126,18 +126,24 @@ impl<'context, 'module> Value<'context, 'module, MetadataAsValue> {
             let count = raw::LLVMGetMDNodeNumOperands(self.raw);
             let mut operands = vec![std::ptr::null_mut(); count as usize];
             raw::LLVMGetMDNodeOperands(self.raw, operands.as_mut_ptr());
-            operands.into_iter().map(|operand| Value::from_raw(operand)).collect()
+            operands.into_iter().map(|operand| (!operand.is_null()).then(|| Value::from_raw(operand))).collect()
         }
     }
 
+    // trace: D11
     /// Replaces the operand at `index` of this metadata node.
     ///
+    /// The replacement belongs to the context, because a node made only from the context can be held across a delete: a
+    /// value from a module in it would then be reachable after that value goes.
+    ///
     /// # Panics
-    /// If this doesn't wrap a metadata node, or it has no such operand (D3).
+    /// If this doesn't wrap a resolved metadata node, or it has no such operand (D3).
     #[track_caller]
-    pub fn replace_node_operand(self, index: u32, replacement: Metadata<'context, 'module>) {
-        if !self.is_metadata_node() {
-            bad_call(format_args!("replace_node_operand: {} is not a metadata node", self.print_to_string()));
+    pub fn replace_node_operand(self, index: u32, replacement: Metadata<'context, 'static>) {
+        // SAFETY: the marker guarantees a live wrapped value. LLVM can delete an unresolved node when one of its operands
+        // changes, which would leave other handles on it dangling, so those are refused.
+        if !unsafe { crate::shim::lyftar_metadata_node_can_change_operand(raw::LLVMValueAsMetadata(self.raw)) } {
+            bad_call(format_args!("replace_node_operand: {} is not a resolved metadata node", self.print_to_string()));
         }
         // SAFETY: just checked.
         let count = unsafe { raw::LLVMGetMDNodeNumOperands(self.raw) };

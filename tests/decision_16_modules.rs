@@ -154,7 +154,7 @@ fn decision_16_debug_info_builds_and_verifies() {
         let i32_debug = builder.create_basic_type("int", 32, 5, DebugInfoFlags::ZERO);
         assert_eq!(i32_debug.type_size_in_bits(), 32);
         assert_eq!(i32_debug.type_name(), "int");
-        let function_debug = builder.create_subroutine_type(file, &[i32_debug], DebugInfoFlags::ZERO);
+        let function_debug = builder.create_subroutine_type(file, Some(i32_debug), &[], DebugInfoFlags::ZERO);
         let subprogram = builder.create_function(
             unit,
             "answer",
@@ -245,7 +245,10 @@ fn decision_16_metadata_attributes_and_intrinsics_round_trip() {
         assert!(add_overflow.is_overloaded());
         let declared = module.intrinsic_declaration(add_overflow, &[i64_type.to_dynamic()]);
         assert_eq!(declared.intrinsic(), Some(add_overflow));
-        assert_eq!(add_overflow.overloaded_name(&[i64_type.to_dynamic()]), "llvm.sadd.with.overflow.i64");
+        assert_eq!(
+            module.intrinsic_overloaded_name(add_overflow, &[i64_type.to_dynamic()]),
+            "llvm.sadd.with.overflow.i64"
+        );
     });
 }
 

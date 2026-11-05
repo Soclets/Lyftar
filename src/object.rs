@@ -329,7 +329,8 @@ impl<'binary> SectionCursor<'binary, '_> {
                     offset_in_bytes: raw::LLVMGetRelocationOffset(cursor),
                     symbol_name,
                     relocation_type: raw::LLVMGetRelocationType(cursor),
-                    type_name: from_owned_message(raw::LLVMGetRelocationTypeName(cursor).cast_mut()),
+                    // `LLVMGetRelocationTypeName` gives back text with no NUL at its end, so the shim asks instead.
+                    type_name: from_owned_message(crate::shim::lyftar_relocation_type_name(cursor)),
                     value: from_owned_message(raw::LLVMGetRelocationValueString(cursor).cast_mut()),
                 });
                 raw::LLVMMoveToNextRelocation(cursor);

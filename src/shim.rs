@@ -22,9 +22,11 @@ unsafe extern "C" {
     pub fn lyftar_value_belongs_to_module(value: LLVMValueRef, module: LLVMModuleRef) -> bool;
     pub fn lyftar_values_share_module(user: LLVMValueRef, other: LLVMValueRef) -> bool;
     pub fn lyftar_value_is_terminator(value: LLVMValueRef) -> bool;
+    pub fn lyftar_value_operands_can_change(value: LLVMValueRef) -> bool;
     pub fn lyftar_value_can_replace_uses(value: LLVMValueRef, replacement: LLVMValueRef) -> bool;
     pub fn lyftar_value_is_erasable(value: LLVMValueRef) -> bool;
     pub fn lyftar_value_is_context_constant(value: LLVMValueRef) -> bool;
+    pub fn lyftar_value_is_in_function(value: LLVMValueRef, function: LLVMValueRef) -> bool;
     pub fn lyftar_erase_find_blocker(values: *const LLVMValueRef, count: usize) -> LLVMValueRef;
     pub fn lyftar_erase_values(values: *const LLVMValueRef, count: usize);
     pub fn lyftar_weak_handle_create(value: LLVMValueRef) -> *mut WeakHandle;
@@ -46,6 +48,14 @@ unsafe extern "C" {
         count: u32,
     ) -> u32;
     pub fn lyftar_type_has_null_value(checked: LLVMTypeRef) -> bool;
+    pub fn lyftar_target_extension_type_is_valid(
+        context: LLVMContextRef,
+        name: *const c_char,
+        type_parameters: *const LLVMTypeRef,
+        type_parameter_count: u32,
+        integer_parameters: *const u32,
+        integer_parameter_count: u32,
+    ) -> bool;
     pub fn lyftar_type_is_valid_global(checked: LLVMTypeRef) -> bool;
     pub fn lyftar_type_is_loadable(checked: LLVMTypeRef) -> bool;
     pub fn lyftar_type_is_first_class(checked: LLVMTypeRef) -> bool;
@@ -97,6 +107,9 @@ unsafe extern "C" {
     pub fn lyftar_attribute_kind_takes_type(kind: u32) -> bool;
     pub fn lyftar_attribute_kind_takes_constant_range(kind: u32) -> bool;
     pub fn lyftar_debug_record_is_trailing(record: crate::raw::LLVMDbgRecordRef) -> bool;
+    pub fn lyftar_metadata_node_can_change_operand(metadata: crate::raw::LLVMMetadataRef) -> bool;
+    pub fn lyftar_module_materialize_all(module: LLVMModuleRef) -> crate::raw::LLVMErrorRef;
+    pub fn lyftar_relocation_type_name(relocation: crate::raw::LLVMRelocationIteratorRef) -> *mut c_char;
     pub fn lyftar_metadata_is(metadata: crate::raw::LLVMMetadataRef, which: u32) -> bool;
     pub fn lyftar_temporary_metadata_dispose(metadata: crate::raw::LLVMMetadataRef);
 }

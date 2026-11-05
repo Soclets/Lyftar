@@ -51,6 +51,18 @@ impl<'context> Context<'context> {
 }
 
 impl Module<'_> {
+    // trace: D11
+    /// Reads in the bodies of everything a lazy module hasn't yet. This changes the module in ways that can't be done with
+    /// values held, so it needs exclusive access.
+    ///
+    /// # Errors
+    /// What is wrong with the bitcode.
+    pub fn materialize_all(&mut self) -> Result<(), Error> {
+        self.bump_generation();
+        // SAFETY: the module is held exclusively.
+        Error::from_raw_result(unsafe { crate::shim::lyftar_module_materialize_all(self.raw) })
+    }
+
     /// Writes this module as bitcode to a file.
     ///
     /// # Errors

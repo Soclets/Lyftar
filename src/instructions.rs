@@ -636,6 +636,28 @@ impl Value<'_, '_, FloatCompareInstruction> {
     }
 }
 
+impl Value<'_, '_, crate::values::FenceInstruction> {
+    /// This fence's memory ordering.
+    #[must_use]
+    pub fn ordering(self) -> AtomicOrdering {
+        // SAFETY: the marker guarantees a `fence`.
+        AtomicOrdering::from_raw(unsafe { raw::LLVMGetOrdering(self.raw) })
+    }
+
+    /// Sets this fence's memory ordering.
+    ///
+    /// # Panics
+    /// If a fence can't have that ordering (D3).
+    #[track_caller]
+    pub fn set_ordering(self, ordering: AtomicOrdering) {
+        if matches!(ordering, AtomicOrdering::NotAtomic | AtomicOrdering::Unordered | AtomicOrdering::Monotonic) {
+            bad_call(format_args!("set_ordering: a fence can't be {ordering:?}"));
+        }
+        // SAFETY: the marker guarantees a `fence`, and the ordering was just checked.
+        unsafe { raw::LLVMSetOrdering(self.raw, ordering.to_raw()) };
+    }
+}
+
 impl<'context> Value<'context, '_, StackAllocationInstruction> {
     /// The type this allocates.
     #[must_use]
@@ -980,9 +1002,14 @@ impl<'context, 'module, T: CallBaseMarker> Value<'context, 'module, T> {
     }
 
     /// Sets this call's calling convention.
+    ///
+    /// # Panics
+    /// If LLVM can't hold it, past 1023 (D3).
+    #[track_caller]
     pub fn set_calling_convention(self, convention: crate::functions::CallingConvention) {
-        // SAFETY: the marker guarantees a call of some kind.
-        unsafe { raw::LLVMSetInstructionCallConv(self.raw, convention.0) };
+        let number = convention.checked_number("set_calling_convention");
+        // SAFETY: the marker guarantees a call of some kind, and the number was just checked.
+        unsafe { raw::LLVMSetInstructionCallConv(self.raw, number) };
     }
 
     /// Sets the alignment of the attribute at a location of this call.
