@@ -18,7 +18,7 @@ fn decision_4_specific_integer_arithmetic_verifies() {
         let function_type =
             context.function_type(i64_type.to_dynamic(), &[i64_type.to_dynamic(), i64_type.to_dynamic()], false);
         let function = module.add_function("arithmetic", function_type);
-        let builder = Builder::at_end_of(function.append_block("entry"));
+        let builder = Builder::at_end_of(function.append_basic_block("entry"));
         let left = function.parameter(0).checked_cast::<I64>();
         let right = function.parameter(1).checked_cast::<I64>();
         let mut value = builder.integer_add(left, right, "add");
@@ -61,10 +61,10 @@ fn decision_4_dynamic_float_compare_cast_and_control_flow_verify() {
         let i64_type = context.get_type::<I64>();
         let function_type = context.function_type(i64_type.to_dynamic(), &[f64_type.to_dynamic()], false);
         let function = module.add_function("flow", function_type);
-        let entry = function.append_block("entry");
-        let then_block = function.append_block("then");
-        let else_block = function.append_block("else");
-        let join = function.append_block("join");
+        let entry = function.append_basic_block("entry");
+        let then_block = function.append_basic_block("then");
+        let else_block = function.append_basic_block("else");
+        let join = function.append_basic_block("join");
         let builder = Builder::at_end_of(entry);
         // A value from the program being compiled is dynamic, checked when the line runs.
         let parameter = function.parameter(0);
@@ -88,7 +88,7 @@ fn decision_4_dynamic_float_compare_cast_and_control_flow_verify() {
         let phi = builder.phi(i64_type, "result");
         phi.add_incoming(&[(extended, then_block), (as_unsigned, else_block)]);
         assert_eq!(phi.incoming_count(), 2);
-        assert_eq!(phi.incoming_block(1), else_block);
+        assert_eq!(phi.incoming_basic_block(1), else_block);
         let compared = builder.integer_compare(IntegerPredicate::SignedLessThan, phi.as_value(), phi.as_value(), "");
         let chosen = builder.select(compared, phi.as_value(), phi.as_value(), "chosen");
         builder.return_value(chosen);
@@ -107,7 +107,7 @@ fn decision_4_memory_calls_and_atomics_verify() {
         let callee = module.add_function("callee", callee_type);
         let function_type = context.function_type(context.void_type(), &[], false);
         let function = module.add_function("memory", function_type);
-        let builder = Builder::at_end_of(function.append_block("entry"));
+        let builder = Builder::at_end_of(function.append_basic_block("entry"));
         let struct_type = context.struct_type(&[i64_type.to_dynamic(), i8_type.to_dynamic()], false);
         let slot = builder.stack_allocate(struct_type, "slot");
         slot.set_alignment_in_bytes(16);
@@ -161,7 +161,7 @@ fn decision_4_globals_and_aggregates_verify() {
         assert!(module.global_variables().any(|found| found == global));
         let function_type = context.function_type(i32_type.to_dynamic(), &[], false);
         let function = module.add_function("read", function_type);
-        let builder = Builder::at_end_of(function.append_block("entry"));
+        let builder = Builder::at_end_of(function.append_basic_block("entry"));
         let aggregate = builder.load(array, global, "aggregate");
         let element = builder.extract_value(aggregate, 1, "element");
         builder.return_value(element);

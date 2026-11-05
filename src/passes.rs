@@ -9,7 +9,7 @@ use std::ffi::{CString, c_char, c_void};
 use std::marker::PhantomData;
 
 use crate::bad_call::bad_call;
-use crate::block::Block;
+use crate::basic_block::BasicBlock;
 use crate::error::Error;
 use crate::module::{Module, ReplacementToMake, TrackedHandle, ValueToErase};
 use crate::raw;
@@ -130,14 +130,14 @@ impl<'context> FunctionInPass<'context> {
     /// If it isn't a block in this function (D3).
     #[must_use]
     #[track_caller]
-    pub fn block_to_erase(&self, block: Block<'context, '_>) -> ValueToErase {
+    pub fn basic_block_to_erase(&self, block: BasicBlock<'context, '_>) -> ValueToErase {
         if block.parent().raw != self.function {
             bad_call(format_args!(
-                "block_to_erase: a function pass can only erase from its own function, and %{} isn't there",
+                "basic_block_to_erase: a function pass can only erase from its own function, and %{} isn't there",
                 block.name()
             ));
         }
-        self.module.block_to_erase(block)
+        self.module.basic_block_to_erase(block)
     }
 
     // trace: D11
@@ -267,7 +267,7 @@ impl<'context, 'module> Value<'context, 'module, Function> {
     #[must_use]
     #[track_caller]
     pub fn clone_function(self) -> Value<'context, 'module, Function> {
-        if self.first_block().is_none() {
+        if self.first_basic_block().is_none() {
             bad_call(format_args!("clone_function: {} has no body", self.name()));
         }
         // SAFETY: just checked; a function handed out by Lyftar is in a module, which owns the copy.
@@ -292,7 +292,7 @@ impl Analyses<'_> {
             bad_call(format_args!("{operation}: this pass's analyses are for another module"));
         }
         module.check_owns(operation, function);
-        if function.first_block().is_none() {
+        if function.first_basic_block().is_none() {
             bad_call(format_args!("{operation}: {} has no body", function.name()));
         }
         // trace: D11
@@ -339,7 +339,7 @@ impl Analyses<'_> {
     }
 }
 
-/// A function's dominator tree. Blocks added since it was made count as unreachable.
+/// A function's dominator tree. BasicBlocks added since it was made count as unreachable.
 #[derive(Clone, Copy)]
 pub struct DominatorTree<'context, 'module> {
     raw: *mut c_void,
@@ -349,7 +349,7 @@ pub struct DominatorTree<'context, 'module> {
 
 impl<'context, 'module> DominatorTree<'context, 'module> {
     #[track_caller]
-    fn check_block(&self, operation: &str, block: Block<'context, 'module>) {
+    fn check_block(&self, operation: &str, block: BasicBlock<'context, 'module>) {
         if block.parent() != self.function {
             bad_call(format_args!("{operation}: %{} isn't in this tree's function", block.name()));
         }
@@ -357,9 +357,9 @@ impl<'context, 'module> DominatorTree<'context, 'module> {
 
     /// The entry block.
     #[must_use]
-    pub fn root(&self) -> Block<'context, 'module> {
+    pub fn root(&self) -> BasicBlock<'context, 'module> {
         // SAFETY: the tree is live for `'module`, as are its blocks.
-        unsafe { Block::from_raw(shim::lyftar_dominator_tree_root(self.raw)) }
+        unsafe { BasicBlock::from_raw(shim::lyftar_dominator_tree_root(self.raw)) }
     }
 
     /// Whether every path to `dominated` goes through `dominating`.
@@ -368,7 +368,11 @@ impl<'context, 'module> DominatorTree<'context, 'module> {
     /// If a block is in another function (D3).
     #[must_use]
     #[track_caller]
-    pub fn dominates(&self, dominating: Block<'context, 'module>, dominated: Block<'context, 'module>) -> bool {
+    pub fn dominates(
+        &self,
+        dominating: BasicBlock<'context, 'module>,
+        dominated: BasicBlock<'context, 'module>,
+    ) -> bool {
         self.check_block("dominates", dominating);
         self.check_block("dominates", dominated);
         // SAFETY: just checked, and the tree is live for `'module`.
@@ -383,8 +387,8 @@ impl<'context, 'module> DominatorTree<'context, 'module> {
     #[track_caller]
     pub fn properly_dominates(
         &self,
-        dominating: Block<'context, 'module>,
-        dominated: Block<'context, 'module>,
+        dominating: BasicBlock<'context, 'module>,
+        dominated: BasicBlock<'context, 'module>,
     ) -> bool {
         self.check_block("properly_dominates", dominating);
         self.check_block("properly_dominates", dominated);
@@ -403,7 +407,7 @@ impl<'context, 'module> DominatorTree<'context, 'module> {
         definition: Value<'context, 'module, T>,
         user: Value<'context, 'module, U>,
     ) -> bool {
-        self.check_block("value_dominates", user.parent_block());
+        self.check_block("value_dominates", user.parent_basic_block());
         // SAFETY: just checked, and the tree is live for `'module`.
         unsafe { shim::lyftar_dominator_tree_value_dominates(self.raw, definition.raw, user.raw) }
     }
@@ -414,12 +418,12 @@ impl<'context, 'module> DominatorTree<'context, 'module> {
     /// If the block is in another function (D3).
     #[must_use]
     #[track_caller]
-    pub fn immediate_dominator(&self, block: Block<'context, 'module>) -> Option<Block<'context, 'module>> {
+    pub fn immediate_dominator(&self, block: BasicBlock<'context, 'module>) -> Option<BasicBlock<'context, 'module>> {
         self.check_block("immediate_dominator", block);
         // SAFETY: just checked, and the tree is live for `'module`.
         let found = unsafe { shim::lyftar_dominator_tree_immediate_dominator(self.raw, block.raw) };
         // SAFETY: the tree's own block, live for `'module`.
-        (!found.is_null()).then(|| unsafe { Block::from_raw(found) })
+        (!found.is_null()).then(|| unsafe { BasicBlock::from_raw(found) })
     }
 
     /// Whether the tree knows the block is reachable from the entry.
@@ -428,7 +432,7 @@ impl<'context, 'module> DominatorTree<'context, 'module> {
     /// If the block is in another function (D3).
     #[must_use]
     #[track_caller]
-    pub fn is_reachable(&self, block: Block<'context, 'module>) -> bool {
+    pub fn is_reachable(&self, block: BasicBlock<'context, 'module>) -> bool {
         self.check_block("is_reachable", block);
         // SAFETY: just checked, and the tree is live for `'module`.
         unsafe { shim::lyftar_dominator_tree_is_reachable(self.raw, block.raw) }
@@ -440,18 +444,18 @@ impl<'context, 'module> DominatorTree<'context, 'module> {
     /// If the block is in another function (D3).
     #[must_use]
     #[track_caller]
-    pub fn children(&self, block: Block<'context, 'module>) -> Vec<Block<'context, 'module>> {
+    pub fn children(&self, block: BasicBlock<'context, 'module>) -> Vec<BasicBlock<'context, 'module>> {
         self.check_block("children", block);
         // SAFETY: just checked; each index is below the count the tree gave, and its blocks are live for `'module`.
         unsafe {
             (0..shim::lyftar_dominator_tree_child_count(self.raw, block.raw))
-                .map(|index| Block::from_raw(shim::lyftar_dominator_tree_child_at(self.raw, block.raw, index)))
+                .map(|index| BasicBlock::from_raw(shim::lyftar_dominator_tree_child_at(self.raw, block.raw, index)))
                 .collect()
         }
     }
 }
 
-/// A function's natural loops. Blocks added since it was made are in no loop.
+/// A function's natural loops. BasicBlocks added since it was made are in no loop.
 #[derive(Clone, Copy)]
 pub struct LoopInfo<'context, 'module> {
     raw: *mut c_void,
@@ -466,7 +470,7 @@ impl<'context, 'module> LoopInfo<'context, 'module> {
     /// If the block is in another function (D3).
     #[must_use]
     #[track_caller]
-    pub fn loop_for(&self, block: Block<'context, 'module>) -> Option<Loop<'context, 'module>> {
+    pub fn loop_for(&self, block: BasicBlock<'context, 'module>) -> Option<Loop<'context, 'module>> {
         if block.parent() != self.function {
             bad_call(format_args!("loop_for: %{} isn't in this function", block.name()));
         }
@@ -500,29 +504,29 @@ impl PartialEq for Loop<'_, '_> {
     }
 }
 
-fn optional_block<'context, 'module>(found: raw::LLVMBasicBlockRef) -> Option<Block<'context, 'module>> {
+fn optional_block<'context, 'module>(found: raw::LLVMBasicBlockRef) -> Option<BasicBlock<'context, 'module>> {
     // SAFETY: a loop's own block, live for `'module`.
-    (!found.is_null()).then(|| unsafe { Block::from_raw(found) })
+    (!found.is_null()).then(|| unsafe { BasicBlock::from_raw(found) })
 }
 
 impl<'context, 'module> Loop<'context, 'module> {
     /// The block control enters the loop through.
     #[must_use]
-    pub fn header(&self) -> Block<'context, 'module> {
+    pub fn header(&self) -> BasicBlock<'context, 'module> {
         // SAFETY: the loop is live for `'module`, as is its header.
-        unsafe { Block::from_raw(shim::lyftar_loop_header(self.raw)) }
+        unsafe { BasicBlock::from_raw(shim::lyftar_loop_header(self.raw)) }
     }
 
     /// The block just before the header, if the loop has exactly one such block that only leads into the loop.
     #[must_use]
-    pub fn preheader(&self) -> Option<Block<'context, 'module>> {
+    pub fn preheader(&self) -> Option<BasicBlock<'context, 'module>> {
         // SAFETY: the loop is live for `'module`.
         optional_block(unsafe { shim::lyftar_loop_preheader(self.raw) })
     }
 
     /// The block that branches back to the header, if there is just one.
     #[must_use]
-    pub fn latch(&self) -> Option<Block<'context, 'module>> {
+    pub fn latch(&self) -> Option<BasicBlock<'context, 'module>> {
         // SAFETY: the loop is live for `'module`.
         optional_block(unsafe { shim::lyftar_loop_latch(self.raw) })
     }
@@ -544,18 +548,18 @@ impl<'context, 'module> Loop<'context, 'module> {
 
     /// Whether a block is in this loop.
     #[must_use]
-    pub fn contains(&self, block: Block<'context, 'module>) -> bool {
+    pub fn contains(&self, block: BasicBlock<'context, 'module>) -> bool {
         // SAFETY: both are live for `'module`.
         unsafe { shim::lyftar_loop_contains_block(self.raw, block.raw) }
     }
 
     /// The blocks in this loop, the header first.
     #[must_use]
-    pub fn blocks(&self) -> Vec<Block<'context, 'module>> {
+    pub fn basic_blocks(&self) -> Vec<BasicBlock<'context, 'module>> {
         // SAFETY: the loop is live for `'module`, and each index is below the count it gave.
         unsafe {
             (0..shim::lyftar_loop_block_count(self.raw))
-                .map(|index| Block::from_raw(shim::lyftar_loop_block_at(self.raw, index)))
+                .map(|index| BasicBlock::from_raw(shim::lyftar_loop_block_at(self.raw, index)))
                 .collect()
         }
     }
@@ -573,14 +577,14 @@ impl<'context, 'module> Loop<'context, 'module> {
 
     /// The blocks outside this loop that it can branch to.
     #[must_use]
-    pub fn exit_blocks(&self) -> Vec<Block<'context, 'module>> {
+    pub fn exit_basic_blocks(&self) -> Vec<BasicBlock<'context, 'module>> {
         // SAFETY: the loop is live for `'module`; a null buffer of no room asks how many, and the second call has room for
         // them all; its blocks are live for `'module`.
         unsafe {
             let count = shim::lyftar_loop_exit_blocks(self.raw, std::ptr::null_mut(), 0);
             let mut exits = vec![std::ptr::null_mut(); count as usize];
             shim::lyftar_loop_exit_blocks(self.raw, exits.as_mut_ptr(), count);
-            exits.into_iter().map(|exit| Block::from_raw(exit)).collect()
+            exits.into_iter().map(|exit| BasicBlock::from_raw(exit)).collect()
         }
     }
 }

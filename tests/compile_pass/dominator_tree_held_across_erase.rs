@@ -17,7 +17,7 @@ impl ModulePass for P {
         let function = module.get_function("f").unwrap();
         let tree = analyses.dominator_tree(module, function);
         let root = tree.root();
-        let chosen = [module.block_to_erase(root)];
+        let chosen = [module.basic_block_to_erase(root)];
         let _ = tree.root();
         module.erase(&chosen);
         PreservedAnalyses::None

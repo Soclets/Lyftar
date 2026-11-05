@@ -17,7 +17,7 @@ fn main() {
         let b16_type = context.get_type::<B16>();
         let i8_type = context.get_type::<I8>();
         let function = module.add_function("f", context.function_type(context.void_type(), &[], false));
-        let builder = Builder::at_end_of(function.append_block("entry"));
+        let builder = Builder::at_end_of(function.append_basic_block("entry"));
         let condition = context.get_type::<Integer<Bits<1>>>().constant_integer(1, false);
         let _ = builder.integer_add(i8_type.constant_integer(1, false), i8_type.constant_integer(2, false), "");
         let _ = (b8_type, b16_type, condition);

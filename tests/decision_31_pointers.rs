@@ -63,7 +63,7 @@ fn decision_31_memory_works_in_any_space_and_a_get_element_pointer_keeps_its_spa
         let space_5 = context.get_type::<Space5>().to_dynamic();
         let function_type = context.function_type(i64_type.to_dynamic(), &[space_5], false);
         let function = module.add_function("f", function_type);
-        let builder = Builder::at_end_of(function.append_block("entry"));
+        let builder = Builder::at_end_of(function.append_basic_block("entry"));
         let address = function.parameter(0).checked_cast::<Space5>();
         let index = i64_type.constant_integer(1, false);
         let next: Value<'_, '_, Space5> = builder.get_element_pointer(i64_type.to_dynamic(), address, &[index], "next");

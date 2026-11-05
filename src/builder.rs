@@ -8,7 +8,7 @@ use std::ffi::CStr;
 use std::marker::PhantomData;
 
 use crate::bad_call::bad_call;
-use crate::block::Block;
+use crate::basic_block::BasicBlock;
 use crate::checks;
 use crate::enums::{AtomicOrdering, AtomicReadModifyWriteOperation, FloatPredicate, IntegerPredicate, Opcode};
 use crate::instructions::{GetElementPointerFlags, SynchronizationScope};
@@ -522,7 +522,7 @@ macro_rules! checked_cast {
 impl<'context, 'module> Builder<'context, 'module> {
     /// A builder placed at the end of `block`.
     #[must_use]
-    pub fn at_end_of(block: Block<'context, 'module>) -> Self {
+    pub fn at_end_of(block: BasicBlock<'context, 'module>) -> Self {
         // SAFETY: the block is live for `'module`, is in a function, and that function is in a module.
         unsafe {
             let function = raw::LLVMGetBasicBlockParent(block.raw);
@@ -536,7 +536,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     /// A builder placed just before `instruction`.
     #[must_use]
     pub fn before<T: InstructionMarker>(instruction: Value<'context, 'module, T>) -> Self {
-        let builder = Self::at_end_of(instruction.parent_block());
+        let builder = Self::at_end_of(instruction.parent_basic_block());
         // SAFETY: both are live, and the instruction is in the block the builder is in.
         unsafe { raw::LLVMPositionBuilderBefore(builder.raw, instruction.raw) };
         builder
@@ -544,7 +544,7 @@ impl<'context, 'module> Builder<'context, 'module> {
 
     /// A builder placed in `block` at its first place an ordinary instruction can go: after its phis and landing pad.
     #[must_use]
-    pub fn at_first_insertion_point(block: Block<'context, 'module>) -> Self {
+    pub fn at_first_insertion_point(block: BasicBlock<'context, 'module>) -> Self {
         let builder = Self::at_end_of(block);
         // SAFETY: both are live, and the builder is in this block.
         unsafe { shim::lyftar_builder_position_at_first_insertion_point(builder.raw, block.raw) };
@@ -580,7 +580,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     /// # Panics
     /// If the block belongs to another module (D3).
     #[track_caller]
-    pub fn position_at_end(&self, block: Block<'context, 'module>) {
+    pub fn position_at_end(&self, block: BasicBlock<'context, 'module>) {
         self.check_block_module("position_at_end", block);
         // SAFETY: both live, in one module.
         unsafe {
@@ -627,13 +627,13 @@ impl<'context, 'module> Builder<'context, 'module> {
     #[track_caller]
     pub fn position<T: InstructionMarker>(
         &self,
-        block: Block<'context, 'module>,
+        block: BasicBlock<'context, 'module>,
         instruction: Option<Value<'context, 'module, T>>,
     ) {
         self.check_block_module("position", block);
         let raw_instruction = match instruction {
             Some(found) => {
-                if found.parent_block() != block {
+                if found.parent_basic_block() != block {
                     bad_call(format_args!("position: {} isn't in %{}", found.describe(), block.name()));
                 }
                 found.raw
@@ -654,13 +654,13 @@ impl<'context, 'module> Builder<'context, 'module> {
     #[track_caller]
     pub fn position_before_debug_records<T: InstructionMarker>(
         &self,
-        block: Block<'context, 'module>,
+        block: BasicBlock<'context, 'module>,
         instruction: Option<Value<'context, 'module, T>>,
     ) {
         self.check_block_module("position_before_debug_records", block);
         let raw_instruction = match instruction {
             Some(found) => {
-                if found.parent_block() != block {
+                if found.parent_basic_block() != block {
                     bad_call(format_args!(
                         "position_before_debug_records: {} isn't in %{}",
                         found.describe(),
@@ -680,9 +680,9 @@ impl<'context, 'module> Builder<'context, 'module> {
 
     /// The block this builder is placed in.
     #[must_use]
-    pub fn insertion_block(&self) -> Block<'context, 'module> {
+    pub fn insertion_basic_block(&self) -> BasicBlock<'context, 'module> {
         // SAFETY: a `Builder` is always placed, in a block that is live for `'module`.
-        unsafe { Block::from_raw(raw::LLVMGetInsertBlock(self.raw)) }
+        unsafe { BasicBlock::from_raw(raw::LLVMGetInsertBlock(self.raw)) }
     }
 
     /// The debug location given to what this builder builds.
@@ -749,7 +749,7 @@ impl<'context, 'module> Builder<'context, 'module> {
 
     #[inline]
     #[track_caller]
-    fn check_block_module(&self, operation: &str, block: Block<'context, 'module>) {
+    fn check_block_module(&self, operation: &str, block: BasicBlock<'context, 'module>) {
         // SAFETY: the block is live, in a function in a module.
         let module = unsafe { raw::LLVMGetGlobalParent(raw::LLVMGetBasicBlockParent(block.raw)) };
         if !checks::same_identity(module as usize, self.module as usize) {
@@ -762,7 +762,7 @@ impl<'context, 'module> Builder<'context, 'module> {
 
     #[inline]
     #[track_caller]
-    fn check_destination(&self, operation: &str, block: Block<'context, 'module>) {
+    fn check_destination(&self, operation: &str, block: BasicBlock<'context, 'module>) {
         // SAFETY: the block is live and in a function.
         let function = unsafe { raw::LLVMGetBasicBlockParent(block.raw) };
         if !checks::same_identity(function as usize, self.function.get() as usize) {
@@ -2662,7 +2662,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     #[track_caller]
     pub fn branch(
         &self,
-        destination: Block<'context, 'module>,
+        destination: BasicBlock<'context, 'module>,
     ) -> Value<'context, 'module, UnconditionalBranchInstruction> {
         self.check_terminator_position("branch");
         self.check_destination("branch", destination);
@@ -2679,8 +2679,8 @@ impl<'context, 'module> Builder<'context, 'module> {
     pub fn conditional_branch<C: ConditionOperand>(
         &self,
         condition: Value<'context, 'module, C>,
-        then_destination: Block<'context, 'module>,
-        else_destination: Block<'context, 'module>,
+        then_destination: BasicBlock<'context, 'module>,
+        else_destination: BasicBlock<'context, 'module>,
     ) -> Value<'context, 'module, ConditionalBranchInstruction> {
         self.check_terminator_position("conditional_branch");
         self.check_module("conditional_branch", condition);
@@ -2702,7 +2702,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     pub fn switch<T: IntegerOperand>(
         &self,
         value: Value<'context, 'module, T>,
-        default_destination: Block<'context, 'module>,
+        default_destination: BasicBlock<'context, 'module>,
         case_count_hint: u32,
     ) -> Value<'context, 'module, SwitchInstruction> {
         self.check_terminator_position("switch");
@@ -2741,8 +2741,8 @@ impl<'context, 'module> Builder<'context, 'module> {
         &self,
         function_type: Type<'context>,
         callee: Value<'context, 'module, P>,
-        default_destination: Block<'context, 'module>,
-        indirect_destinations: &[Block<'context, 'module>],
+        default_destination: BasicBlock<'context, 'module>,
+        indirect_destinations: &[BasicBlock<'context, 'module>],
         arguments: &[Value<'context, 'module, A>],
         bundles: &[OperandBundle<'context, 'module>],
         name: &str,
@@ -2756,7 +2756,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         for destination in indirect_destinations {
             self.check_destination("call_branch", *destination);
         }
-        // SAFETY: the checks above are what LLVM requires; it only reads the lists, and `Block` and `OperandBundle` have the
+        // SAFETY: the checks above are what LLVM requires; it only reads the lists, and `BasicBlock` and `OperandBundle` have the
         // layout of their raw pointers.
         let result = unsafe {
             raw::LLVMBuildCallBr(
@@ -2789,8 +2789,8 @@ impl<'context, 'module> Builder<'context, 'module> {
         function_type: Type<'context>,
         callee: Value<'context, 'module, P>,
         arguments: &[Value<'context, 'module, A>],
-        normal_destination: Block<'context, 'module>,
-        unwind_destination: Block<'context, 'module>,
+        normal_destination: BasicBlock<'context, 'module>,
+        unwind_destination: BasicBlock<'context, 'module>,
         name: &str,
     ) -> Value<'context, 'module, InvokeInstruction> {
         self.check_terminator_position("invoke");
@@ -2829,8 +2829,8 @@ impl<'context, 'module> Builder<'context, 'module> {
         function_type: Type<'context>,
         callee: Value<'context, 'module, P>,
         arguments: &[Value<'context, 'module, A>],
-        normal_destination: Block<'context, 'module>,
-        unwind_destination: Block<'context, 'module>,
+        normal_destination: BasicBlock<'context, 'module>,
+        unwind_destination: BasicBlock<'context, 'module>,
         bundles: &[OperandBundle<'context, 'module>],
         name: &str,
     ) -> Value<'context, 'module, InvokeInstruction> {
@@ -2921,7 +2921,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     pub fn cleanup_return(
         &self,
         cleanup_pad: Value<'context, 'module, CleanupPadInstruction>,
-        unwind_destination: Option<Block<'context, 'module>>,
+        unwind_destination: Option<BasicBlock<'context, 'module>>,
     ) -> Value<'context, 'module, CleanupReturnInstruction> {
         self.check_terminator_position("cleanup_return");
         self.check_module("cleanup_return", cleanup_pad);
@@ -2944,7 +2944,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     pub fn catch_return(
         &self,
         catch_pad: Value<'context, 'module, CatchPadInstruction>,
-        destination: Block<'context, 'module>,
+        destination: BasicBlock<'context, 'module>,
     ) -> Value<'context, 'module, CatchReturnInstruction> {
         self.check_terminator_position("catch_return");
         self.check_module("catch_return", catch_pad);
@@ -3023,7 +3023,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     pub fn catch_switch<P>(
         &self,
         parent_pad: Option<Value<'context, 'module, P>>,
-        unwind_destination: Option<Block<'context, 'module>>,
+        unwind_destination: Option<BasicBlock<'context, 'module>>,
         handler_count_hint: u32,
         name: &str,
     ) -> Value<'context, 'module, CatchSwitchInstruction> {

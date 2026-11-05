@@ -7,7 +7,7 @@
 use std::marker::PhantomData;
 
 use crate::bad_call::bad_call;
-use crate::block::Block;
+use crate::basic_block::BasicBlock;
 use crate::checks;
 use crate::context::Context;
 use crate::enums::ValueCategory;
@@ -118,8 +118,8 @@ macro_rules! value_markers {
 value_markers! {
     /// A function's argument.
     Argument = LLVMIsAArgument as Dynamic: [];
-    /// A basic block, as a value. See [`Block`] for working with one.
-    BasicBlock = LLVMIsABasicBlock as Dynamic: [];
+    /// A basic block, as a value. See [`BasicBlock`] for working with one.
+    BasicBlockAsValue = LLVMIsABasicBlock as Dynamic: [];
     /// Inline assembly.
     InlineAssembly = LLVMIsAInlineAsm as Dynamic: [];
     /// Any value that uses others.
@@ -716,12 +716,12 @@ impl<'context, 'module, T: UserMarker> Value<'context, 'module, T> {
     }
 }
 
-impl<'context, 'module> Value<'context, 'module, BasicBlock> {
+impl<'context, 'module> Value<'context, 'module, BasicBlockAsValue> {
     /// This value as a block.
     #[must_use]
-    pub fn to_block(self) -> Block<'context, 'module> {
-        // SAFETY: `BasicBlock` guarantees a block, which is live for `'module`.
-        unsafe { Block::from_raw(raw::LLVMValueAsBasicBlock(self.raw)) }
+    pub fn to_basic_block(self) -> BasicBlock<'context, 'module> {
+        // SAFETY: `BasicBlockAsValue` guarantees a block, which is live for `'module`.
+        unsafe { BasicBlock::from_raw(raw::LLVMValueAsBasicBlock(self.raw)) }
     }
 }
 

@@ -28,7 +28,7 @@ hang without them.
 
 - Spelling of: pointer address spaces, specific arrays/vectors/structs, function signatures. All of these work through dynamic
   `Type`/`Value` until answered.
-- Spelling of the value markers (`Value<Function>`, `Value<GlobalVariable>`, `Value<Instruction>`) and of `Block`. Design claude
+- Spelling of the value markers (`Value<Function>`, `Value<GlobalVariable>`, `Value<Instruction>`) and of `BasicBlock`. Design claude
   is taking these to the owner as well, so they stay easy to rename.
 
 ## Untested

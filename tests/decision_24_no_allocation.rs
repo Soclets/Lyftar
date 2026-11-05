@@ -42,8 +42,8 @@ fn decision_24_build_calls_allocate_nothing() {
         let callee = module.add_function("callee", context.function_type(dynamic, &[dynamic, dynamic], false));
         let function =
             module.add_function("function", context.function_type(dynamic, &[dynamic, dynamic, pointer_type], false));
-        let entry = function.append_block("entry");
-        let next = function.append_block("next");
+        let entry = function.append_basic_block("entry");
+        let next = function.append_basic_block("next");
         let builder = Builder::at_end_of(entry);
         let left = function.parameter(0).checked_cast::<I64>();
         let right = function.parameter(1).checked_cast::<I64>();

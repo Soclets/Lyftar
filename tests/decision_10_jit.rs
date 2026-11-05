@@ -11,7 +11,7 @@ fn build_add_one<'context>(context: lyftar::Context<'context>) -> lyftar::Module
         let i64_type = context.get_type::<I64>();
         let function_type = context.function_type(i64_type.to_dynamic(), &[i64_type.to_dynamic()], false);
         let function = module.add_function("add_one", function_type);
-        let builder = Builder::at_end_of(function.append_block("entry"));
+        let builder = Builder::at_end_of(function.append_basic_block("entry"));
         let parameter = function.parameter(0).checked_cast::<I64>();
         let sum = builder.integer_add(parameter, i64_type.constant_integer(1, false), "sum");
         builder.return_value(sum);
@@ -53,7 +53,7 @@ fn decision_10_lljit_can_call_back_into_the_compiler_and_see_trackers_go() {
             let function_type = context.function_type(i64_type.to_dynamic(), &[i64_type.to_dynamic()], false);
             let callee = module.add_function("from_the_compiler", function_type);
             let function = module.add_function("twice", function_type);
-            let builder = Builder::at_end_of(function.append_block("entry"));
+            let builder = Builder::at_end_of(function.append_basic_block("entry"));
             let result = builder.call(callee, &[function.parameter(0)], "result");
             builder.return_value(result);
         }
@@ -77,7 +77,7 @@ fn decision_10_a_module_the_verifier_rejects_comes_back_as_an_error() {
             let function_type = context.function_type(context.void_type(), &[], false);
             let function = module.add_function("broken", function_type);
             // A block with no terminator: the verifier's report comes back.
-            let _ = function.append_block("entry");
+            let _ = function.append_basic_block("entry");
         }
         module
     });

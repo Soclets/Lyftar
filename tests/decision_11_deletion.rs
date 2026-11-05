@@ -86,21 +86,21 @@ fn decision_11_erasing_a_block_drops_it_from_phis() {
         let mut module = context.parse_ir_text(IR).expect("the test's IR");
         let entry = {
             let g = module.get_function("g").expect("the function");
-            let right = g.blocks().find(|block| block.name() == "right").expect("the block");
+            let right = g.basic_blocks().find(|block| block.name() == "right").expect("the block");
             let phi = instruction_named(&module, "g", "p").checked_cast::<PhiNode>();
             // Nothing branches to %right afterwards. The phi's entry for it still uses %r, and goes with the block.
-            let entry_block = g.first_block().expect("a body");
-            let left = g.blocks().find(|block| block.name() == "left").expect("the block");
-            entry_block.terminator().expect("a terminator").set_successor(1, left);
+            let entry_basic_block = g.first_basic_block().expect("a body");
+            let left = g.basic_blocks().find(|block| block.name() == "left").expect("the block");
+            entry_basic_block.terminator().expect("a terminator").set_successor(1, left);
             assert_eq!(phi.incoming_count(), 2);
-            module.block_to_erase(right)
+            module.basic_block_to_erase(right)
         };
         module.erase(&[entry]);
         let g = module.get_function("g").expect("the function");
         let phi =
             g.function_instructions().find(|found| found.name() == "p").expect("the phi").checked_cast::<PhiNode>();
         assert_eq!(phi.incoming_count(), 1);
-        assert_eq!(phi.incoming_block(0).name(), "left");
+        assert_eq!(phi.incoming_basic_block(0).name(), "left");
         assert_eq!(module.verify(), Ok(()));
     });
 }
@@ -200,7 +200,7 @@ fn decision_11_a_context_constant_can_be_used_with_two_modules() {
         for name in ["first", "second"] {
             let module = context.create_module(name);
             let function = module.add_function("f", context.function_type(i64_type.to_dynamic(), &[], false));
-            let builder = Builder::at_end_of(function.append_block("entry"));
+            let builder = Builder::at_end_of(function.append_basic_block("entry"));
             builder.return_value(constant);
             assert_eq!(module.verify(), Ok(()));
         }
@@ -217,12 +217,15 @@ fn decision_11_uses_in_gives_only_this_modules_uses_of_a_shared_constant() {
         let second = context.create_module("second");
         for module in [&first, &second] {
             let function = module.add_function("f", context.function_type(structure_type, &[], false));
-            let builder = Builder::at_end_of(function.append_block("entry"));
+            let builder = Builder::at_end_of(function.append_basic_block("entry"));
             builder.return_value(member);
         }
         assert_eq!(member.uses_in(&first).count(), 1);
         let user = member.uses_in(&second).next().expect("one use").user();
-        assert_eq!(user.checked_cast::<Instruction>().parent_block().parent().parent_module().identifier(), "second");
+        assert_eq!(
+            user.checked_cast::<Instruction>().parent_basic_block().parent().parent_module().identifier(),
+            "second"
+        );
     });
 }
 

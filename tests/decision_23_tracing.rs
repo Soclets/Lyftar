@@ -23,7 +23,7 @@ fn decision_23_every_tag_names_a_decision_and_only_the_process_decisions_go_untr
     let text = String::from_utf8_lossy(&output.stdout);
     assert!(output.status.success(), "{text}{}", String::from_utf8_lossy(&output.stderr));
     // D18, D20, D28 and D29 settle how sessions work, or were replaced, so no code carries them out. The others are next.
-    assert!(text.contains("nothing traces yet: D18, D20, D28, D29, D32, D33, D35\n"), "{text}");
+    assert!(text.contains("nothing traces yet: D18, D20, D28, D29, D32, D33\n"), "{text}");
 }
 
 #[test]

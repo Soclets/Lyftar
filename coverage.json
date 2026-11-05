@@ -90,7 +90,7 @@
     },
     "LLVMAppendExistingBasicBlock": {
       "status": "not_wrapped",
-      "reason": "They work with a block that isn't in a function, which a Block promises not to be: its function and module couldn't be checked (D3)."
+      "reason": "They work with a block that isn't in a function, which a BasicBlock promises not to be: its function and module couldn't be checked (D3)."
     },
     "LLVMAppendModuleInlineAsm": {
       "status": "wrapped"
@@ -707,7 +707,7 @@
     },
     "LLVMCreateBasicBlockInContext": {
       "status": "not_wrapped",
-      "reason": "They work with a block that isn't in a function, which a Block promises not to be: its function and module couldn't be checked (D3)."
+      "reason": "They work with a block that isn't in a function, which a BasicBlock promises not to be: its function and module couldn't be checked (D3)."
     },
     "LLVMCreateBinary": {
       "status": "wrapped"
@@ -1340,7 +1340,7 @@
     },
     "LLVMGetBasicBlocks": {
       "status": "not_wrapped",
-      "reason": "Value::blocks walks the blocks with no list to allocate."
+      "reason": "Value::basic_blocks walks the blocks with no list to allocate."
     },
     "LLVMGetBitcodeModule": {
       "status": "not_wrapped",
@@ -2195,7 +2195,7 @@
     },
     "LLVMInsertExistingBasicBlockAfterInsertBlock": {
       "status": "not_wrapped",
-      "reason": "They work with a block that isn't in a function, which a Block promises not to be: its function and module couldn't be checked (D3)."
+      "reason": "They work with a block that isn't in a function, which a BasicBlock promises not to be: its function and module couldn't be checked (D3)."
     },
     "LLVMInsertIntoBuilder": {
       "status": "wrapped"
@@ -2611,7 +2611,7 @@
     },
     "LLVMIsConditional": {
       "status": "not_wrapped",
-      "reason": "as_kind asks the same question, through the BasicBlock or ConditionalBranchInstruction marker."
+      "reason": "as_kind asks the same question, through the BasicBlockAsValue or ConditionalBranchInstruction marker."
     },
     "LLVMIsConstant": {
       "status": "wrapped"
@@ -3693,7 +3693,7 @@
     },
     "LLVMValueIsBasicBlock": {
       "status": "not_wrapped",
-      "reason": "as_kind asks the same question, through the BasicBlock or ConditionalBranchInstruction marker."
+      "reason": "as_kind asks the same question, through the BasicBlockAsValue or ConditionalBranchInstruction marker."
     },
     "LLVMValueMetadataEntriesGetKind": {
       "status": "wrapped"
@@ -4071,7 +4071,7 @@
         ]
       },
       "append_basic_block": {
-        "lyftar": "Value<Function>::append_block",
+        "lyftar": "Value<Function>::append_basic_block",
         "projects": [
           "ahpcl",
           "kayo",
@@ -4163,7 +4163,7 @@
         ]
       },
       "block": {
-        "lyftar": "Value::as_kind::<BasicBlock>, Value<BasicBlock>::to_block",
+        "lyftar": "Value::as_kind::<BasicBlockAsValue>, Value<BasicBlockAsValue>::to_basic_block",
         "projects": [
           "ahpcl",
           "kayo",
@@ -4873,7 +4873,7 @@
         ]
       },
       "count_basic_blocks": {
-        "lyftar": "Value<Function>::block_count",
+        "lyftar": "Value<Function>::basic_block_count",
         "projects": [
           "kayo"
         ]
@@ -5065,7 +5065,7 @@
         ]
       },
       "get_basic_block_iter": {
-        "lyftar": "Value<Function>::blocks",
+        "lyftar": "Value<Function>::basic_blocks",
         "projects": [
           "kayo"
         ]
@@ -5158,7 +5158,7 @@
         ]
       },
       "get_first_basic_block": {
-        "lyftar": "Value<Function>::first_block",
+        "lyftar": "Value<Function>::first_basic_block",
         "projects": [
           "ahpcl",
           "kayo"
@@ -5171,7 +5171,7 @@
         ]
       },
       "get_first_instruction": {
-        "lyftar": "Block::first_instruction",
+        "lyftar": "BasicBlock::first_instruction",
         "projects": [
           "ahpcl",
           "kayo"
@@ -5234,7 +5234,7 @@
         ]
       },
       "get_insert_block": {
-        "lyftar": "Builder::insertion_block",
+        "lyftar": "Builder::insertion_basic_block",
         "projects": [
           "ahpcl",
           "kayo",
@@ -5244,19 +5244,19 @@
         ]
       },
       "get_instructions": {
-        "lyftar": "Block::instructions",
+        "lyftar": "BasicBlock::instructions",
         "projects": [
           "kayo"
         ]
       },
       "get_last_basic_block": {
-        "lyftar": "Value<Function>::last_block",
+        "lyftar": "Value<Function>::last_basic_block",
         "projects": [
           "luarust"
         ]
       },
       "get_name": {
-        "lyftar": "Value::name, Block::name",
+        "lyftar": "Value::name, BasicBlock::name",
         "projects": [
           "kayo",
           "verb-al"
@@ -5304,7 +5304,7 @@
         ]
       },
       "get_parent": {
-        "lyftar": "Block::parent, Value<InstructionMarker>::parent_block",
+        "lyftar": "BasicBlock::parent, Value<InstructionMarker>::parent_basic_block",
         "projects": [
           "ahpcl",
           "kayo",
@@ -5350,7 +5350,7 @@
         ]
       },
       "get_terminator": {
-        "lyftar": "Block::terminator",
+        "lyftar": "BasicBlock::terminator",
         "projects": [
           "ahpcl",
           "luarust"
@@ -5909,7 +5909,7 @@
         "lyftar": "attributes::AttributeLocation"
       },
       "BasicBlock": {
-        "lyftar": "Block"
+        "lyftar": "BasicBlock"
       },
       "BasicMetadataTypeEnum": {
         "lyftar": "Type"

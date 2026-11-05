@@ -49,7 +49,7 @@ struct LooksAtLoops<'report> {
 impl ModulePass for LooksAtLoops<'_> {
     fn run<'context>(&mut self, module: &mut Module<'context>, analyses: &Analyses<'_>) -> PreservedAnalyses {
         let sum = module.get_function("sum").expect("the function");
-        let block = |name: &str| sum.blocks().find(|found| found.name() == name).expect("the block");
+        let block = |name: &str| sum.basic_blocks().find(|found| found.name() == name).expect("the block");
         let (entry, outer, inner, latch, exit) =
             (block("entry"), block("outer"), block("inner"), block("outer.latch"), block("exit"));
         let tree = analyses.dominator_tree(module, sum);
@@ -77,14 +77,14 @@ impl ModulePass for LooksAtLoops<'_> {
         assert_eq!(outer_loop.preheader(), Some(entry));
         assert_eq!(outer_loop.latch(), Some(latch));
         assert_eq!(outer_loop.parent(), None);
-        assert_eq!(outer_loop.exit_blocks(), [exit]);
+        assert_eq!(outer_loop.exit_basic_blocks(), [exit]);
         assert!(outer_loop.contains(inner));
         assert!(!outer_loop.contains(exit));
         let inner_loop = loops.loop_for(inner).expect("in a loop");
         assert_eq!(inner_loop.depth(), 2);
         assert_eq!(inner_loop.parent(), Some(outer_loop));
         assert_eq!(outer_loop.subloops(), [inner_loop]);
-        assert_eq!(outer_loop.blocks().len(), 3);
+        assert_eq!(outer_loop.basic_blocks().len(), 3);
         assert_eq!(loops.loop_for(exit), None);
         self.report.borrow_mut().push("looked".to_string());
         PreservedAnalyses::All
@@ -114,24 +114,24 @@ impl ModulePass for FreshAfterErase {
         {
             let function = module.get_function("two_blocks").expect("the function");
             let tree = analyses.dominator_tree(module, function);
-            assert_eq!(tree.children(function.first_block().expect("a body")).len(), 1);
+            assert_eq!(tree.children(function.first_basic_block().expect("a body")).len(), 1);
         }
         let entry = {
             let function = module.get_function("two_blocks").expect("the function");
-            let second = function.blocks().nth(1).expect("a second block");
-            module.block_to_erase(second)
+            let second = function.basic_blocks().nth(1).expect("a second block");
+            module.basic_block_to_erase(second)
         };
         let terminator = {
             let function = module.get_function("two_blocks").expect("the function");
-            module.value_to_erase(function.first_block().expect("a body").terminator().expect("a terminator"))
+            module.value_to_erase(function.first_basic_block().expect("a body").terminator().expect("a terminator"))
         };
         module.erase(&[entry, terminator]);
         {
             let function = module.get_function("two_blocks").expect("the function");
-            let builder = Builder::at_end_of(function.first_block().expect("a body"));
+            let builder = Builder::at_end_of(function.first_basic_block().expect("a body"));
             builder.return_void();
             let tree = analyses.dominator_tree(module, function);
-            assert_eq!(tree.children(function.first_block().expect("a body")).len(), 0);
+            assert_eq!(tree.children(function.first_basic_block().expect("a body")).len(), 0);
         }
         PreservedAnalyses::None
     }
@@ -170,7 +170,8 @@ impl ModulePass for InlinesAndClones {
         let refused = {
             let nothing = module.get_function("nothing").expect("the function");
             let callee = module.get_function("callee").expect("the function");
-            let builder = Builder::before(callee.first_block().expect("a body").first_instruction().expect("one"));
+            let builder =
+                Builder::before(callee.first_basic_block().expect("a body").first_instruction().expect("one"));
             let none: [lyftar::Value<'_, '_>; 0] = [];
             let call = builder.call(nothing, &none, "");
             module.call_to_inline(call)

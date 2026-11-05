@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 
 use crate::attributes::{Attribute, AttributeKind, AttributeLocation};
 use crate::bad_call::bad_call;
-use crate::block::Block;
+use crate::basic_block::BasicBlock;
 use crate::checks;
 use crate::context::Context;
 use crate::enums::{DllStorageClass, Linkage, ThreadLocalMode, UnnamedAddress, Visibility};
@@ -795,13 +795,13 @@ impl<'context, 'module> Value<'context, 'module, GlobalIndirectFunction> {
     }
 }
 
-/// The blocks of a function, from [`Value::blocks`].
-pub struct Blocks<'context, 'module> {
-    next: Option<Block<'context, 'module>>,
+/// The blocks of a function, from [`Value::basic_blocks`].
+pub struct BasicBlocks<'context, 'module> {
+    next: Option<BasicBlock<'context, 'module>>,
 }
 
-impl<'context, 'module> Iterator for Blocks<'context, 'module> {
-    type Item = Block<'context, 'module>;
+impl<'context, 'module> Iterator for BasicBlocks<'context, 'module> {
+    type Item = BasicBlock<'context, 'module>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let current = self.next?;
@@ -812,8 +812,8 @@ impl<'context, 'module> Iterator for Blocks<'context, 'module> {
 
 /// The instructions of a whole function, from [`Value::function_instructions`], block by block.
 pub struct FunctionInstructions<'context, 'module> {
-    next_block: Option<Block<'context, 'module>>,
-    current: crate::block::Instructions<'context, 'module>,
+    next_block: Option<BasicBlock<'context, 'module>>,
+    current: crate::basic_block::Instructions<'context, 'module>,
 }
 
 impl<'context, 'module> Iterator for FunctionInstructions<'context, 'module> {
@@ -838,26 +838,26 @@ impl<'context, 'module> Value<'context, 'module, Function> {
     /// If `name` has a NUL byte inside it (D3).
     #[must_use]
     #[track_caller]
-    pub fn append_block(self, name: &str) -> Block<'context, 'module> {
-        let name = c_string(name, "append_block");
+    pub fn append_basic_block(self, name: &str) -> BasicBlock<'context, 'module> {
+        let name = c_string(name, "append_basic_block");
         // SAFETY: the function is live for `'module`, and `name` is a valid C string for the call.
         unsafe {
             let context = raw::LLVMGetValueContext(self.raw);
-            Block::from_raw(raw::LLVMAppendBasicBlockInContext(context, self.raw, name.as_ptr()))
+            BasicBlock::from_raw(raw::LLVMAppendBasicBlockInContext(context, self.raw, name.as_ptr()))
         }
     }
 
     /// How many blocks this function has.
     #[must_use]
-    pub fn block_count(self) -> u32 {
+    pub fn basic_block_count(self) -> u32 {
         // SAFETY: the marker guarantees a function.
         unsafe { raw::LLVMCountBasicBlocks(self.raw) }
     }
 
     /// This function's blocks, in order.
     #[must_use]
-    pub fn blocks(self) -> Blocks<'context, 'module> {
-        Blocks { next: self.first_block() }
+    pub fn basic_blocks(self) -> BasicBlocks<'context, 'module> {
+        BasicBlocks { next: self.first_basic_block() }
     }
 
     /// All this function's instructions, block by block.
@@ -865,36 +865,36 @@ impl<'context, 'module> Value<'context, 'module, Function> {
     /// The list of them is read as it goes, so instructions added meanwhile may or may not show up.
     #[must_use]
     pub fn function_instructions(self) -> FunctionInstructions<'context, 'module> {
-        let mut blocks = self.blocks();
+        let mut blocks = self.basic_blocks();
         match blocks.next() {
             Some(block) => FunctionInstructions { next_block: block.next(), current: block.instructions() },
-            None => FunctionInstructions { next_block: None, current: crate::block::Instructions::empty() },
+            None => FunctionInstructions { next_block: None, current: crate::basic_block::Instructions::empty() },
         }
     }
 
     /// This function's first block.
     #[must_use]
-    pub fn first_block(self) -> Option<Block<'context, 'module>> {
+    pub fn first_basic_block(self) -> Option<BasicBlock<'context, 'module>> {
         // SAFETY: the marker guarantees a function.
         let first = unsafe { raw::LLVMGetFirstBasicBlock(self.raw) };
         // SAFETY: LLVM said it is a block in this function, live for `'module`.
-        (!first.is_null()).then(|| unsafe { Block::from_raw(first) })
+        (!first.is_null()).then(|| unsafe { BasicBlock::from_raw(first) })
     }
 
     /// This function's last block.
     #[must_use]
-    pub fn last_block(self) -> Option<Block<'context, 'module>> {
+    pub fn last_basic_block(self) -> Option<BasicBlock<'context, 'module>> {
         // SAFETY: the marker guarantees a function.
         let last = unsafe { raw::LLVMGetLastBasicBlock(self.raw) };
         // SAFETY: LLVM said it is a block in this function, live for `'module`.
-        (!last.is_null()).then(|| unsafe { Block::from_raw(last) })
+        (!last.is_null()).then(|| unsafe { BasicBlock::from_raw(last) })
     }
 
     /// This function's entry block, if it has any blocks.
     #[must_use]
-    pub fn entry_block(self) -> Option<Block<'context, 'module>> {
+    pub fn entry_basic_block(self) -> Option<BasicBlock<'context, 'module>> {
         // A function with no blocks has no entry, and asking LLVM would hit an assertion.
-        self.first_block()
+        self.first_basic_block()
     }
 
     /// How many instructions this function has.

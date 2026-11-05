@@ -26,10 +26,10 @@ fn object_file_bytes() -> Vec<u8> {
             let printf = module.add_function("printf", printf_type);
             let main_type = context.function_type(i32_type.to_dynamic(), &[], false);
             let main = module.add_function("main", main_type);
-            let entry = main.append_block("entry");
-            let header = main.append_block("header");
-            let body = main.append_block("body");
-            let exit = main.append_block("exit");
+            let entry = main.append_basic_block("entry");
+            let header = main.append_basic_block("header");
+            let body = main.append_basic_block("body");
+            let exit = main.append_basic_block("exit");
             let builder = Builder::at_end_of(entry);
             let format = builder.global_string_pointer("%d\n", "format");
             let total_slot = builder.stack_allocate(i32_type, "total");

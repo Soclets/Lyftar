@@ -4,7 +4,7 @@ use std::ffi::c_uint;
 
 use crate::attributes::{Attribute, AttributeLocation};
 use crate::bad_call::bad_call;
-use crate::block::Block;
+use crate::basic_block::BasicBlock;
 use crate::checks;
 use crate::enums::{
     AtomicOrdering, AtomicReadModifyWriteOperation, FloatPredicate, IntegerPredicate, Opcode, TailCallKind,
@@ -27,9 +27,9 @@ use crate::values::{
 impl<'context, 'module, T: InstructionMarker> Value<'context, 'module, T> {
     /// The block this instruction is in.
     #[must_use]
-    pub fn parent_block(self) -> Block<'context, 'module> {
+    pub fn parent_basic_block(self) -> BasicBlock<'context, 'module> {
         // SAFETY: Lyftar only hands out instructions that are in a block.
-        unsafe { Block::from_raw(raw::LLVMGetInstructionParent(self.raw)) }
+        unsafe { BasicBlock::from_raw(raw::LLVMGetInstructionParent(self.raw)) }
     }
 
     /// The next instruction in the block.
@@ -766,10 +766,10 @@ impl<'context, 'module, T: TypeMarker> Value<'context, 'module, PhiNode<T>> {
     /// If there is no such incoming value (D3).
     #[must_use]
     #[track_caller]
-    pub fn incoming_block(self, index: u32) -> Block<'context, 'module> {
-        self.check_incoming("incoming_block", index);
+    pub fn incoming_basic_block(self, index: u32) -> BasicBlock<'context, 'module> {
+        self.check_incoming("incoming_basic_block", index);
         // SAFETY: the index was just checked.
-        unsafe { Block::from_raw(raw::LLVMGetIncomingBlock(self.raw, index)) }
+        unsafe { BasicBlock::from_raw(raw::LLVMGetIncomingBlock(self.raw, index)) }
     }
 
     #[track_caller]
@@ -785,7 +785,7 @@ impl<'context, 'module, T: TypeMarker> Value<'context, 'module, PhiNode<T>> {
     /// # Panics
     /// If a value's type isn't this phi's, or a value or block is from another function or module (D3).
     #[track_caller]
-    pub fn add_incoming(self, incoming: &[(Value<'context, 'module, T>, Block<'context, 'module>)]) {
+    pub fn add_incoming(self, incoming: &[(Value<'context, 'module, T>, BasicBlock<'context, 'module>)]) {
         for (value, block) in incoming {
             // SAFETY: all three are live for `'module`.
             unsafe {
@@ -813,9 +813,9 @@ impl<'context, 'module, T: TypeMarker> Value<'context, 'module, PhiNode<T>> {
 impl<'context, 'module> Value<'context, 'module, SwitchInstruction> {
     /// The block a value matching no case goes to.
     #[must_use]
-    pub fn default_destination(self) -> Block<'context, 'module> {
+    pub fn default_destination(self) -> BasicBlock<'context, 'module> {
         // SAFETY: the marker guarantees a `switch`.
-        unsafe { Block::from_raw(raw::LLVMGetSwitchDefaultDest(self.raw)) }
+        unsafe { BasicBlock::from_raw(raw::LLVMGetSwitchDefaultDest(self.raw)) }
     }
 
     /// Adds a case.
@@ -824,7 +824,7 @@ impl<'context, 'module> Value<'context, 'module, SwitchInstruction> {
     /// If the value's type differs from the condition's, or it isn't a constant integer, or the block is in another
     /// function (D3).
     #[track_caller]
-    pub fn add_case<T>(self, on_value: Value<'context, 'module, T>, destination: Block<'context, 'module>) {
+    pub fn add_case<T>(self, on_value: Value<'context, 'module, T>, destination: BasicBlock<'context, 'module>) {
         // SAFETY: all are live for `'module`, and the condition is a `switch`'s first operand.
         unsafe {
             if raw::LLVMIsAConstantInt(on_value.raw).is_null()
@@ -900,7 +900,7 @@ impl<'context, 'module> Value<'context, 'module, IndirectBranchInstruction> {
     /// # Panics
     /// If the block is in another function (D3).
     #[track_caller]
-    pub fn add_destination(self, destination: Block<'context, 'module>) {
+    pub fn add_destination(self, destination: BasicBlock<'context, 'module>) {
         // SAFETY: both are live for `'module`, and the parents of placed instructions and blocks exist.
         unsafe {
             if raw::LLVMGetBasicBlockParent(destination.raw)
@@ -951,13 +951,13 @@ impl<'context, 'module, T: TerminatorMarker> Value<'context, 'module, T> {
     /// If there is no such successor (D3).
     #[must_use]
     #[track_caller]
-    pub fn successor(self, index: u32) -> Block<'context, 'module> {
+    pub fn successor(self, index: u32) -> BasicBlock<'context, 'module> {
         let count = self.successor_count();
         if !checks::index_in_bounds(index, count) {
             bad_call(format_args!("successor: index {index} is out of bounds for {count} successors"));
         }
         // SAFETY: the index was just checked.
-        unsafe { Block::from_raw(raw::LLVMGetSuccessor(self.raw, index)) }
+        unsafe { BasicBlock::from_raw(raw::LLVMGetSuccessor(self.raw, index)) }
     }
 
     /// Changes the block at `index` among those this terminator can go to.
@@ -965,7 +965,7 @@ impl<'context, 'module, T: TerminatorMarker> Value<'context, 'module, T> {
     /// # Panics
     /// If there is no such successor, or the block is in another function (D3).
     #[track_caller]
-    pub fn set_successor(self, index: u32, block: Block<'context, 'module>) {
+    pub fn set_successor(self, index: u32, block: BasicBlock<'context, 'module>) {
         let count = self.successor_count();
         if !checks::index_in_bounds(index, count) {
             bad_call(format_args!("set_successor: index {index} is out of bounds for {count} successors"));
@@ -1236,16 +1236,16 @@ impl Value<'_, '_, crate::values::CallInstruction> {
 impl<'context, 'module> Value<'context, 'module, InvokeInstruction> {
     /// Where this invoke goes when the call returns.
     #[must_use]
-    pub fn normal_destination(self) -> Block<'context, 'module> {
+    pub fn normal_destination(self) -> BasicBlock<'context, 'module> {
         // SAFETY: the marker guarantees an `invoke`.
-        unsafe { Block::from_raw(raw::LLVMGetNormalDest(self.raw)) }
+        unsafe { BasicBlock::from_raw(raw::LLVMGetNormalDest(self.raw)) }
     }
 
     /// Where this invoke goes when the call unwinds.
     #[must_use]
-    pub fn unwind_destination(self) -> Block<'context, 'module> {
+    pub fn unwind_destination(self) -> BasicBlock<'context, 'module> {
         // SAFETY: the marker guarantees an `invoke`.
-        unsafe { Block::from_raw(raw::LLVMGetUnwindDest(self.raw)) }
+        unsafe { BasicBlock::from_raw(raw::LLVMGetUnwindDest(self.raw)) }
     }
 
     /// Sets where this invoke goes when the call returns.
@@ -1253,7 +1253,7 @@ impl<'context, 'module> Value<'context, 'module, InvokeInstruction> {
     /// # Panics
     /// If the block is in another function (D3).
     #[track_caller]
-    pub fn set_normal_destination(self, block: Block<'context, 'module>) {
+    pub fn set_normal_destination(self, block: BasicBlock<'context, 'module>) {
         self.check_same_function("set_normal_destination", block);
         // SAFETY: the marker guarantees an `invoke`, and the block was just checked.
         unsafe { raw::LLVMSetNormalDest(self.raw, block.raw) };
@@ -1264,7 +1264,7 @@ impl<'context, 'module> Value<'context, 'module, InvokeInstruction> {
     /// # Panics
     /// If the block is in another function (D3).
     #[track_caller]
-    pub fn set_unwind_destination(self, block: Block<'context, 'module>) {
+    pub fn set_unwind_destination(self, block: BasicBlock<'context, 'module>) {
         self.check_same_function("set_unwind_destination", block);
         // SAFETY: the marker guarantees an `invoke`, and the block was just checked.
         unsafe { raw::LLVMSetUnwindDest(self.raw, block.raw) };
@@ -1273,7 +1273,7 @@ impl<'context, 'module> Value<'context, 'module, InvokeInstruction> {
 
 impl<'context, 'module, T: InstructionMarker> Value<'context, 'module, T> {
     #[track_caller]
-    pub(crate) fn check_same_function(self, operation: &str, block: Block<'context, 'module>) {
+    pub(crate) fn check_same_function(self, operation: &str, block: BasicBlock<'context, 'module>) {
         // SAFETY: both are live for `'module`, and placed.
         let same = unsafe {
             raw::LLVMGetBasicBlockParent(block.raw)
@@ -1288,9 +1288,9 @@ impl<'context, 'module, T: InstructionMarker> Value<'context, 'module, T> {
 impl<'context, 'module> Value<'context, 'module, CallBranchInstruction> {
     /// Where this call branch goes by default.
     #[must_use]
-    pub fn default_destination(self) -> Block<'context, 'module> {
+    pub fn default_destination(self) -> BasicBlock<'context, 'module> {
         // SAFETY: the marker guarantees a `callbr`.
-        unsafe { Block::from_raw(raw::LLVMGetCallBrDefaultDest(self.raw)) }
+        unsafe { BasicBlock::from_raw(raw::LLVMGetCallBrDefaultDest(self.raw)) }
     }
 
     /// How many indirect destinations this call branch has.
@@ -1306,13 +1306,13 @@ impl<'context, 'module> Value<'context, 'module, CallBranchInstruction> {
     /// If there is no such destination (D3).
     #[must_use]
     #[track_caller]
-    pub fn indirect_destination(self, index: u32) -> Block<'context, 'module> {
+    pub fn indirect_destination(self, index: u32) -> BasicBlock<'context, 'module> {
         let count = self.indirect_destination_count();
         if !checks::index_in_bounds(index, count) {
             bad_call(format_args!("indirect_destination: index {index} is out of bounds for {count} destinations"));
         }
         // SAFETY: the index was just checked.
-        unsafe { Block::from_raw(raw::LLVMGetCallBrIndirectDest(self.raw, index)) }
+        unsafe { BasicBlock::from_raw(raw::LLVMGetCallBrIndirectDest(self.raw, index)) }
     }
 }
 
@@ -1376,7 +1376,7 @@ impl<'context, 'module> Value<'context, 'module, CatchSwitchInstruction> {
     /// # Panics
     /// If the block is in another function (D3).
     #[track_caller]
-    pub fn add_handler(self, destination: Block<'context, 'module>) {
+    pub fn add_handler(self, destination: BasicBlock<'context, 'module>) {
         self.check_same_function("add_handler", destination);
         // SAFETY: the marker guarantees a `catchswitch`, and the block was just checked.
         unsafe { raw::LLVMAddHandler(self.raw, destination.raw) };
@@ -1384,13 +1384,13 @@ impl<'context, 'module> Value<'context, 'module, CatchSwitchInstruction> {
 
     /// This `catchswitch`'s handlers.
     #[must_use]
-    pub fn handlers(self) -> Vec<Block<'context, 'module>> {
+    pub fn handlers(self) -> Vec<BasicBlock<'context, 'module>> {
         // SAFETY: the marker guarantees a `catchswitch`, and the buffer has room for all of them.
         unsafe {
             let count = raw::LLVMGetNumHandlers(self.raw);
             let mut handlers = vec![std::ptr::null_mut(); count as usize];
             raw::LLVMGetHandlers(self.raw, handlers.as_mut_ptr());
-            handlers.into_iter().map(|handler| Block::from_raw(handler)).collect()
+            handlers.into_iter().map(|handler| BasicBlock::from_raw(handler)).collect()
         }
     }
 }
@@ -1452,7 +1452,7 @@ impl<'context, 'module> Value<'context, 'module, CatchPadInstruction> {
     /// If it is in another function (D3).
     #[track_caller]
     pub fn set_parent_catch_switch(self, catch_switch: Value<'context, 'module, CatchSwitchInstruction>) {
-        self.check_same_function("set_parent_catch_switch", catch_switch.parent_block());
+        self.check_same_function("set_parent_catch_switch", catch_switch.parent_basic_block());
         // SAFETY: the marker guarantees a `catchpad`, and the switch was just checked.
         unsafe { raw::LLVMSetParentCatchSwitch(self.raw, catch_switch.raw) };
     }

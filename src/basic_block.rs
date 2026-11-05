@@ -6,41 +6,42 @@ use crate::bad_call::bad_call;
 use crate::raw;
 use crate::text::{c_string, from_borrowed};
 use crate::types::Invariant;
-use crate::values::{BasicBlock, Function, Instruction, Terminator, Value};
+use crate::values::{BasicBlockAsValue, Function, Instruction, Terminator, Value};
 
 /// A basic block. It borrows its module, as a value does (D11).
 #[derive(Clone, Copy)]
 #[repr(transparent)]
-pub struct Block<'context, 'module> {
+// trace: D35
+pub struct BasicBlock<'context, 'module> {
     pub(crate) raw: raw::LLVMBasicBlockRef,
     marker: PhantomData<(Invariant<'context>, &'module ())>,
 }
 
-impl PartialEq for Block<'_, '_> {
+impl PartialEq for BasicBlock<'_, '_> {
     fn eq(&self, other: &Self) -> bool {
         self.raw == other.raw
     }
 }
-impl Eq for Block<'_, '_> {}
-impl std::hash::Hash for Block<'_, '_> {
+impl Eq for BasicBlock<'_, '_> {}
+impl std::hash::Hash for BasicBlock<'_, '_> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.raw.hash(state);
     }
 }
-impl std::fmt::Debug for Block<'_, '_> {
+impl std::fmt::Debug for BasicBlock<'_, '_> {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(formatter, "%{}", self.name())
     }
 }
 
-impl<'context, 'module> Block<'context, 'module> {
+impl<'context, 'module> BasicBlock<'context, 'module> {
     /// Wraps a raw block.
     ///
     /// # Safety
     /// `raw` must be a live block in a function, and stay live for `'module`.
     #[must_use]
     pub unsafe fn from_raw(raw: raw::LLVMBasicBlockRef) -> Self {
-        Block { raw, marker: PhantomData }
+        BasicBlock { raw, marker: PhantomData }
     }
 
     /// The raw block.
@@ -54,7 +55,7 @@ impl<'context, 'module> Block<'context, 'module> {
 
     /// This block as a value.
     #[must_use]
-    pub fn as_value(self) -> Value<'context, 'module, BasicBlock> {
+    pub fn as_value(self) -> Value<'context, 'module, BasicBlockAsValue> {
         // SAFETY: the block is live for `'module`.
         unsafe { Value::from_raw(raw::LLVMBasicBlockAsValue(self.raw)) }
     }
@@ -69,7 +70,7 @@ impl<'context, 'module> Block<'context, 'module> {
     /// The function this block is in.
     #[must_use]
     pub fn parent(self) -> Value<'context, 'module, Function> {
-        // SAFETY: a `Block` is always in a function, which is live for `'module`.
+        // SAFETY: a `BasicBlock` is always in a function, which is live for `'module`.
         unsafe { Value::from_raw(raw::LLVMGetBasicBlockParent(self.raw)) }
     }
 
@@ -84,18 +85,18 @@ impl<'context, 'module> Block<'context, 'module> {
 
     /// The next block in the function.
     #[must_use]
-    pub fn next(self) -> Option<Block<'context, 'module>> {
+    pub fn next(self) -> Option<BasicBlock<'context, 'module>> {
         // SAFETY: the block is live for `'module`.
         let next = unsafe { raw::LLVMGetNextBasicBlock(self.raw) };
-        (!next.is_null()).then_some(Block { raw: next, marker: PhantomData })
+        (!next.is_null()).then_some(BasicBlock { raw: next, marker: PhantomData })
     }
 
     /// The previous block in the function.
     #[must_use]
-    pub fn previous(self) -> Option<Block<'context, 'module>> {
+    pub fn previous(self) -> Option<BasicBlock<'context, 'module>> {
         // SAFETY: the block is live for `'module`.
         let previous = unsafe { raw::LLVMGetPreviousBasicBlock(self.raw) };
-        (!previous.is_null()).then_some(Block { raw: previous, marker: PhantomData })
+        (!previous.is_null()).then_some(BasicBlock { raw: previous, marker: PhantomData })
     }
 
     /// The first instruction in this block.
@@ -128,12 +129,12 @@ impl<'context, 'module> Block<'context, 'module> {
     /// If `name` has a NUL byte inside it (D3).
     #[must_use]
     #[track_caller]
-    pub fn insert_block_before(self, name: &str) -> Block<'context, 'module> {
-        let name = c_string(name, "insert_block_before");
+    pub fn insert_basic_block_before(self, name: &str) -> BasicBlock<'context, 'module> {
+        let name = c_string(name, "insert_basic_block_before");
         // SAFETY: the block is live, and `name` is a valid C string for the call.
         unsafe {
             let context = raw::LLVMGetValueContext(raw::LLVMBasicBlockAsValue(self.raw));
-            Block::from_raw(raw::LLVMInsertBasicBlockInContext(context, self.raw, name.as_ptr()))
+            BasicBlock::from_raw(raw::LLVMInsertBasicBlockInContext(context, self.raw, name.as_ptr()))
         }
     }
 
@@ -142,7 +143,7 @@ impl<'context, 'module> Block<'context, 'module> {
     /// # Panics
     /// If `position` is in another function (D3).
     #[track_caller]
-    pub fn move_before(self, position: Block<'context, 'module>) {
+    pub fn move_before(self, position: BasicBlock<'context, 'module>) {
         self.check_same_function("move_before", position);
         // SAFETY: both are live, and in the same function.
         unsafe { raw::LLVMMoveBasicBlockBefore(self.raw, position.raw) };
@@ -153,21 +154,21 @@ impl<'context, 'module> Block<'context, 'module> {
     /// # Panics
     /// If `position` is in another function (D3).
     #[track_caller]
-    pub fn move_after(self, position: Block<'context, 'module>) {
+    pub fn move_after(self, position: BasicBlock<'context, 'module>) {
         self.check_same_function("move_after", position);
         // SAFETY: both are live, and in the same function.
         unsafe { raw::LLVMMoveBasicBlockAfter(self.raw, position.raw) };
     }
 
     #[track_caller]
-    fn check_same_function(self, operation: &str, other: Block<'context, 'module>) {
+    fn check_same_function(self, operation: &str, other: BasicBlock<'context, 'module>) {
         if self.parent() != other.parent() {
             bad_call(format_args!("{operation}: %{} and %{} are in different functions", self.name(), other.name()));
         }
     }
 }
 
-/// The instructions of a block, from [`Block::instructions`].
+/// The instructions of a block, from [`BasicBlock::instructions`].
 pub struct Instructions<'context, 'module> {
     next: Option<Value<'context, 'module, Instruction>>,
 }

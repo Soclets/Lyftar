@@ -19,7 +19,7 @@ fn main() {
         let f32_type = context.get_type::<F32>();
         let f64_type = context.get_type::<F64>();
         let function = module.add_function("f", context.function_type(context.void_type(), &[], false));
-        let builder = Builder::at_end_of(function.append_block("entry"));
+        let builder = Builder::at_end_of(function.append_basic_block("entry"));
         let _ = builder.float_add(f32_type.constant_float(1.0), f64_type.constant_float(2.0), "");
         let _ = (i32_type, i64_type);
     });

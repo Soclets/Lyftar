@@ -15,7 +15,7 @@ struct P;
 impl FunctionPass for P {
     fn run<'context>(&mut self, function: &mut FunctionInPass<'context>, _analyses: &Analyses<'_>) -> PreservedAnalyses {
         let value = function.function();
-        let block = value.first_block().unwrap();
+        let block = value.first_basic_block().unwrap();
         let first = block.first_instruction().unwrap();
         let chosen = [function.value_to_erase(first)];
         let _ = first.print_to_string();

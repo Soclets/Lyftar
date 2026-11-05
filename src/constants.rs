@@ -2,7 +2,7 @@
 //! module of the context, and survive deletes and pass runs (D11). A constant made from a global borrows its module.
 
 use crate::bad_call::bad_call;
-use crate::block::Block;
+use crate::basic_block::BasicBlock;
 use crate::builder::PointerOperand;
 use crate::checks;
 use crate::context::Context;
@@ -501,13 +501,13 @@ impl<'context, 'module> Value<'context, 'module, BlockAddress> {
 
     /// The block.
     #[must_use]
-    pub fn block(self) -> Block<'context, 'module> {
+    pub fn basic_block(self) -> BasicBlock<'context, 'module> {
         // SAFETY: the marker guarantees a block address.
-        unsafe { Block::from_raw(raw::LLVMGetBlockAddressBasicBlock(self.raw)) }
+        unsafe { BasicBlock::from_raw(raw::LLVMGetBlockAddressBasicBlock(self.raw)) }
     }
 }
 
-impl<'context, 'module> Block<'context, 'module> {
+impl<'context, 'module> BasicBlock<'context, 'module> {
     /// This block's address, as `indirectbr` takes it.
     ///
     /// # Panics

@@ -17,9 +17,9 @@
 // Every public name is in full words, and every number says its unit.
 pub mod attributes;
 mod bad_call;
+pub mod basic_block;
 pub mod bitcode;
 pub mod blake3;
-pub mod block;
 pub mod builder;
 mod checks;
 pub mod constants;
@@ -50,7 +50,7 @@ mod text;
 pub mod types;
 pub mod values;
 
-pub use block::Block;
+pub use basic_block::BasicBlock;
 pub use builder::Builder;
 pub use context::{Context, with_context};
 pub use module::Module;

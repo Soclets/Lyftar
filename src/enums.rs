@@ -514,7 +514,7 @@ llvm_enum! {
         /// A function argument.
         Argument = LLVMArgumentValueKind,
         /// A basic block.
-        BasicBlock = LLVMBasicBlockValueKind,
+        BasicBlockAsValue = LLVMBasicBlockValueKind,
         /// A use of memory SSA.
         MemoryUse = LLVMMemoryUseValueKind,
         /// A definition in memory SSA.

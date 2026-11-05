@@ -79,7 +79,7 @@ impl FunctionPass for Lies {
         function: &mut FunctionInPass<'context>,
         _analyses: &Analyses<'_>,
     ) -> PreservedAnalyses {
-        let entry = function.function().first_block().expect("a body");
+        let entry = function.function().first_basic_block().expect("a body");
         let first = entry.first_instruction().expect("an instruction");
         let builder = Builder::before(first);
         let i64_type = function.module().context().get_type::<Integer<Bits<64>>>();
@@ -105,7 +105,7 @@ impl FunctionPass for ErasesElsewhereByValue {
         _analyses: &Analyses<'_>,
     ) -> PreservedAnalyses {
         let other = function.module().get_function("other").expect("the other function");
-        let first = other.first_block().expect("a body").first_instruction().expect("an instruction");
+        let first = other.first_basic_block().expect("a body").first_instruction().expect("an instruction");
         let _ = function.value_to_erase(first);
         PreservedAnalyses::None
     }
@@ -119,7 +119,7 @@ impl FunctionPass for ErasesElsewhereByBlock {
         _analyses: &Analyses<'_>,
     ) -> PreservedAnalyses {
         let other = function.module().get_function("other").expect("the other function");
-        let _ = function.block_to_erase(other.first_block().expect("a body"));
+        let _ = function.basic_block_to_erase(other.first_basic_block().expect("a body"));
         PreservedAnalyses::None
     }
 }
@@ -180,7 +180,7 @@ impl FunctionPass for InlinesElsewhere {
     ) -> PreservedAnalyses {
         // A call in another function of this module.
         let callee = function.module().get_function("other").expect("the other function");
-        let builder = Builder::at_end_of(callee.append_block("extra"));
+        let builder = Builder::at_end_of(callee.append_basic_block("extra"));
         let parameter = callee.parameter(0);
         let in_other = builder.call(callee, &[parameter], "");
         let _ = function.call_to_inline(in_other);
@@ -213,7 +213,7 @@ impl ModulePass for BlockFromAnotherFunction {
         let function = module.get_function("f").expect("the function");
         let other = module.get_function("other").expect("the function");
         let tree = analyses.dominator_tree(module, function);
-        let _ = tree.is_reachable(other.first_block().expect("a body"));
+        let _ = tree.is_reachable(other.first_basic_block().expect("a body"));
         PreservedAnalyses::None
     }
 }
@@ -224,7 +224,7 @@ impl ModulePass for LoopForAnotherFunction {
         let function = module.get_function("f").expect("the function");
         let other = module.get_function("other").expect("the function");
         let loops = analyses.loop_info(module, function);
-        let _ = loops.loop_for(other.first_block().expect("a body"));
+        let _ = loops.loop_for(other.first_basic_block().expect("a body"));
         PreservedAnalyses::None
     }
 }
@@ -306,7 +306,7 @@ fn decision_11_a_function_pass_cant_choose_an_instruction_elsewhere() {
 fn decision_11_a_function_pass_cant_choose_a_block_elsewhere() {
     aborts_with(
         "erases_elsewhere_by_block",
-        "block_to_erase: a function pass can only erase from its own function, and",
+        "basic_block_to_erase: a function pass can only erase from its own function, and",
     );
 }
 

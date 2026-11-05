@@ -60,10 +60,10 @@ fn decision_30_a_byte_goes_through_memory_phis_and_selects_and_verifies() {
         let condition_type = context.get_type::<Integer<Bits<1>>>();
         let function_type = context.function_type(byte.to_dynamic(), &[pointer, condition_type.to_dynamic()], false);
         let function = module.add_function("copy", function_type);
-        let entry = function.append_block("entry");
-        let left = function.append_block("left");
-        let right = function.append_block("right");
-        let join = function.append_block("join");
+        let entry = function.append_basic_block("entry");
+        let left = function.append_basic_block("left");
+        let right = function.append_basic_block("right");
+        let join = function.append_basic_block("join");
         let builder = Builder::at_end_of(entry);
         let address = function.parameter(0).checked_cast::<Pointer>();
         let condition = function.parameter(1).checked_cast::<Integer<Bits<1>>>();

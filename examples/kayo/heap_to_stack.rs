@@ -140,7 +140,7 @@ impl FunctionPass for HeapToStack {
 
         // What earlier runs of this pass already moved here.
         let mut taken_in_bytes = 0;
-        if let Some(entry) = function.function().entry_block() {
+        if let Some(entry) = function.function().entry_basic_block() {
             for instruction in entry.instructions() {
                 if let Some(slot) = instruction.as_kind::<StackAllocationInstruction>()
                     && slot.name().starts_with("on_stack")
@@ -168,7 +168,7 @@ impl FunctionPass for HeapToStack {
                     continue;
                 }
                 taken_in_bytes += size_in_bytes;
-                let Some(entry) = function.function().entry_block() else {
+                let Some(entry) = function.function().entry_basic_block() else {
                     continue;
                 };
                 let context = function.module().context();

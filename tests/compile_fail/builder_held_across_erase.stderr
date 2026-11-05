@@ -6,5 +6,5 @@ error[E0502]: cannot borrow `module` as mutable because it is also borrowed as i
 ...
 26 |         module.erase(&chosen);
    |         ^^^^^^^^^^^^^^^^^^^^^ mutable borrow occurs here
-27 |         let _ = builder.insertion_block();
+27 |         let _ = builder.insertion_basic_block();
    |                 ------- immutable borrow later used here

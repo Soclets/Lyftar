@@ -11,7 +11,7 @@ use std::time::Instant;
 use lyftar::enums::IntegerPredicate;
 use lyftar::raw;
 use lyftar::values::Function;
-use lyftar::{Bits, Block, Builder, Context, Dynamic, Integer, Module, Pointer, Type, Value, with_context};
+use lyftar::{BasicBlock, Bits, Builder, Context, Dynamic, Integer, Module, Pointer, Type, Value, with_context};
 
 type I64 = Integer<Bits<64>>;
 
@@ -138,7 +138,7 @@ const ROWS: [(&str, Step, Step); 8] = [
         |scene| unsafe {
             // The block is made the same way in both, so that this row measures the branch and the move.
             let next =
-                Block::from_raw(raw::LLVMAppendBasicBlockInContext(scene.context.as_raw(), scene.function, EMPTY));
+                BasicBlock::from_raw(raw::LLVMAppendBasicBlockInContext(scene.context.as_raw(), scene.function, EMPTY));
             black_box(scene.builder.branch(next));
             scene.builder.position_at_end(next);
         },
@@ -157,7 +157,7 @@ fn best_nanoseconds_per_call(step: Step) -> f64 {
             let callee = module.add_function("callee", callee_type);
             let function_type = context.function_type(i64_type, &[i64_type, i64_type, pointer_type], false);
             let function = module.add_function("function", function_type);
-            let entry = function.append_block("entry");
+            let entry = function.append_basic_block("entry");
             let builder = Builder::at_end_of(entry);
             let left = function.parameter(0).checked_cast::<I64>();
             let right = function.parameter(1).checked_cast::<I64>();

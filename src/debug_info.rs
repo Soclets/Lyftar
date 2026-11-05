@@ -9,7 +9,7 @@
 use std::marker::PhantomData;
 
 use crate::bad_call::bad_call;
-use crate::block::Block;
+use crate::basic_block::BasicBlock;
 use crate::checks;
 use crate::enums::llvm_enum;
 use crate::metadata::Metadata;
@@ -2500,7 +2500,7 @@ impl<'context, 'module> DebugInfoBuilder<'context, 'module> {
         variable: Metadata<'context, 'module>,
         expression: Metadata<'context, 'module>,
         location: Metadata<'context, 'module>,
-        block: Block<'context, 'module>,
+        block: BasicBlock<'context, 'module>,
     ) -> DebugRecord<'context, 'module> {
         Self::check_record_pieces("insert_declare_at_end", variable, expression, location);
         // SAFETY: just checked, and both are live for `'module`.
@@ -2560,7 +2560,7 @@ impl<'context, 'module> DebugInfoBuilder<'context, 'module> {
         variable: Metadata<'context, 'module>,
         expression: Metadata<'context, 'module>,
         location: Metadata<'context, 'module>,
-        block: Block<'context, 'module>,
+        block: BasicBlock<'context, 'module>,
     ) -> DebugRecord<'context, 'module> {
         Self::check_record_pieces("insert_value_at_end", variable, expression, location);
         // SAFETY: just checked, and both are live for `'module`.
@@ -2608,7 +2608,7 @@ impl<'context, 'module> DebugInfoBuilder<'context, 'module> {
         &self,
         label: Metadata<'context, 'module>,
         location: Metadata<'context, 'module>,
-        block: Block<'context, 'module>,
+        block: BasicBlock<'context, 'module>,
     ) -> DebugRecord<'context, 'module> {
         check("insert_label_at_end", label, Class::Label);
         check("insert_label_at_end", location, Class::Location);

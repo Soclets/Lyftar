@@ -32,7 +32,7 @@ fn object_file() -> Vec<u8> {
             let i64_type = context.get_type::<I64>();
             let dynamic = i64_type.to_dynamic();
             let function = module.add_function("add_one", context.function_type(dynamic, &[dynamic], false));
-            let builder = Builder::at_end_of(function.append_block("entry"));
+            let builder = Builder::at_end_of(function.append_basic_block("entry"));
             let parameter = function.parameter(0).checked_cast::<I64>();
             let sum = builder.integer_add(parameter, i64_type.constant_integer(1, false), "sum");
             builder.return_value(sum);

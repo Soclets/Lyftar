@@ -5,7 +5,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::bad_call::bad_call;
-use crate::block::Block;
+use crate::basic_block::BasicBlock;
 use crate::checks;
 use crate::context::Context;
 use crate::error::Error;
@@ -324,7 +324,7 @@ impl<'context> Module<'context> {
     /// Chooses a value for [`Module::erase`].
     ///
     /// Only instructions, functions, global variables, aliases and indirect functions can be erased, and blocks go
-    /// through [`Module::block_to_erase`].
+    /// through [`Module::basic_block_to_erase`].
     ///
     /// # Panics
     /// If the value is another kind, or it belongs to another module (D3).
@@ -349,9 +349,9 @@ impl<'context> Module<'context> {
     /// If the block belongs to another module (D3).
     #[must_use]
     #[track_caller]
-    pub fn block_to_erase(&self, block: Block<'context, '_>) -> ValueToErase {
+    pub fn basic_block_to_erase(&self, block: BasicBlock<'context, '_>) -> ValueToErase {
         let value = block.as_value();
-        self.check_owns("block_to_erase", value);
+        self.check_owns("basic_block_to_erase", value);
         ValueToErase { raw: value.raw, generation: self.generation }
     }
 

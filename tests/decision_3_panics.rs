@@ -23,7 +23,7 @@ use lyftar::values::{
     SwitchInstruction,
 };
 use lyftar::{
-    Bits, Block, Builder, Context, Float, Ieee754Binary, Integer, Module, Pointer, Type, Value, with_context,
+    BasicBlock, Bits, Builder, Context, Float, Ieee754Binary, Integer, Module, Pointer, Type, Value, with_context,
 };
 
 type I1 = Integer<Bits<1>>;
@@ -48,7 +48,7 @@ macro_rules! panics {
 fn function_in<'context, 'module>(
     module: &'module Module<'context>,
     name: &str,
-) -> (Value<'context, 'module, Function>, Block<'context, 'module>, Builder<'context, 'module>) {
+) -> (Value<'context, 'module, Function>, BasicBlock<'context, 'module>, Builder<'context, 'module>) {
     let context = module.context();
     let function_type = context.function_type(
         context.void_type(),
@@ -56,7 +56,7 @@ fn function_in<'context, 'module>(
         false,
     );
     let function = module.add_function(name, function_type);
-    let block = function.append_block("entry");
+    let block = function.append_basic_block("entry");
     (function, block, Builder::at_end_of(block))
 }
 
@@ -330,7 +330,7 @@ panics!(
 panics!(decision_3_positioning_at_an_instruction_outside_the_block_panics, "position: ", |context| {
     let module = context.create_module("m");
     let (function, block, builder) = function_in(&module, "f");
-    let other = function.append_block("other");
+    let other = function.append_basic_block("other");
     let sum = builder.integer_add(function.parameter(0), function.parameter(0), "sum");
     builder.position(other, sum.as_kind::<Instruction>());
     let _ = block;
@@ -341,7 +341,7 @@ panics!(
     |context| {
         let module = context.create_module("m");
         let (function, _, builder) = function_in(&module, "f");
-        let other = function.append_block("other");
+        let other = function.append_basic_block("other");
         let sum = builder.integer_add(function.parameter(0), function.parameter(0), "sum");
         builder.position_before_debug_records(other, sum.as_kind::<Instruction>());
     }
@@ -652,7 +652,7 @@ panics!(
         let module = context.create_module("m");
         let i64_type = context.get_type::<I64>().to_dynamic();
         let function = module.add_function("f", context.function_type(i64_type, &[], false));
-        let builder = Builder::at_end_of(function.append_block("entry"));
+        let builder = Builder::at_end_of(function.append_basic_block("entry"));
         builder.return_void();
     }
 );

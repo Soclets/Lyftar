@@ -23,7 +23,7 @@ fn add_answer_function(module: &Module<'_>) {
     let i32_type = context.get_type::<I32>();
     let function_type = context.function_type(i32_type.to_dynamic(), &[], false);
     let function = module.add_function("answer", function_type);
-    let builder = Builder::at_end_of(function.append_block("entry"));
+    let builder = Builder::at_end_of(function.append_basic_block("entry"));
     builder.return_value(i32_type.constant_integer(42, false));
 }
 
@@ -172,7 +172,7 @@ fn decision_16_debug_info_builds_and_verifies() {
         let function_type = context.function_type(i32_type.to_dynamic(), &[], false);
         let function = module.add_function("answer", function_type);
         function.set_subprogram(subprogram);
-        let block = function.append_block("entry");
+        let block = function.append_basic_block("entry");
         let code = Builder::at_end_of(block);
         let location = builder.create_debug_location(1, 2, subprogram, None);
         code.set_current_debug_location(Some(location));
