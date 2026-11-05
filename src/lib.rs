@@ -55,7 +55,8 @@ pub use builder::Builder;
 pub use context::{Context, with_context};
 pub use module::Module;
 pub use types::{
-    Bits, BrainFloat, Byte, Dynamic, Float, Ieee754Binary, Integer, Pointer, PowerPcDoubleDouble, Type, X87Extended,
+    AddressSpace, Bits, BrainFloat, Byte, Dynamic, Float, Ieee754Binary, Integer, Pointer, PowerPcDoubleDouble, Type,
+    X87Extended,
 };
 pub use values::{Function, Value};
 

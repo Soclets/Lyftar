@@ -12,7 +12,7 @@ error[E0277]: the trait bound `lyftar::Integer<lyftar::Bits<64>>: PointerOperand
              StackAllocationInstruction
              lyftar::Dynamic
              lyftar::Function
-             lyftar::Pointer
+             lyftar::Pointer<AddressSpace<N>>
              lyftar::values::GlobalAlias
              lyftar::values::GlobalVariable
 note: required by a bound in `lyftar::Builder::<'context, 'module>::load`

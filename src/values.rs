@@ -15,7 +15,7 @@ use crate::module::Module;
 use crate::raw;
 use crate::shim;
 use crate::text::{from_owned_message, from_pointer_and_length};
-use crate::types::{Dynamic, Invariant, Pointer, Sealed, Type, TypeMarker};
+use crate::types::{Dynamic, Invariant, Sealed, Type, TypeMarker};
 
 /// A value: as specific as the code knows (D4), belonging to its context (invariant, D10) and borrowing its module
 /// (covariant, D11), so that holding one across a delete or a pass run doesn't compile and constants, which belong to
@@ -121,13 +121,13 @@ value_markers! {
     /// A basic block, as a value. See [`Block`] for working with one.
     BasicBlock = LLVMIsABasicBlock as Dynamic: [];
     /// Inline assembly.
-    InlineAssembly = LLVMIsAInlineAsm as Pointer: [];
+    InlineAssembly = LLVMIsAInlineAsm as Dynamic: [];
     /// Any value that uses others.
     User = LLVMIsAUser as Dynamic: [UserMarker];
     /// Any constant.
     Constant = LLVMIsAConstant as Dynamic: [UserMarker, ConstantMarker];
     /// A block's address.
-    BlockAddress = LLVMIsABlockAddress as Pointer: [UserMarker, ConstantMarker];
+    BlockAddress = LLVMIsABlockAddress as Dynamic: [UserMarker, ConstantMarker];
     /// A zero aggregate.
     ConstantAggregateZero = LLVMIsAConstantAggregateZero as Dynamic: [UserMarker, ConstantMarker];
     /// A constant array.
@@ -147,7 +147,7 @@ value_markers! {
     /// A constant byte.
     ConstantByte = LLVMIsAConstantByte as Dynamic: [UserMarker, ConstantMarker];
     /// A constant null pointer.
-    ConstantPointerNull = LLVMIsAConstantPointerNull as Pointer: [UserMarker, ConstantMarker];
+    ConstantPointerNull = LLVMIsAConstantPointerNull as Dynamic: [UserMarker, ConstantMarker];
     /// A constant struct.
     ConstantStruct = LLVMIsAConstantStruct as Dynamic: [UserMarker, ConstantMarker];
     /// The constant `none` token.
@@ -155,22 +155,22 @@ value_markers! {
     /// A constant vector.
     ConstantVector = LLVMIsAConstantVector as Dynamic: [UserMarker, ConstantMarker];
     /// A constant authenticated pointer.
-    ConstantPointerAuthentication = LLVMIsAConstantPtrAuth as Pointer: [UserMarker, ConstantMarker];
+    ConstantPointerAuthentication = LLVMIsAConstantPtrAuth as Dynamic: [UserMarker, ConstantMarker];
     /// Any global value.
-    GlobalValue = LLVMIsAGlobalValue as Pointer: [UserMarker, ConstantMarker, GlobalValueMarker];
+    GlobalValue = LLVMIsAGlobalValue as Dynamic: [UserMarker, ConstantMarker, GlobalValueMarker];
     /// A global alias.
-    GlobalAlias = LLVMIsAGlobalAlias as Pointer: [UserMarker, ConstantMarker, GlobalValueMarker];
+    GlobalAlias = LLVMIsAGlobalAlias as Dynamic: [UserMarker, ConstantMarker, GlobalValueMarker];
     /// Any global object.
-    GlobalObject = LLVMIsAGlobalObject as Pointer:
+    GlobalObject = LLVMIsAGlobalObject as Dynamic:
         [UserMarker, ConstantMarker, GlobalValueMarker, GlobalObjectMarker, AlignedMarker];
-    /// A function. It is a value (D4), and its LLVM type is a pointer.
-    Function = LLVMIsAFunction as Pointer:
+    /// A function. It is a value (D4), and its LLVM type is a pointer, in the address space the target says (D31).
+    Function = LLVMIsAFunction as Dynamic:
         [UserMarker, ConstantMarker, GlobalValueMarker, GlobalObjectMarker, AlignedMarker];
     /// A global variable.
-    GlobalVariable = LLVMIsAGlobalVariable as Pointer:
+    GlobalVariable = LLVMIsAGlobalVariable as Dynamic:
         [UserMarker, ConstantMarker, GlobalValueMarker, GlobalObjectMarker, AlignedMarker];
     /// A global indirect function.
-    GlobalIndirectFunction = LLVMIsAGlobalIFunc as Pointer:
+    GlobalIndirectFunction = LLVMIsAGlobalIFunc as Dynamic:
         [UserMarker, ConstantMarker, GlobalValueMarker, GlobalObjectMarker, AlignedMarker];
     /// `undef`.
     UndefinedValue = LLVMIsAUndefValue as Dynamic: [UserMarker, ConstantMarker];
@@ -260,7 +260,7 @@ value_markers! {
     /// An instruction with one operand.
     UnaryInstruction = LLVMIsAUnaryInstruction as Dynamic: [UserMarker, InstructionMarker];
     /// An `alloca`.
-    StackAllocationInstruction = LLVMIsAAllocaInst as Pointer: [UserMarker, InstructionMarker, AlignedMarker];
+    StackAllocationInstruction = LLVMIsAAllocaInst as Dynamic: [UserMarker, InstructionMarker, AlignedMarker];
     /// A cast.
     CastInstruction = LLVMIsACastInst as Dynamic: [UserMarker, InstructionMarker];
     /// An `addrspacecast`.

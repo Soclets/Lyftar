@@ -501,7 +501,7 @@ impl Value<'_, '_, StoreInstruction> {
 impl<'context, 'module> Value<'context, 'module, StoreInstruction> {
     /// The pointer stored through.
     #[must_use]
-    pub fn pointer_operand(self) -> Value<'context, 'module, crate::types::Pointer> {
+    pub fn pointer_operand(self) -> Value<'context, 'module> {
         // SAFETY: a store's second operand is its pointer.
         unsafe { Value::from_raw(raw::LLVMGetOperand(self.raw, 1)) }
     }
@@ -517,7 +517,7 @@ impl<'context, 'module> Value<'context, 'module, StoreInstruction> {
 impl<'context, 'module> Value<'context, 'module, LoadInstruction> {
     /// The pointer loaded through.
     #[must_use]
-    pub fn pointer_operand(self) -> Value<'context, 'module, crate::types::Pointer> {
+    pub fn pointer_operand(self) -> Value<'context, 'module> {
         // SAFETY: a load's one operand is its pointer.
         unsafe { Value::from_raw(raw::LLVMGetOperand(self.raw, 0)) }
     }

@@ -12,7 +12,7 @@ use crate::module::Module;
 use crate::raw;
 use crate::shim;
 use crate::text::{c_string, from_borrowed, from_pointer_and_length};
-use crate::types::{Dynamic, Invariant, Pointer, Type, length_as_u32};
+use crate::types::{Dynamic, Invariant, Type, check_address_space, length_as_u32};
 use crate::values::{
     Argument, Constant, Function, GlobalAlias, GlobalIndirectFunction, GlobalObjectMarker, GlobalValueMarker,
     GlobalVariable, Value,
@@ -126,10 +126,11 @@ impl<'context, 'module, T: GlobalValueMarker> Value<'context, 'module, T> {
         unsafe { Type::from_raw(raw::LLVMGlobalGetValueType(self.raw)) }
     }
 
-    /// This global as a pointer value.
+    /// This global as a pointer value, whose address space is only known when the line runs (D31). `checked_cast` gives a
+    /// specific one.
     #[must_use]
-    pub fn as_pointer(self) -> Value<'context, 'module, Pointer> {
-        // SAFETY: a global's own LLVM type is a pointer.
+    pub fn as_pointer(self) -> Value<'context, 'module> {
+        // SAFETY: any value can be held as a dynamic one, and this one's own LLVM type is a pointer.
         unsafe { Value::from_raw(self.raw) }
     }
 }
@@ -402,6 +403,7 @@ impl<'context> Module<'context> {
         global_type: Type<'context, T>,
         address_space: u32,
     ) -> Value<'context, 'module, GlobalVariable> {
+        check_address_space("add_global", address_space);
         // SAFETY: only reads the type.
         if !unsafe { shim::lyftar_type_is_valid_global(global_type.raw) } {
             bad_call(format_args!("add_global: {} can't be a global's type", global_type.describe()));
@@ -440,6 +442,7 @@ impl<'context> Module<'context> {
         aliasee: Value<'context, 'module, T>,
         name: &str,
     ) -> Value<'context, 'module, GlobalAlias> {
+        check_address_space("add_alias", address_space);
         check_constant_pointer("add_alias", aliasee);
         self.check_owns("add_alias", aliasee);
         let name = c_string(name, "add_alias");
@@ -476,6 +479,7 @@ impl<'context> Module<'context> {
         address_space: u32,
         resolver: Value<'context, 'module, T>,
     ) -> Value<'context, 'module, GlobalIndirectFunction> {
+        check_address_space("add_global_indirect_function", address_space);
         check_function_type("add_global_indirect_function", function_type);
         check_constant_pointer("add_global_indirect_function", resolver);
         self.check_owns("add_global_indirect_function", resolver);

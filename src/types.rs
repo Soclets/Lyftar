@@ -54,9 +54,15 @@ pub struct X87Extended;
 #[derive(Clone, Copy, Debug)]
 pub struct PowerPcDoubleDouble;
 
-/// A pointer.
+/// An address space, as in `Pointer<AddressSpace<5>>` (D31).
 #[derive(Clone, Copy, Debug)]
-pub struct Pointer;
+pub struct AddressSpace<const N: u32>;
+
+/// A pointer. `Pointer` means address space 0 and is the same type as `Pointer<AddressSpace<0>>`, and any other space is
+/// `Pointer<AddressSpace<N>>`. A pointer whose space isn't known is [`Dynamic`].
+#[derive(Clone, Copy, Debug)]
+// trace: D31
+pub struct Pointer<Space = AddressSpace<0>>(PhantomData<fn() -> Space>);
 
 mod sealed {
     pub trait Sealed {}
@@ -242,12 +248,33 @@ pub(crate) fn is_float_kind(kind: raw::LLVMTypeKind) -> bool {
     )
 }
 
-impl Sealed for Pointer {}
-impl TypeMarker for Pointer {
-    const EXACT: bool = false;
+impl<const N: u32> Sealed for Pointer<AddressSpace<N>> {}
+impl<const N: u32> TypeMarker for Pointer<AddressSpace<N>> {
+    const EXACT: bool = true;
     unsafe fn accepts_type(raw: raw::LLVMTypeRef) -> bool {
-        // SAFETY: the caller promises a live type.
-        unsafe { raw::LLVMGetTypeKind(raw) == raw::LLVMTypeKind::LLVMPointerTypeKind }
+        // SAFETY: the caller promises a live type, and the space is only asked of a pointer type.
+        unsafe {
+            raw::LLVMGetTypeKind(raw) == raw::LLVMTypeKind::LLVMPointerTypeKind
+                && raw::LLVMGetPointerAddressSpace(raw) == N
+        }
+    }
+}
+// trace: D31
+impl<const N: u32> SpecificType for Pointer<AddressSpace<N>> {
+    fn get_raw(context: Context<'_>) -> raw::LLVMTypeRef {
+        // LLVM keeps an address space in 24 bits, so this fails at `cargo build` when written wrong.
+        const { assert!(N < (1 << 24), "an LLVM address space is below 2^24") };
+        // SAFETY: the context is live, as it is a `Context`, and N was just checked.
+        unsafe { raw::LLVMPointerTypeInContext(context.raw, N) }
+    }
+}
+
+// trace: D3
+/// Checks that LLVM can hold an address space, which would otherwise be cut to its 24 bits.
+#[track_caller]
+pub(crate) fn check_address_space(operation: &str, address_space: u32) {
+    if !checks::address_space_is_valid(address_space) {
+        bad_call(format_args!("{operation}: address space {address_space} is not below 2^24"));
     }
 }
 
@@ -545,6 +572,18 @@ impl<'context, T> Type<'context, T> {
         unsafe { raw::LLVMIsLiteralStruct(self.raw) != 0 }
     }
 
+    /// This pointer's address space.
+    ///
+    /// # Panics
+    /// If this isn't a pointer (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn address_space(self) -> u32 {
+        self.require_kind(raw::LLVMTypeKind::LLVMPointerTypeKind, "address_space", "a pointer");
+        // SAFETY: just checked to be a pointer type.
+        unsafe { raw::LLVMGetPointerAddressSpace(self.raw) }
+    }
+
     // ---- Arrays and vectors ----
 
     /// The element type of this array or vector.
@@ -741,15 +780,6 @@ impl<'context, T> Type<'context, T> {
     }
 }
 
-impl Type<'_, Pointer> {
-    /// This pointer's address space.
-    #[must_use]
-    pub fn address_space(self) -> u32 {
-        // SAFETY: `Pointer` guarantees a pointer type.
-        unsafe { raw::LLVMGetPointerAddressSpace(self.raw) }
-    }
-}
-
 impl<W> Type<'_, Integer<W>> {
     /// This integer type's width.
     #[must_use]
@@ -877,10 +907,16 @@ impl<'context> Context<'context> {
         Type { raw: unsafe { raw::LLVMX86AMXTypeInContext(self.raw) }, marker: PhantomData }
     }
 
-    /// A pointer in the given address space.
+    /// A pointer whose address space is only known when the line runs. `get_type::<Pointer<AddressSpace<5>>>()` is for one the
+    /// Rust code spells out.
+    ///
+    /// # Panics
+    /// If LLVM can't hold that address space (D3).
     #[must_use]
-    pub fn pointer_type(self, address_space: u32) -> Type<'context, Pointer> {
-        // SAFETY: the context is live.
+    #[track_caller]
+    pub fn pointer_type(self, address_space: u32) -> Type<'context> {
+        check_address_space("pointer_type", address_space);
+        // SAFETY: the context is live, and the space was just checked.
         Type { raw: unsafe { raw::LLVMPointerTypeInContext(self.raw, address_space) }, marker: PhantomData }
     }
 

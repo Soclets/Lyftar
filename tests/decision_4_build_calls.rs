@@ -169,6 +169,8 @@ fn decision_4_globals_and_aggregates_verify() {
         assert!(text.contains("private constant [2 x i32] [i32 1, i32 2]"), "{text}");
         assert_eq!(module.verify(), Ok(()));
         let _: Option<lyftar::Value<'_, '_, GlobalVariable>> = global.next_global();
-        let _: lyftar::Value<'_, '_, Pointer> = global.as_pointer();
+        // Its address space is only known when the line runs (D31).
+        let _: lyftar::Value<'_, '_> = global.as_pointer();
+        let _: lyftar::Value<'_, '_, Pointer> = global.as_pointer().checked_cast::<Pointer>();
     });
 }

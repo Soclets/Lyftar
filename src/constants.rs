@@ -3,13 +3,14 @@
 
 use crate::bad_call::bad_call;
 use crate::block::Block;
+use crate::builder::PointerOperand;
 use crate::checks;
 use crate::context::Context;
 use crate::enums::{InlineAssemblyDialect, Opcode};
 use crate::raw;
 use crate::shim;
 use crate::text::from_pointer_and_length;
-use crate::types::{Dynamic, Float, Integer, Pointer, Type, length_as_u32};
+use crate::types::{Dynamic, Float, Integer, Type, TypeMarker, length_as_u32};
 use crate::values::{
     BlockAddress, ConstantDataSequential, ConstantExpression, ConstantFloat, ConstantInteger, ConstantMarker,
     ConstantPointerAuthentication, Function, InlineAssembly, Value,
@@ -463,7 +464,7 @@ impl Value<'_, '_, ConstantExpression> {
 impl<'context, 'module> Value<'context, 'module, ConstantPointerAuthentication> {
     /// The pointer being signed.
     #[must_use]
-    pub fn pointer(self) -> Value<'context, 'module, Pointer> {
+    pub fn pointer(self) -> Value<'context, 'module> {
         // SAFETY: the marker guarantees what LLVM asks for.
         unsafe { Value::from_raw(raw::LLVMGetConstantPtrAuthPointer(self.raw)) }
     }
@@ -484,7 +485,7 @@ impl<'context, 'module> Value<'context, 'module, ConstantPointerAuthentication> 
 
     /// The address discriminator.
     #[must_use]
-    pub fn address_discriminator(self) -> Value<'context, 'module, Pointer> {
+    pub fn address_discriminator(self) -> Value<'context, 'module> {
         // SAFETY: the marker guarantees what LLVM asks for.
         unsafe { Value::from_raw(raw::LLVMGetConstantPtrAuthAddrDiscriminator(self.raw)) }
     }
@@ -682,11 +683,15 @@ impl<'context, 'module, W> Value<'context, 'module, Integer<W>> {
     /// This constant integer cast to a pointer, as a constant.
     ///
     /// # Panics
-    /// If it isn't a constant (D3).
+    /// If it isn't a constant, or the target isn't a pointer (D3).
     #[must_use]
     #[track_caller]
-    pub fn constant_integer_to_pointer(self, target: Type<'context, Pointer>) -> Value<'context, 'module, Pointer> {
+    pub fn constant_integer_to_pointer<D: PointerOperand + TypeMarker>(
+        self,
+        target: Type<'context, D>,
+    ) -> Value<'context, 'module, D> {
         self.check_constant("constant_integer_to_pointer");
+        check_pointer_type("constant_integer_to_pointer", target);
         // SAFETY: an integer constant and a pointer type.
         unsafe { Value::from_raw(raw::LLVMConstIntToPtr(self.raw, target.raw)) }
     }
@@ -711,18 +716,28 @@ impl<'context, 'module, W> Value<'context, 'module, Integer<W>> {
     }
 }
 
-impl<'context, 'module> Value<'context, 'module, Pointer> {
+/// Checks that a type is a pointer, if its marker doesn't already say so.
+#[track_caller]
+fn check_pointer_type<D: TypeMarker>(operation: &str, target: Type<'_, D>) {
+    // trace: D24
+    if !D::EXACT && target.raw_kind() != raw::LLVMTypeKind::LLVMPointerTypeKind {
+        bad_call(format_args!("{operation}: {} is not a pointer type", target.describe()));
+    }
+}
+
+impl<'context, 'module, P: PointerOperand> Value<'context, 'module, P> {
     #[track_caller]
     fn check_constant_pointer(self, operation: &str) {
         if !self.is_constant() {
             bad_call(format_args!("{operation}: {} is not a constant", self.describe()));
         }
+        P::check_pointer(operation, self.to_dynamic());
     }
 
     /// This constant pointer cast to an integer, as a constant.
     ///
     /// # Panics
-    /// If it isn't a constant (D3).
+    /// If it isn't a constant pointer (D3).
     #[must_use]
     #[track_caller]
     pub fn constant_pointer_to_integer<W>(
@@ -737,12 +752,24 @@ impl<'context, 'module> Value<'context, 'module, Pointer> {
     /// This constant pointer cast to another address space, as a constant.
     ///
     /// # Panics
-    /// If it isn't a constant (D3).
+    /// If it isn't a constant pointer, or the target isn't a pointer in another address space (D3).
     #[must_use]
     #[track_caller]
-    pub fn constant_address_space_cast(self, target: Type<'context, Pointer>) -> Self {
+    pub fn constant_address_space_cast<D: PointerOperand + TypeMarker>(
+        self,
+        target: Type<'context, D>,
+    ) -> Value<'context, 'module, D> {
         self.check_constant_pointer("constant_address_space_cast");
-        // SAFETY: a pointer constant and a pointer type.
+        check_pointer_type("constant_address_space_cast", target);
+        // SAFETY: both are live; the shim only reads them.
+        if !unsafe { shim::lyftar_cast_is_valid(raw::LLVMOpcode::LLVMAddrSpaceCast, self.raw, target.raw) } {
+            bad_call(format_args!(
+                "constant_address_space_cast: can't cast {} to {}",
+                self.describe(),
+                target.describe()
+            ));
+        }
+        // SAFETY: just checked what LLVM asserts.
         unsafe { Value::from_raw(raw::LLVMConstAddrSpaceCast(self.raw, target.raw)) }
     }
 
@@ -757,7 +784,7 @@ impl<'context, 'module> Value<'context, 'module, Pointer> {
         element_type: Type<'context>,
         indices: &[Value<'context, 'module, I>],
         flags: crate::instructions::GetElementPointerFlags,
-    ) -> Self {
+    ) -> Value<'context, 'module, P::GetElementPointerResult> {
         self.check_constant_pointer("constant_get_element_pointer");
         check_constants("constant_get_element_pointer", indices, None);
         let count = length_as_u32(indices.len(), "constant_get_element_pointer");
@@ -786,11 +813,11 @@ impl<'context, 'module> Value<'context, 'module, Pointer> {
     /// If any operand isn't a constant, the key isn't an `i32`, or the discriminator isn't an `i64` (D3).
     #[must_use]
     #[track_caller]
-    pub fn constant_pointer_authentication(
+    pub fn constant_pointer_authentication<A: PointerOperand>(
         self,
         key: Value<'context, 'module, Integer<crate::types::Bits<32>>>,
         discriminator: Value<'context, 'module, Integer<crate::types::Bits<64>>>,
-        address_discriminator: Value<'context, 'module, Pointer>,
+        address_discriminator: Value<'context, 'module, A>,
     ) -> Value<'context, 'module, ConstantPointerAuthentication> {
         self.check_constant_pointer("constant_pointer_authentication");
         address_discriminator.check_constant_pointer("constant_pointer_authentication");

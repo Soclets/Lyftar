@@ -2032,6 +2032,88 @@ fn decision_34_replacing_a_value_with_a_constant_that_uses_it_panics() {
     });
 }
 
+// ---- Address spaces (D31) ----
+
+panics!(
+    decision_31_a_pointer_in_too_high_a_space_panics,
+    "pointer_type: address space 16777216 is not below 2^24",
+    |context| {
+        let _ = context.pointer_type(16_777_216);
+    }
+);
+
+panics!(
+    decision_31_a_global_in_too_high_a_space_panics,
+    "add_global: address space 16777216 is not below 2^24",
+    |context| {
+        let module = context.create_module("m");
+        let _ = module.add_global_in_address_space("g", context.get_type::<I64>(), 16_777_216);
+    }
+);
+
+panics!(
+    decision_31_an_alias_in_too_high_a_space_panics,
+    "add_alias: address space 16777216 is not below 2^24",
+    |context| {
+        let module = context.create_module("m");
+        let target = module.add_global("g", context.get_type::<I64>());
+        let _ = module.add_alias(context.get_type::<I64>().to_dynamic(), 16_777_216, target, "a");
+    }
+);
+
+panics!(
+    decision_31_an_indirect_function_in_too_high_a_space_panics,
+    "add_global_indirect_function: address space 16777216 is not below 2^24",
+    |context| {
+        let module = context.create_module("m");
+        let function_type = context.function_type(context.void_type(), &[], false);
+        let resolver = module.add_function("r", function_type);
+        let _ = module.add_global_indirect_function("i", function_type, 16_777_216, resolver);
+    }
+);
+
+panics!(decision_31_the_address_space_of_an_integer_panics, "address_space: i64 is not a pointer", |context| {
+    let _ = context.get_type::<I64>().address_space();
+});
+
+panics!(
+    decision_31_a_cast_to_an_integer_as_a_pointer_panics,
+    "constant_integer_to_pointer: i64 is not a pointer type",
+    |context| {
+        let _ = context
+            .get_type::<I64>()
+            .constant_integer(1, false)
+            .constant_integer_to_pointer(context.get_type::<I64>().to_dynamic());
+    }
+);
+
+panics!(
+    decision_31_an_address_space_cast_of_something_not_a_pointer_panics,
+    "constant_address_space_cast: i64 1 is not a pointer",
+    |context| {
+        let value = context.get_type::<I64>().constant_integer(1, false).to_dynamic();
+        let _ = value.constant_address_space_cast(context.get_type::<Pointer>());
+    }
+);
+
+panics!(
+    decision_31_an_address_space_cast_to_something_not_a_pointer_panics,
+    "constant_address_space_cast: i64 is not a pointer type",
+    |context| {
+        let null = context.get_type::<Pointer>().constant_null();
+        let _ = null.constant_address_space_cast(context.get_type::<I64>().to_dynamic());
+    }
+);
+
+panics!(
+    decision_31_an_address_space_cast_within_a_space_panics,
+    "constant_address_space_cast: can't cast ptr null to ptr",
+    |context| {
+        let null = context.get_type::<Pointer>().constant_null();
+        let _ = null.constant_address_space_cast(context.get_type::<Pointer>());
+    }
+);
+
 // ---- LTO ----
 
 fn lto_module() -> lyftar::lto::LtoModule {

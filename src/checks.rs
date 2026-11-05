@@ -253,3 +253,10 @@ pub(crate) fn aggregate_index_in_bounds(index: u64, count: u64) -> bool {
 pub(crate) fn calling_convention_is_valid(number: u32) -> bool {
     number <= 1023
 }
+
+// trace: D22, D31
+/// Whether LLVM can hold this address space: it keeps 24 bits for one.
+#[cfg_attr(verus_keep_ghost, verus_spec(result => ensures result == (address_space < 16777216)))]
+pub(crate) fn address_space_is_valid(address_space: u32) -> bool {
+    address_space < 16_777_216
+}

@@ -17,7 +17,8 @@ use crate::raw;
 use crate::shim;
 use crate::text::c_string;
 use crate::types::{
-    Bits, Dynamic, Float, FloatFormat, Integer, Invariant, Pointer, Type, TypeMarker, is_float_kind, length_as_u32,
+    AddressSpace, Bits, Dynamic, Float, FloatFormat, Integer, Invariant, Pointer, Type, TypeMarker, is_float_kind,
+    length_as_u32,
 };
 use crate::values::{
     AtomicCompareExchangeInstruction, AtomicReadModifyWriteInstruction, CallBranchInstruction, CallInstruction,
@@ -217,11 +218,21 @@ pub trait PointerOperand: ValueMarker {
     fn check_pointer_or_vector(operation: &str, value: Value<'_, '_>);
 }
 
-/// Declares a marker whose value is always a pointer.
+// trace: D31, D24
+impl<const N: u32> PointerOperand for Pointer<AddressSpace<N>> {
+    type GetElementPointerResult = Self;
+    const IS_DYNAMIC: bool = false;
+    #[inline(always)]
+    fn check_pointer(_operation: &str, _value: Value<'_, '_>) {}
+    #[inline(always)]
+    fn check_pointer_or_vector(_operation: &str, _value: Value<'_, '_>) {}
+}
+
+/// Declares a marker whose value is always a pointer, in an address space only known when the line runs (D31).
 macro_rules! always_a_pointer {
     ($($marker:ty),*) => {
         $(impl PointerOperand for $marker {
-            type GetElementPointerResult = Pointer;
+            type GetElementPointerResult = Dynamic;
             const IS_DYNAMIC: bool = false;
             // trace: D24
             #[inline(always)]
@@ -231,15 +242,7 @@ macro_rules! always_a_pointer {
         })*
     };
 }
-always_a_pointer!(
-    Pointer,
-    Function,
-    GlobalVariable,
-    GlobalAlias,
-    GlobalValue,
-    GlobalObject,
-    StackAllocationInstruction
-);
+always_a_pointer!(Function, GlobalVariable, GlobalAlias, GlobalValue, GlobalObject, StackAllocationInstruction);
 
 impl PointerOperand for Dynamic {
     type GetElementPointerResult = Dynamic;
