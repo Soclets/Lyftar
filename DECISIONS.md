@@ -148,3 +148,6 @@ does; the owner chose: "yea, public". (Owner, 2026-11-05)
 **D29. The build session.** The session that builds Lyftar is `implementation claude`, in its own clone at
 `/Users/ts/Lyftar implementation`, on `main`. This design session stays at `/Users/ts/Lyftar`. Claude proposed it, following
 Cyborg's setup; the owner chose it: "yup". (Owner, 2026-11-05)
+
+**D30. `Byte<Bits<8>>`.** LLVM 23's byte type, which holds raw memory in a value and can be any width, is spelled
+`Byte<Bits<N>>`, following D7. Lyftar impl asked; Claude proposed it; the owner chose it: "yea". (Owner, 2026-11-05)
