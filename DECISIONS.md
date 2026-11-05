@@ -172,3 +172,9 @@ Lyftar impl asked; Claude proposed it; the owner chose it: "yea". (Owner, 2026-1
 point at, it panics and names this form: `module.replacement_to_make(old, new)` gives an entry and `module.replace(&[entry])`
 takes exclusive access, as erase does (D11), so nothing can be held across it. The everyday `replace_all_uses_with` stays for
 the safe case. Lyftar impl found the gap and proposed it; Claude recommended it; the owner chose it: "yea". (Owner, 2026-11-05)
+
+**D35. What is a `Value`, and `BasicBlock`.** Functions, global variables and instructions are each a `Value<T>` with a marker
+that keeps LLVM's word, such as `Value<Function>`, `Value<GlobalVariable>`, `Value<Instruction>`, `Value<CallBase>`,
+`Value<Terminator>`, `Value<PhiNode<T>>` and `Value<MetadataAsValue>`, since LLVM treats them all as values. A block is its own
+type, spelled `BasicBlock`, as LLVM's concepts keep LLVM's words (D5). Lyftar impl proposed the markers and the name `Block`;
+Claude proposed `BasicBlock`; the owner chose it: "yea". (Owner, 2026-11-05)
