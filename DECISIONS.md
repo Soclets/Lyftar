@@ -224,3 +224,12 @@ in `context.module(a).get_global(..)`, every value borrows the context, and runn
 read can be missed. A module stops being a separately owned value, and an exclusive call on one module blocks values held from any
 other. Whether a separate token from D39 is still needed is not settled here. Lyftar impl found the hole and preferred an extra
 token argument on each read, as did Claude; the owner chose: "B". (Owner, 2026-11-05)
+
+**D43. How modules live inside the context.** This settles the shape of D42 and replaces D37's module borrow and D39's separate
+token. You own an `OwnedModule`, and its contents are only reachable through the context, with `context.module(&a)` to read and
+build and `context.exclusive_module(&mut a)` for what needs the whole context, such as passes. Dropping the handle frees the module,
+and using one linked away does not compile. `with_context` gives `&mut Context`, which is the only token, so there is no `Constants`
+type, `Context` is not a copy, and anything built from values is a method on it. `value.context()` and `type.context()` go away.
+Plain data and types borrow nothing and survive passes. Constants can be shared across modules, so D37's limit is gone. A value held
+across an exclusive call on another module does not compile, and a tracked handle (D11) is the way around that. Lyftar impl proposed
+it after trying it against kayo's passes; Claude agreed; the owner chose it: "yes". (Owner, 2026-11-05)
