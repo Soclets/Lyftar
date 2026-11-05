@@ -209,10 +209,7 @@ unsafe extern "C" {
     ) -> LLVMBool;
 }
 unsafe extern "C" {
-    pub fn LLVMParseBitcode2(
-        MemBuf: LLVMMemoryBufferRef,
-        OutModule: *mut LLVMModuleRef,
-    ) -> LLVMBool;
+    pub fn LLVMParseBitcode2(MemBuf: LLVMMemoryBufferRef, OutModule: *mut LLVMModuleRef) -> LLVMBool;
 }
 unsafe extern "C" {
     pub fn LLVMParseBitcodeInContext(
@@ -252,14 +249,10 @@ unsafe extern "C" {
     ) -> LLVMBool;
 }
 unsafe extern "C" {
-    pub fn LLVMGetBitcodeModule2(MemBuf: LLVMMemoryBufferRef, OutM: *mut LLVMModuleRef)
-    -> LLVMBool;
+    pub fn LLVMGetBitcodeModule2(MemBuf: LLVMMemoryBufferRef, OutM: *mut LLVMModuleRef) -> LLVMBool;
 }
 unsafe extern "C" {
-    pub fn LLVMWriteBitcodeToFile(
-        M: LLVMModuleRef,
-        Path: *const ::std::os::raw::c_char,
-    ) -> ::std::os::raw::c_int;
+    pub fn LLVMWriteBitcodeToFile(M: LLVMModuleRef, Path: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
     pub fn LLVMWriteBitcodeToFD(
@@ -270,31 +263,23 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
-    pub fn LLVMWriteBitcodeToFileHandle(
-        M: LLVMModuleRef,
-        Handle: ::std::os::raw::c_int,
-    ) -> ::std::os::raw::c_int;
+    pub fn LLVMWriteBitcodeToFileHandle(M: LLVMModuleRef, Handle: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
     pub fn LLVMWriteBitcodeToMemoryBuffer(M: LLVMModuleRef) -> LLVMMemoryBufferRef;
 }
 impl LLVMComdatSelectionKind {
     pub const LLVMAnyComdatSelectionKind: LLVMComdatSelectionKind = LLVMComdatSelectionKind(0);
-    pub const LLVMExactMatchComdatSelectionKind: LLVMComdatSelectionKind =
-        LLVMComdatSelectionKind(1);
+    pub const LLVMExactMatchComdatSelectionKind: LLVMComdatSelectionKind = LLVMComdatSelectionKind(1);
     pub const LLVMLargestComdatSelectionKind: LLVMComdatSelectionKind = LLVMComdatSelectionKind(2);
-    pub const LLVMNoDeduplicateComdatSelectionKind: LLVMComdatSelectionKind =
-        LLVMComdatSelectionKind(3);
+    pub const LLVMNoDeduplicateComdatSelectionKind: LLVMComdatSelectionKind = LLVMComdatSelectionKind(3);
     pub const LLVMSameSizeComdatSelectionKind: LLVMComdatSelectionKind = LLVMComdatSelectionKind(4);
 }
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct LLVMComdatSelectionKind(pub ::std::os::raw::c_uint);
 unsafe extern "C" {
-    pub fn LLVMGetOrInsertComdat(
-        M: LLVMModuleRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> LLVMComdatRef;
+    pub fn LLVMGetOrInsertComdat(M: LLVMModuleRef, Name: *const ::std::os::raw::c_char) -> LLVMComdatRef;
 }
 unsafe extern "C" {
     pub fn LLVMGetComdat(V: LLVMValueRef) -> LLVMComdatRef;
@@ -308,8 +293,7 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn LLVMSetComdatSelectionKind(C: LLVMComdatRef, Kind: LLVMComdatSelectionKind);
 }
-pub type LLVMFatalErrorHandler =
-    ::std::option::Option<unsafe extern "C" fn(Reason: *const ::std::os::raw::c_char)>;
+pub type LLVMFatalErrorHandler = ::std::option::Option<unsafe extern "C" fn(Reason: *const ::std::os::raw::c_char)>;
 unsafe extern "C" {
     pub fn LLVMInstallFatalErrorHandler(Handler: LLVMFatalErrorHandler);
 }
@@ -653,8 +637,7 @@ impl LLVMModuleFlagBehavior {
     pub const LLVMModuleFlagBehaviorRequire: LLVMModuleFlagBehavior = LLVMModuleFlagBehavior(2);
     pub const LLVMModuleFlagBehaviorOverride: LLVMModuleFlagBehavior = LLVMModuleFlagBehavior(3);
     pub const LLVMModuleFlagBehaviorAppend: LLVMModuleFlagBehavior = LLVMModuleFlagBehavior(4);
-    pub const LLVMModuleFlagBehaviorAppendUnique: LLVMModuleFlagBehavior =
-        LLVMModuleFlagBehavior(5);
+    pub const LLVMModuleFlagBehaviorAppendUnique: LLVMModuleFlagBehavior = LLVMModuleFlagBehavior(5);
 }
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -714,18 +697,15 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    pub fn LLVMCreateMessage(Message: *const ::std::os::raw::c_char)
-    -> *mut ::std::os::raw::c_char;
+    pub fn LLVMCreateMessage(Message: *const ::std::os::raw::c_char) -> *mut ::std::os::raw::c_char;
 }
 unsafe extern "C" {
     pub fn LLVMDisposeMessage(Message: *mut ::std::os::raw::c_char);
 }
-pub type LLVMDiagnosticHandler = ::std::option::Option<
-    unsafe extern "C" fn(arg1: LLVMDiagnosticInfoRef, arg2: *mut ::std::os::raw::c_void),
->;
-pub type LLVMYieldCallback = ::std::option::Option<
-    unsafe extern "C" fn(arg1: LLVMContextRef, arg2: *mut ::std::os::raw::c_void),
->;
+pub type LLVMDiagnosticHandler =
+    ::std::option::Option<unsafe extern "C" fn(arg1: LLVMDiagnosticInfoRef, arg2: *mut ::std::os::raw::c_void)>;
+pub type LLVMYieldCallback =
+    ::std::option::Option<unsafe extern "C" fn(arg1: LLVMContextRef, arg2: *mut ::std::os::raw::c_void)>;
 unsafe extern "C" {
     pub fn LLVMContextCreate() -> LLVMContextRef;
 }
@@ -775,10 +755,8 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMGetMDKindID(
-        Name: *const ::std::os::raw::c_char,
-        SLen: ::std::os::raw::c_uint,
-    ) -> ::std::os::raw::c_uint;
+    pub fn LLVMGetMDKindID(Name: *const ::std::os::raw::c_char, SLen: ::std::os::raw::c_uint)
+    -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
     pub fn LLVMGetSyncScopeID(
@@ -788,20 +766,13 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMGetEnumAttributeKindForName(
-        Name: *const ::std::os::raw::c_char,
-        SLen: usize,
-    ) -> ::std::os::raw::c_uint;
+    pub fn LLVMGetEnumAttributeKindForName(Name: *const ::std::os::raw::c_char, SLen: usize) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
     pub fn LLVMGetLastEnumAttributeKind() -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMCreateEnumAttribute(
-        C: LLVMContextRef,
-        KindID: ::std::os::raw::c_uint,
-        Val: u64,
-    ) -> LLVMAttributeRef;
+    pub fn LLVMCreateEnumAttribute(C: LLVMContextRef, KindID: ::std::os::raw::c_uint, Val: u64) -> LLVMAttributeRef;
 }
 unsafe extern "C" {
     pub fn LLVMGetEnumAttributeKind(A: LLVMAttributeRef) -> ::std::os::raw::c_uint;
@@ -877,10 +848,7 @@ unsafe extern "C" {
     pub fn LLVMIsTypeAttribute(A: LLVMAttributeRef) -> LLVMBool;
 }
 unsafe extern "C" {
-    pub fn LLVMGetTypeByName2(
-        C: LLVMContextRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> LLVMTypeRef;
+    pub fn LLVMGetTypeByName2(C: LLVMContextRef, Name: *const ::std::os::raw::c_char) -> LLVMTypeRef;
 }
 unsafe extern "C" {
     pub fn LLVMModuleCreateWithName(ModuleID: *const ::std::os::raw::c_char) -> LLVMModuleRef;
@@ -904,23 +872,13 @@ unsafe extern "C" {
     pub fn LLVMSetIsNewDbgInfoFormat(M: LLVMModuleRef, UseNewFormat: LLVMBool);
 }
 unsafe extern "C" {
-    pub fn LLVMGetModuleIdentifier(
-        M: LLVMModuleRef,
-        Len: *mut usize,
-    ) -> *const ::std::os::raw::c_char;
+    pub fn LLVMGetModuleIdentifier(M: LLVMModuleRef, Len: *mut usize) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    pub fn LLVMSetModuleIdentifier(
-        M: LLVMModuleRef,
-        Ident: *const ::std::os::raw::c_char,
-        Len: usize,
-    );
+    pub fn LLVMSetModuleIdentifier(M: LLVMModuleRef, Ident: *const ::std::os::raw::c_char, Len: usize);
 }
 unsafe extern "C" {
-    pub fn LLVMGetSourceFileName(
-        M: LLVMModuleRef,
-        Len: *mut usize,
-    ) -> *const ::std::os::raw::c_char;
+    pub fn LLVMGetSourceFileName(M: LLVMModuleRef, Len: *mut usize) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
     pub fn LLVMSetSourceFileName(M: LLVMModuleRef, Name: *const ::std::os::raw::c_char, Len: usize);
@@ -941,10 +899,7 @@ unsafe extern "C" {
     pub fn LLVMSetTarget(M: LLVMModuleRef, Triple: *const ::std::os::raw::c_char);
 }
 unsafe extern "C" {
-    pub fn LLVMCopyModuleFlagsMetadata(
-        M: LLVMModuleRef,
-        Len: *mut usize,
-    ) -> *mut LLVMModuleFlagEntry;
+    pub fn LLVMCopyModuleFlagsMetadata(M: LLVMModuleRef, Len: *mut usize) -> *mut LLVMModuleFlagEntry;
 }
 unsafe extern "C" {
     pub fn LLVMDisposeModuleFlagsMetadata(Entries: *mut LLVMModuleFlagEntry);
@@ -969,11 +924,7 @@ unsafe extern "C" {
     ) -> LLVMMetadataRef;
 }
 unsafe extern "C" {
-    pub fn LLVMGetModuleFlag(
-        M: LLVMModuleRef,
-        Key: *const ::std::os::raw::c_char,
-        KeyLen: usize,
-    ) -> LLVMMetadataRef;
+    pub fn LLVMGetModuleFlag(M: LLVMModuleRef, Key: *const ::std::os::raw::c_char, KeyLen: usize) -> LLVMMetadataRef;
 }
 unsafe extern "C" {
     pub fn LLVMAddModuleFlag(
@@ -998,24 +949,13 @@ unsafe extern "C" {
     pub fn LLVMPrintModuleToString(M: LLVMModuleRef) -> *mut ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    pub fn LLVMGetModuleInlineAsm(
-        M: LLVMModuleRef,
-        Len: *mut usize,
-    ) -> *const ::std::os::raw::c_char;
+    pub fn LLVMGetModuleInlineAsm(M: LLVMModuleRef, Len: *mut usize) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    pub fn LLVMSetModuleInlineAsm2(
-        M: LLVMModuleRef,
-        Asm: *const ::std::os::raw::c_char,
-        Len: usize,
-    );
+    pub fn LLVMSetModuleInlineAsm2(M: LLVMModuleRef, Asm: *const ::std::os::raw::c_char, Len: usize);
 }
 unsafe extern "C" {
-    pub fn LLVMAppendModuleInlineAsm(
-        M: LLVMModuleRef,
-        Asm: *const ::std::os::raw::c_char,
-        Len: usize,
-    );
+    pub fn LLVMAppendModuleInlineAsm(M: LLVMModuleRef, Asm: *const ::std::os::raw::c_char, Len: usize);
 }
 unsafe extern "C" {
     pub fn LLVMGetInlineAsm(
@@ -1031,10 +971,7 @@ unsafe extern "C" {
     ) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMGetInlineAsmAsmString(
-        InlineAsmVal: LLVMValueRef,
-        Len: *mut usize,
-    ) -> *const ::std::os::raw::c_char;
+    pub fn LLVMGetInlineAsmAsmString(InlineAsmVal: LLVMValueRef, Len: *mut usize) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
     pub fn LLVMGetInlineAsmConstraintString(
@@ -1090,10 +1027,7 @@ unsafe extern "C" {
     ) -> LLVMNamedMDNodeRef;
 }
 unsafe extern "C" {
-    pub fn LLVMGetNamedMetadataName(
-        NamedMD: LLVMNamedMDNodeRef,
-        NameLen: *mut usize,
-    ) -> *const ::std::os::raw::c_char;
+    pub fn LLVMGetNamedMetadataName(NamedMD: LLVMNamedMDNodeRef, NameLen: *mut usize) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
     pub fn LLVMGetNamedMetadataNumOperands(
@@ -1102,18 +1036,10 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMGetNamedMetadataOperands(
-        M: LLVMModuleRef,
-        Name: *const ::std::os::raw::c_char,
-        Dest: *mut LLVMValueRef,
-    );
+    pub fn LLVMGetNamedMetadataOperands(M: LLVMModuleRef, Name: *const ::std::os::raw::c_char, Dest: *mut LLVMValueRef);
 }
 unsafe extern "C" {
-    pub fn LLVMAddNamedMetadataOperand(
-        M: LLVMModuleRef,
-        Name: *const ::std::os::raw::c_char,
-        Val: LLVMValueRef,
-    );
+    pub fn LLVMAddNamedMetadataOperand(M: LLVMModuleRef, Name: *const ::std::os::raw::c_char, Val: LLVMValueRef);
 }
 unsafe extern "C" {
     pub fn LLVMGetDebugLocDirectory(
@@ -1149,10 +1075,7 @@ unsafe extern "C" {
     ) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMGetNamedFunction(
-        M: LLVMModuleRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> LLVMValueRef;
+    pub fn LLVMGetNamedFunction(M: LLVMModuleRef, Name: *const ::std::os::raw::c_char) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMGetNamedFunctionWithLength(
@@ -1192,8 +1115,7 @@ unsafe extern "C" {
     pub fn LLVMPrintTypeToString(Val: LLVMTypeRef) -> *mut ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    pub fn LLVMByteTypeInContext(C: LLVMContextRef, NumBits: ::std::os::raw::c_uint)
-    -> LLVMTypeRef;
+    pub fn LLVMByteTypeInContext(C: LLVMContextRef, NumBits: ::std::os::raw::c_uint) -> LLVMTypeRef;
 }
 unsafe extern "C" {
     pub fn LLVMGetByteTypeWidth(ByteTy: LLVMTypeRef) -> ::std::os::raw::c_uint;
@@ -1321,10 +1243,7 @@ unsafe extern "C" {
     ) -> LLVMTypeRef;
 }
 unsafe extern "C" {
-    pub fn LLVMStructCreateNamed(
-        C: LLVMContextRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> LLVMTypeRef;
+    pub fn LLVMStructCreateNamed(C: LLVMContextRef, Name: *const ::std::os::raw::c_char) -> LLVMTypeRef;
 }
 unsafe extern "C" {
     pub fn LLVMGetStructName(Ty: LLVMTypeRef) -> *const ::std::os::raw::c_char;
@@ -1344,10 +1263,7 @@ unsafe extern "C" {
     pub fn LLVMGetStructElementTypes(StructTy: LLVMTypeRef, Dest: *mut LLVMTypeRef);
 }
 unsafe extern "C" {
-    pub fn LLVMStructGetTypeAtIndex(
-        StructTy: LLVMTypeRef,
-        i: ::std::os::raw::c_uint,
-    ) -> LLVMTypeRef;
+    pub fn LLVMStructGetTypeAtIndex(StructTy: LLVMTypeRef, i: ::std::os::raw::c_uint) -> LLVMTypeRef;
 }
 unsafe extern "C" {
     pub fn LLVMIsPackedStruct(StructTy: LLVMTypeRef) -> LLVMBool;
@@ -1368,10 +1284,7 @@ unsafe extern "C" {
     pub fn LLVMGetNumContainedTypes(Tp: LLVMTypeRef) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMArrayType(
-        ElementType: LLVMTypeRef,
-        ElementCount: ::std::os::raw::c_uint,
-    ) -> LLVMTypeRef;
+    pub fn LLVMArrayType(ElementType: LLVMTypeRef, ElementCount: ::std::os::raw::c_uint) -> LLVMTypeRef;
 }
 unsafe extern "C" {
     pub fn LLVMArrayType2(ElementType: LLVMTypeRef, ElementCount: u64) -> LLVMTypeRef;
@@ -1383,34 +1296,22 @@ unsafe extern "C" {
     pub fn LLVMGetArrayLength2(ArrayTy: LLVMTypeRef) -> u64;
 }
 unsafe extern "C" {
-    pub fn LLVMPointerType(
-        ElementType: LLVMTypeRef,
-        AddressSpace: ::std::os::raw::c_uint,
-    ) -> LLVMTypeRef;
+    pub fn LLVMPointerType(ElementType: LLVMTypeRef, AddressSpace: ::std::os::raw::c_uint) -> LLVMTypeRef;
 }
 unsafe extern "C" {
     pub fn LLVMPointerTypeIsOpaque(Ty: LLVMTypeRef) -> LLVMBool;
 }
 unsafe extern "C" {
-    pub fn LLVMPointerTypeInContext(
-        C: LLVMContextRef,
-        AddressSpace: ::std::os::raw::c_uint,
-    ) -> LLVMTypeRef;
+    pub fn LLVMPointerTypeInContext(C: LLVMContextRef, AddressSpace: ::std::os::raw::c_uint) -> LLVMTypeRef;
 }
 unsafe extern "C" {
     pub fn LLVMGetPointerAddressSpace(PointerTy: LLVMTypeRef) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMVectorType(
-        ElementType: LLVMTypeRef,
-        ElementCount: ::std::os::raw::c_uint,
-    ) -> LLVMTypeRef;
+    pub fn LLVMVectorType(ElementType: LLVMTypeRef, ElementCount: ::std::os::raw::c_uint) -> LLVMTypeRef;
 }
 unsafe extern "C" {
-    pub fn LLVMScalableVectorType(
-        ElementType: LLVMTypeRef,
-        ElementCount: ::std::os::raw::c_uint,
-    ) -> LLVMTypeRef;
+    pub fn LLVMScalableVectorType(ElementType: LLVMTypeRef, ElementCount: ::std::os::raw::c_uint) -> LLVMTypeRef;
 }
 unsafe extern "C" {
     pub fn LLVMGetVectorSize(VectorTy: LLVMTypeRef) -> ::std::os::raw::c_uint;
@@ -1468,10 +1369,7 @@ unsafe extern "C" {
     pub fn LLVMGetTargetExtTypeNumTypeParams(TargetExtTy: LLVMTypeRef) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMGetTargetExtTypeTypeParam(
-        TargetExtTy: LLVMTypeRef,
-        Idx: ::std::os::raw::c_uint,
-    ) -> LLVMTypeRef;
+    pub fn LLVMGetTargetExtTypeTypeParam(TargetExtTy: LLVMTypeRef, Idx: ::std::os::raw::c_uint) -> LLVMTypeRef;
 }
 unsafe extern "C" {
     pub fn LLVMGetTargetExtTypeNumIntParams(TargetExtTy: LLVMTypeRef) -> ::std::os::raw::c_uint;
@@ -1489,17 +1387,10 @@ unsafe extern "C" {
     pub fn LLVMGetValueKind(Val: LLVMValueRef) -> LLVMValueKind;
 }
 unsafe extern "C" {
-    pub fn LLVMGetValueName2(
-        Val: LLVMValueRef,
-        Length: *mut usize,
-    ) -> *const ::std::os::raw::c_char;
+    pub fn LLVMGetValueName2(Val: LLVMValueRef, Length: *mut usize) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    pub fn LLVMSetValueName2(
-        Val: LLVMValueRef,
-        Name: *const ::std::os::raw::c_char,
-        NameLen: usize,
-    );
+    pub fn LLVMSetValueName2(Val: LLVMValueRef, Name: *const ::std::os::raw::c_char, NameLen: usize);
 }
 unsafe extern "C" {
     pub fn LLVMDumpValue(Val: LLVMValueRef);
@@ -1859,11 +1750,7 @@ unsafe extern "C" {
     pub fn LLVMConstPointerNull(Ty: LLVMTypeRef) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMConstInt(
-        IntTy: LLVMTypeRef,
-        N: ::std::os::raw::c_ulonglong,
-        SignExtend: LLVMBool,
-    ) -> LLVMValueRef;
+    pub fn LLVMConstInt(IntTy: LLVMTypeRef, N: ::std::os::raw::c_ulonglong, SignExtend: LLVMBool) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMConstIntOfArbitraryPrecision(
@@ -1873,11 +1760,7 @@ unsafe extern "C" {
     ) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMConstIntOfString(
-        IntTy: LLVMTypeRef,
-        Text: *const ::std::os::raw::c_char,
-        Radix: u8,
-    ) -> LLVMValueRef;
+    pub fn LLVMConstIntOfString(IntTy: LLVMTypeRef, Text: *const ::std::os::raw::c_char, Radix: u8) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMConstIntOfStringAndSize(
@@ -1909,10 +1792,7 @@ unsafe extern "C" {
     pub fn LLVMConstReal(RealTy: LLVMTypeRef, N: f64) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMConstRealOfString(
-        RealTy: LLVMTypeRef,
-        Text: *const ::std::os::raw::c_char,
-    ) -> LLVMValueRef;
+    pub fn LLVMConstRealOfString(RealTy: LLVMTypeRef, Text: *const ::std::os::raw::c_char) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMConstRealOfStringAndSize(
@@ -1969,10 +1849,7 @@ unsafe extern "C" {
     pub fn LLVMGetAsString(c: LLVMValueRef, Length: *mut usize) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    pub fn LLVMGetRawDataValues(
-        c: LLVMValueRef,
-        SizeInBytes: *mut usize,
-    ) -> *const ::std::os::raw::c_char;
+    pub fn LLVMGetRawDataValues(c: LLVMValueRef, SizeInBytes: *mut usize) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
     pub fn LLVMConstStructInContext(
@@ -1997,11 +1874,7 @@ unsafe extern "C" {
     ) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMConstArray2(
-        ElementTy: LLVMTypeRef,
-        ConstantVals: *mut LLVMValueRef,
-        Length: u64,
-    ) -> LLVMValueRef;
+    pub fn LLVMConstArray2(ElementTy: LLVMTypeRef, ConstantVals: *mut LLVMValueRef, Length: u64) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMConstDataArray(
@@ -2024,10 +1897,7 @@ unsafe extern "C" {
     pub fn LLVMGetElementAsConstant(C: LLVMValueRef, idx: ::std::os::raw::c_uint) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMConstVector(
-        ScalarConstantVals: *mut LLVMValueRef,
-        Size: ::std::os::raw::c_uint,
-    ) -> LLVMValueRef;
+    pub fn LLVMConstVector(ScalarConstantVals: *mut LLVMValueRef, Size: ::std::os::raw::c_uint) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMConstantPtrAuth(
@@ -2126,10 +1996,7 @@ unsafe extern "C" {
     pub fn LLVMConstPointerCast(ConstantVal: LLVMValueRef, ToType: LLVMTypeRef) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMConstExtractElement(
-        VectorConstant: LLVMValueRef,
-        IndexConstant: LLVMValueRef,
-    ) -> LLVMValueRef;
+    pub fn LLVMConstExtractElement(VectorConstant: LLVMValueRef, IndexConstant: LLVMValueRef) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMConstInsertElement(
@@ -2215,18 +2082,10 @@ unsafe extern "C" {
     pub fn LLVMSetAlignment(V: LLVMValueRef, Bytes: ::std::os::raw::c_uint);
 }
 unsafe extern "C" {
-    pub fn LLVMGlobalSetMetadata(
-        Global: LLVMValueRef,
-        Kind: ::std::os::raw::c_uint,
-        MD: LLVMMetadataRef,
-    );
+    pub fn LLVMGlobalSetMetadata(Global: LLVMValueRef, Kind: ::std::os::raw::c_uint, MD: LLVMMetadataRef);
 }
 unsafe extern "C" {
-    pub fn LLVMGlobalAddMetadata(
-        Global: LLVMValueRef,
-        Kind: ::std::os::raw::c_uint,
-        MD: LLVMMetadataRef,
-    );
+    pub fn LLVMGlobalAddMetadata(Global: LLVMValueRef, Kind: ::std::os::raw::c_uint, MD: LLVMMetadataRef);
 }
 unsafe extern "C" {
     pub fn LLVMGlobalEraseMetadata(Global: LLVMValueRef, Kind: ::std::os::raw::c_uint);
@@ -2238,10 +2097,7 @@ unsafe extern "C" {
     pub fn LLVMGlobalAddDebugInfo(Global: LLVMValueRef, GVE: LLVMMetadataRef);
 }
 unsafe extern "C" {
-    pub fn LLVMGlobalCopyAllMetadata(
-        Value: LLVMValueRef,
-        NumEntries: *mut usize,
-    ) -> *mut LLVMValueMetadataEntry;
+    pub fn LLVMGlobalCopyAllMetadata(Value: LLVMValueRef, NumEntries: *mut usize) -> *mut LLVMValueMetadataEntry;
 }
 unsafe extern "C" {
     pub fn LLVMDisposeValueMetadataEntries(Entries: *mut LLVMValueMetadataEntry);
@@ -2259,11 +2115,7 @@ unsafe extern "C" {
     ) -> LLVMMetadataRef;
 }
 unsafe extern "C" {
-    pub fn LLVMAddGlobal(
-        M: LLVMModuleRef,
-        Ty: LLVMTypeRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> LLVMValueRef;
+    pub fn LLVMAddGlobal(M: LLVMModuleRef, Ty: LLVMTypeRef, Name: *const ::std::os::raw::c_char) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMAddGlobalInAddressSpace(
@@ -2274,10 +2126,7 @@ unsafe extern "C" {
     ) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMGetNamedGlobal(
-        M: LLVMModuleRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> LLVMValueRef;
+    pub fn LLVMGetNamedGlobal(M: LLVMModuleRef, Name: *const ::std::os::raw::c_char) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMGetNamedGlobalWithLength(
@@ -2378,10 +2227,7 @@ unsafe extern "C" {
     pub fn LLVMSetPersonalityFn(Fn: LLVMValueRef, PersonalityFn: LLVMValueRef);
 }
 unsafe extern "C" {
-    pub fn LLVMLookupIntrinsicID(
-        Name: *const ::std::os::raw::c_char,
-        NameLen: usize,
-    ) -> ::std::os::raw::c_uint;
+    pub fn LLVMLookupIntrinsicID(Name: *const ::std::os::raw::c_char, NameLen: usize) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
     pub fn LLVMGetIntrinsicID(Fn: LLVMValueRef) -> ::std::os::raw::c_uint;
@@ -2403,10 +2249,7 @@ unsafe extern "C" {
     ) -> LLVMTypeRef;
 }
 unsafe extern "C" {
-    pub fn LLVMIntrinsicGetName(
-        ID: ::std::os::raw::c_uint,
-        NameLength: *mut usize,
-    ) -> *const ::std::os::raw::c_char;
+    pub fn LLVMIntrinsicGetName(ID: ::std::os::raw::c_uint, NameLength: *mut usize) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
     pub fn LLVMIntrinsicCopyOverloadedName(
@@ -2462,17 +2305,10 @@ unsafe extern "C" {
     pub fn LLVMAddAttributeAtIndex(F: LLVMValueRef, Idx: LLVMAttributeIndex, A: LLVMAttributeRef);
 }
 unsafe extern "C" {
-    pub fn LLVMGetAttributeCountAtIndex(
-        F: LLVMValueRef,
-        Idx: LLVMAttributeIndex,
-    ) -> ::std::os::raw::c_uint;
+    pub fn LLVMGetAttributeCountAtIndex(F: LLVMValueRef, Idx: LLVMAttributeIndex) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMGetAttributesAtIndex(
-        F: LLVMValueRef,
-        Idx: LLVMAttributeIndex,
-        Attrs: *mut LLVMAttributeRef,
-    );
+    pub fn LLVMGetAttributesAtIndex(F: LLVMValueRef, Idx: LLVMAttributeIndex, Attrs: *mut LLVMAttributeRef);
 }
 unsafe extern "C" {
     pub fn LLVMGetEnumAttributeAtIndex(
@@ -2490,11 +2326,7 @@ unsafe extern "C" {
     ) -> LLVMAttributeRef;
 }
 unsafe extern "C" {
-    pub fn LLVMRemoveEnumAttributeAtIndex(
-        F: LLVMValueRef,
-        Idx: LLVMAttributeIndex,
-        KindID: ::std::os::raw::c_uint,
-    );
+    pub fn LLVMRemoveEnumAttributeAtIndex(F: LLVMValueRef, Idx: LLVMAttributeIndex, KindID: ::std::os::raw::c_uint);
 }
 unsafe extern "C" {
     pub fn LLVMRemoveStringAttributeAtIndex(
@@ -2587,11 +2419,7 @@ unsafe extern "C" {
     ) -> LLVMMetadataRef;
 }
 unsafe extern "C" {
-    pub fn LLVMMDNodeInContext2(
-        C: LLVMContextRef,
-        MDs: *mut LLVMMetadataRef,
-        Count: usize,
-    ) -> LLVMMetadataRef;
+    pub fn LLVMMDNodeInContext2(C: LLVMContextRef, MDs: *mut LLVMMetadataRef, Count: usize) -> LLVMMetadataRef;
 }
 unsafe extern "C" {
     pub fn LLVMMetadataAsValue(C: LLVMContextRef, MD: LLVMMetadataRef) -> LLVMValueRef;
@@ -2600,10 +2428,7 @@ unsafe extern "C" {
     pub fn LLVMValueAsMetadata(Val: LLVMValueRef) -> LLVMMetadataRef;
 }
 unsafe extern "C" {
-    pub fn LLVMGetMDString(
-        V: LLVMValueRef,
-        Length: *mut ::std::os::raw::c_uint,
-    ) -> *const ::std::os::raw::c_char;
+    pub fn LLVMGetMDString(V: LLVMValueRef, Length: *mut ::std::os::raw::c_uint) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
     pub fn LLVMGetMDNodeNumOperands(V: LLVMValueRef) -> ::std::os::raw::c_uint;
@@ -2612,11 +2437,7 @@ unsafe extern "C" {
     pub fn LLVMGetMDNodeOperands(V: LLVMValueRef, Dest: *mut LLVMValueRef);
 }
 unsafe extern "C" {
-    pub fn LLVMReplaceMDNodeOperandWith(
-        V: LLVMValueRef,
-        Index: ::std::os::raw::c_uint,
-        Replacement: LLVMMetadataRef,
-    );
+    pub fn LLVMReplaceMDNodeOperandWith(V: LLVMValueRef, Index: ::std::os::raw::c_uint, Replacement: LLVMMetadataRef);
 }
 unsafe extern "C" {
     pub fn LLVMMDStringInContext(
@@ -2626,10 +2447,7 @@ unsafe extern "C" {
     ) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMMDString(
-        Str: *const ::std::os::raw::c_char,
-        SLen: ::std::os::raw::c_uint,
-    ) -> LLVMValueRef;
+    pub fn LLVMMDString(Str: *const ::std::os::raw::c_char, SLen: ::std::os::raw::c_uint) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMMDNodeInContext(
@@ -2653,19 +2471,13 @@ unsafe extern "C" {
     pub fn LLVMDisposeOperandBundle(Bundle: LLVMOperandBundleRef);
 }
 unsafe extern "C" {
-    pub fn LLVMGetOperandBundleTag(
-        Bundle: LLVMOperandBundleRef,
-        Len: *mut usize,
-    ) -> *const ::std::os::raw::c_char;
+    pub fn LLVMGetOperandBundleTag(Bundle: LLVMOperandBundleRef, Len: *mut usize) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
     pub fn LLVMGetNumOperandBundleArgs(Bundle: LLVMOperandBundleRef) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMGetOperandBundleArgAtIndex(
-        Bundle: LLVMOperandBundleRef,
-        Index: ::std::os::raw::c_uint,
-    ) -> LLVMValueRef;
+    pub fn LLVMGetOperandBundleArgAtIndex(Bundle: LLVMOperandBundleRef, Index: ::std::os::raw::c_uint) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMBasicBlockAsValue(BB: LLVMBasicBlockRef) -> LLVMValueRef;
@@ -2707,19 +2519,13 @@ unsafe extern "C" {
     pub fn LLVMGetEntryBasicBlock(Fn: LLVMValueRef) -> LLVMBasicBlockRef;
 }
 unsafe extern "C" {
-    pub fn LLVMInsertExistingBasicBlockAfterInsertBlock(
-        Builder: LLVMBuilderRef,
-        BB: LLVMBasicBlockRef,
-    );
+    pub fn LLVMInsertExistingBasicBlockAfterInsertBlock(Builder: LLVMBuilderRef, BB: LLVMBasicBlockRef);
 }
 unsafe extern "C" {
     pub fn LLVMAppendExistingBasicBlock(Fn: LLVMValueRef, BB: LLVMBasicBlockRef);
 }
 unsafe extern "C" {
-    pub fn LLVMCreateBasicBlockInContext(
-        C: LLVMContextRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> LLVMBasicBlockRef;
+    pub fn LLVMCreateBasicBlockInContext(C: LLVMContextRef, Name: *const ::std::os::raw::c_char) -> LLVMBasicBlockRef;
 }
 unsafe extern "C" {
     pub fn LLVMAppendBasicBlockInContext(
@@ -2729,10 +2535,7 @@ unsafe extern "C" {
     ) -> LLVMBasicBlockRef;
 }
 unsafe extern "C" {
-    pub fn LLVMAppendBasicBlock(
-        Fn: LLVMValueRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> LLVMBasicBlockRef;
+    pub fn LLVMAppendBasicBlock(Fn: LLVMValueRef, Name: *const ::std::os::raw::c_char) -> LLVMBasicBlockRef;
 }
 unsafe extern "C" {
     pub fn LLVMInsertBasicBlockInContext(
@@ -2838,10 +2641,7 @@ unsafe extern "C" {
     pub fn LLVMDbgRecordGetKind(Rec: LLVMDbgRecordRef) -> LLVMDbgRecordKind;
 }
 unsafe extern "C" {
-    pub fn LLVMDbgVariableRecordGetValue(
-        Rec: LLVMDbgRecordRef,
-        OpIdx: ::std::os::raw::c_uint,
-    ) -> LLVMValueRef;
+    pub fn LLVMDbgVariableRecordGetValue(Rec: LLVMDbgRecordRef, OpIdx: ::std::os::raw::c_uint) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMDbgVariableRecordGetVariable(Rec: LLVMDbgRecordRef) -> LLVMMetadataRef;
@@ -2859,27 +2659,16 @@ unsafe extern "C" {
     pub fn LLVMGetInstructionCallConv(Instr: LLVMValueRef) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMSetInstrParamAlignment(
-        Instr: LLVMValueRef,
-        Idx: LLVMAttributeIndex,
-        Align: ::std::os::raw::c_uint,
-    );
+    pub fn LLVMSetInstrParamAlignment(Instr: LLVMValueRef, Idx: LLVMAttributeIndex, Align: ::std::os::raw::c_uint);
 }
 unsafe extern "C" {
     pub fn LLVMAddCallSiteAttribute(C: LLVMValueRef, Idx: LLVMAttributeIndex, A: LLVMAttributeRef);
 }
 unsafe extern "C" {
-    pub fn LLVMGetCallSiteAttributeCount(
-        C: LLVMValueRef,
-        Idx: LLVMAttributeIndex,
-    ) -> ::std::os::raw::c_uint;
+    pub fn LLVMGetCallSiteAttributeCount(C: LLVMValueRef, Idx: LLVMAttributeIndex) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMGetCallSiteAttributes(
-        C: LLVMValueRef,
-        Idx: LLVMAttributeIndex,
-        Attrs: *mut LLVMAttributeRef,
-    );
+    pub fn LLVMGetCallSiteAttributes(C: LLVMValueRef, Idx: LLVMAttributeIndex, Attrs: *mut LLVMAttributeRef);
 }
 unsafe extern "C" {
     pub fn LLVMGetCallSiteEnumAttribute(
@@ -2897,11 +2686,7 @@ unsafe extern "C" {
     ) -> LLVMAttributeRef;
 }
 unsafe extern "C" {
-    pub fn LLVMRemoveCallSiteEnumAttribute(
-        C: LLVMValueRef,
-        Idx: LLVMAttributeIndex,
-        KindID: ::std::os::raw::c_uint,
-    );
+    pub fn LLVMRemoveCallSiteEnumAttribute(C: LLVMValueRef, Idx: LLVMAttributeIndex, KindID: ::std::os::raw::c_uint);
 }
 unsafe extern "C" {
     pub fn LLVMRemoveCallSiteStringAttribute(
@@ -2921,10 +2706,7 @@ unsafe extern "C" {
     pub fn LLVMGetNumOperandBundles(C: LLVMValueRef) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMGetOperandBundleAtIndex(
-        C: LLVMValueRef,
-        Index: ::std::os::raw::c_uint,
-    ) -> LLVMOperandBundleRef;
+    pub fn LLVMGetOperandBundleAtIndex(C: LLVMValueRef, Index: ::std::os::raw::c_uint) -> LLVMOperandBundleRef;
 }
 unsafe extern "C" {
     pub fn LLVMIsTailCall(CallInst: LLVMValueRef) -> LLVMBool;
@@ -2957,10 +2739,7 @@ unsafe extern "C" {
     pub fn LLVMGetCallBrNumIndirectDests(CallBr: LLVMValueRef) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMGetCallBrIndirectDest(
-        CallBr: LLVMValueRef,
-        Idx: ::std::os::raw::c_uint,
-    ) -> LLVMBasicBlockRef;
+    pub fn LLVMGetCallBrIndirectDest(CallBr: LLVMValueRef, Idx: ::std::os::raw::c_uint) -> LLVMBasicBlockRef;
 }
 unsafe extern "C" {
     pub fn LLVMGetNumSuccessors(Term: LLVMValueRef) -> ::std::os::raw::c_uint;
@@ -2969,11 +2748,7 @@ unsafe extern "C" {
     pub fn LLVMGetSuccessor(Term: LLVMValueRef, i: ::std::os::raw::c_uint) -> LLVMBasicBlockRef;
 }
 unsafe extern "C" {
-    pub fn LLVMSetSuccessor(
-        Term: LLVMValueRef,
-        i: ::std::os::raw::c_uint,
-        block: LLVMBasicBlockRef,
-    );
+    pub fn LLVMSetSuccessor(Term: LLVMValueRef, i: ::std::os::raw::c_uint, block: LLVMBasicBlockRef);
 }
 unsafe extern "C" {
     pub fn LLVMIsConditional(Branch: LLVMValueRef) -> LLVMBool;
@@ -2988,17 +2763,10 @@ unsafe extern "C" {
     pub fn LLVMGetSwitchDefaultDest(SwitchInstr: LLVMValueRef) -> LLVMBasicBlockRef;
 }
 unsafe extern "C" {
-    pub fn LLVMGetSwitchCaseValue(
-        SwitchInstr: LLVMValueRef,
-        i: ::std::os::raw::c_uint,
-    ) -> LLVMValueRef;
+    pub fn LLVMGetSwitchCaseValue(SwitchInstr: LLVMValueRef, i: ::std::os::raw::c_uint) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMSetSwitchCaseValue(
-        SwitchInstr: LLVMValueRef,
-        i: ::std::os::raw::c_uint,
-        CaseValue: LLVMValueRef,
-    );
+    pub fn LLVMSetSwitchCaseValue(SwitchInstr: LLVMValueRef, i: ::std::os::raw::c_uint, CaseValue: LLVMValueRef);
 }
 unsafe extern "C" {
     pub fn LLVMGetAllocatedType(Alloca: LLVMValueRef) -> LLVMTypeRef;
@@ -3030,16 +2798,10 @@ unsafe extern "C" {
     pub fn LLVMCountIncoming(PhiNode: LLVMValueRef) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMGetIncomingValue(
-        PhiNode: LLVMValueRef,
-        Index: ::std::os::raw::c_uint,
-    ) -> LLVMValueRef;
+    pub fn LLVMGetIncomingValue(PhiNode: LLVMValueRef, Index: ::std::os::raw::c_uint) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMGetIncomingBlock(
-        PhiNode: LLVMValueRef,
-        Index: ::std::os::raw::c_uint,
-    ) -> LLVMBasicBlockRef;
+    pub fn LLVMGetIncomingBlock(PhiNode: LLVMValueRef, Index: ::std::os::raw::c_uint) -> LLVMBasicBlockRef;
 }
 unsafe extern "C" {
     pub fn LLVMGetNumIndices(Inst: LLVMValueRef) -> ::std::os::raw::c_uint;
@@ -3054,27 +2816,16 @@ unsafe extern "C" {
     pub fn LLVMCreateBuilder() -> LLVMBuilderRef;
 }
 unsafe extern "C" {
-    pub fn LLVMPositionBuilder(
-        Builder: LLVMBuilderRef,
-        Block: LLVMBasicBlockRef,
-        Instr: LLVMValueRef,
-    );
+    pub fn LLVMPositionBuilder(Builder: LLVMBuilderRef, Block: LLVMBasicBlockRef, Instr: LLVMValueRef);
 }
 unsafe extern "C" {
-    pub fn LLVMPositionBuilderBeforeDbgRecords(
-        Builder: LLVMBuilderRef,
-        Block: LLVMBasicBlockRef,
-        Inst: LLVMValueRef,
-    );
+    pub fn LLVMPositionBuilderBeforeDbgRecords(Builder: LLVMBuilderRef, Block: LLVMBasicBlockRef, Inst: LLVMValueRef);
 }
 unsafe extern "C" {
     pub fn LLVMPositionBuilderBefore(Builder: LLVMBuilderRef, Instr: LLVMValueRef);
 }
 unsafe extern "C" {
-    pub fn LLVMPositionBuilderBeforeInstrAndDbgRecords(
-        Builder: LLVMBuilderRef,
-        Instr: LLVMValueRef,
-    );
+    pub fn LLVMPositionBuilderBeforeInstrAndDbgRecords(Builder: LLVMBuilderRef, Instr: LLVMValueRef);
 }
 unsafe extern "C" {
     pub fn LLVMPositionBuilderAtEnd(Builder: LLVMBuilderRef, Block: LLVMBasicBlockRef);
@@ -3158,11 +2909,8 @@ unsafe extern "C" {
     ) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMBuildIndirectBr(
-        B: LLVMBuilderRef,
-        Addr: LLVMValueRef,
-        NumDests: ::std::os::raw::c_uint,
-    ) -> LLVMValueRef;
+    pub fn LLVMBuildIndirectBr(B: LLVMBuilderRef, Addr: LLVMValueRef, NumDests: ::std::os::raw::c_uint)
+    -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMBuildCallBr(
@@ -3221,18 +2969,10 @@ unsafe extern "C" {
     ) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMBuildCleanupRet(
-        B: LLVMBuilderRef,
-        CatchPad: LLVMValueRef,
-        BB: LLVMBasicBlockRef,
-    ) -> LLVMValueRef;
+    pub fn LLVMBuildCleanupRet(B: LLVMBuilderRef, CatchPad: LLVMValueRef, BB: LLVMBasicBlockRef) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMBuildCatchRet(
-        B: LLVMBuilderRef,
-        CatchPad: LLVMValueRef,
-        BB: LLVMBasicBlockRef,
-    ) -> LLVMValueRef;
+    pub fn LLVMBuildCatchRet(B: LLVMBuilderRef, CatchPad: LLVMValueRef, BB: LLVMBasicBlockRef) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMBuildCatchPad(
@@ -3521,39 +3261,19 @@ unsafe extern "C" {
     ) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMBuildNeg(
-        arg1: LLVMBuilderRef,
-        V: LLVMValueRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> LLVMValueRef;
+    pub fn LLVMBuildNeg(arg1: LLVMBuilderRef, V: LLVMValueRef, Name: *const ::std::os::raw::c_char) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMBuildNSWNeg(
-        B: LLVMBuilderRef,
-        V: LLVMValueRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> LLVMValueRef;
+    pub fn LLVMBuildNSWNeg(B: LLVMBuilderRef, V: LLVMValueRef, Name: *const ::std::os::raw::c_char) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMBuildNUWNeg(
-        B: LLVMBuilderRef,
-        V: LLVMValueRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> LLVMValueRef;
+    pub fn LLVMBuildNUWNeg(B: LLVMBuilderRef, V: LLVMValueRef, Name: *const ::std::os::raw::c_char) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMBuildFNeg(
-        arg1: LLVMBuilderRef,
-        V: LLVMValueRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> LLVMValueRef;
+    pub fn LLVMBuildFNeg(arg1: LLVMBuilderRef, V: LLVMValueRef, Name: *const ::std::os::raw::c_char) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMBuildNot(
-        arg1: LLVMBuilderRef,
-        V: LLVMValueRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> LLVMValueRef;
+    pub fn LLVMBuildNot(arg1: LLVMBuilderRef, V: LLVMValueRef, Name: *const ::std::os::raw::c_char) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMGetNUW(ArithInst: LLVMValueRef) -> LLVMBool;
@@ -3595,11 +3315,7 @@ unsafe extern "C" {
     pub fn LLVMSetIsDisjoint(Inst: LLVMValueRef, IsDisjoint: LLVMBool);
 }
 unsafe extern "C" {
-    pub fn LLVMBuildMalloc(
-        arg1: LLVMBuilderRef,
-        Ty: LLVMTypeRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> LLVMValueRef;
+    pub fn LLVMBuildMalloc(arg1: LLVMBuilderRef, Ty: LLVMTypeRef, Name: *const ::std::os::raw::c_char) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMBuildArrayMalloc(
@@ -3639,11 +3355,7 @@ unsafe extern "C" {
     ) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMBuildAlloca(
-        arg1: LLVMBuilderRef,
-        Ty: LLVMTypeRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> LLVMValueRef;
+    pub fn LLVMBuildAlloca(arg1: LLVMBuilderRef, Ty: LLVMTypeRef, Name: *const ::std::os::raw::c_char) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMBuildArrayAlloca(
@@ -3665,11 +3377,7 @@ unsafe extern "C" {
     ) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMBuildStore(
-        arg1: LLVMBuilderRef,
-        Val: LLVMValueRef,
-        Ptr: LLVMValueRef,
-    ) -> LLVMValueRef;
+    pub fn LLVMBuildStore(arg1: LLVMBuilderRef, Val: LLVMValueRef, Ptr: LLVMValueRef) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMBuildGEP2(
@@ -3946,11 +3654,7 @@ unsafe extern "C" {
     ) -> LLVMValueRef;
 }
 unsafe extern "C" {
-    pub fn LLVMBuildPhi(
-        arg1: LLVMBuilderRef,
-        Ty: LLVMTypeRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> LLVMValueRef;
+    pub fn LLVMBuildPhi(arg1: LLVMBuilderRef, Ty: LLVMTypeRef, Name: *const ::std::os::raw::c_char) -> LLVMValueRef;
 }
 unsafe extern "C" {
     pub fn LLVMBuildCall2(
@@ -4129,10 +3833,7 @@ unsafe extern "C" {
     pub fn LLVMGetUndefMaskElem() -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
-    pub fn LLVMGetMaskValue(
-        ShuffleVectorInst: LLVMValueRef,
-        Elt: ::std::os::raw::c_uint,
-    ) -> ::std::os::raw::c_int;
+    pub fn LLVMGetMaskValue(ShuffleVectorInst: LLVMValueRef, Elt: ::std::os::raw::c_uint) -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
     pub fn LLVMIsAtomicSingleThread(AtomicInst: LLVMValueRef) -> LLVMBool;
@@ -4281,25 +3982,20 @@ impl LLVMDWARFSourceLanguage {
     pub const LLVMDWARFSourceLanguageC89: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(0);
     pub const LLVMDWARFSourceLanguageC: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(1);
     pub const LLVMDWARFSourceLanguageAda83: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(2);
-    pub const LLVMDWARFSourceLanguageC_plus_plus: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(3);
+    pub const LLVMDWARFSourceLanguageC_plus_plus: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(3);
     pub const LLVMDWARFSourceLanguageCobol74: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(4);
     pub const LLVMDWARFSourceLanguageCobol85: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(5);
-    pub const LLVMDWARFSourceLanguageFortran77: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(6);
-    pub const LLVMDWARFSourceLanguageFortran90: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(7);
+    pub const LLVMDWARFSourceLanguageFortran77: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(6);
+    pub const LLVMDWARFSourceLanguageFortran90: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(7);
     pub const LLVMDWARFSourceLanguagePascal83: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(8);
     pub const LLVMDWARFSourceLanguageModula2: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(9);
     pub const LLVMDWARFSourceLanguageJava: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(10);
     pub const LLVMDWARFSourceLanguageC99: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(11);
     pub const LLVMDWARFSourceLanguageAda95: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(12);
-    pub const LLVMDWARFSourceLanguageFortran95: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(13);
+    pub const LLVMDWARFSourceLanguageFortran95: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(13);
     pub const LLVMDWARFSourceLanguagePLI: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(14);
     pub const LLVMDWARFSourceLanguageObjC: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(15);
-    pub const LLVMDWARFSourceLanguageObjC_plus_plus: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(16);
+    pub const LLVMDWARFSourceLanguageObjC_plus_plus: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(16);
     pub const LLVMDWARFSourceLanguageUPC: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(17);
     pub const LLVMDWARFSourceLanguageD: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(18);
     pub const LLVMDWARFSourceLanguagePython: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(19);
@@ -4307,60 +4003,45 @@ impl LLVMDWARFSourceLanguage {
     pub const LLVMDWARFSourceLanguageGo: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(21);
     pub const LLVMDWARFSourceLanguageModula3: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(22);
     pub const LLVMDWARFSourceLanguageHaskell: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(23);
-    pub const LLVMDWARFSourceLanguageC_plus_plus_03: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(24);
-    pub const LLVMDWARFSourceLanguageC_plus_plus_11: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(25);
+    pub const LLVMDWARFSourceLanguageC_plus_plus_03: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(24);
+    pub const LLVMDWARFSourceLanguageC_plus_plus_11: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(25);
     pub const LLVMDWARFSourceLanguageOCaml: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(26);
     pub const LLVMDWARFSourceLanguageRust: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(27);
     pub const LLVMDWARFSourceLanguageC11: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(28);
     pub const LLVMDWARFSourceLanguageSwift: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(29);
     pub const LLVMDWARFSourceLanguageJulia: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(30);
     pub const LLVMDWARFSourceLanguageDylan: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(31);
-    pub const LLVMDWARFSourceLanguageC_plus_plus_14: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(32);
-    pub const LLVMDWARFSourceLanguageFortran03: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(33);
-    pub const LLVMDWARFSourceLanguageFortran08: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(34);
-    pub const LLVMDWARFSourceLanguageRenderScript: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(35);
+    pub const LLVMDWARFSourceLanguageC_plus_plus_14: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(32);
+    pub const LLVMDWARFSourceLanguageFortran03: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(33);
+    pub const LLVMDWARFSourceLanguageFortran08: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(34);
+    pub const LLVMDWARFSourceLanguageRenderScript: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(35);
     pub const LLVMDWARFSourceLanguageBLISS: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(36);
     pub const LLVMDWARFSourceLanguageKotlin: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(37);
     pub const LLVMDWARFSourceLanguageZig: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(38);
     pub const LLVMDWARFSourceLanguageCrystal: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(39);
-    pub const LLVMDWARFSourceLanguageC_plus_plus_17: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(40);
-    pub const LLVMDWARFSourceLanguageC_plus_plus_20: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(41);
+    pub const LLVMDWARFSourceLanguageC_plus_plus_17: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(40);
+    pub const LLVMDWARFSourceLanguageC_plus_plus_20: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(41);
     pub const LLVMDWARFSourceLanguageC17: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(42);
-    pub const LLVMDWARFSourceLanguageFortran18: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(43);
+    pub const LLVMDWARFSourceLanguageFortran18: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(43);
     pub const LLVMDWARFSourceLanguageAda2005: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(44);
     pub const LLVMDWARFSourceLanguageAda2012: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(45);
     pub const LLVMDWARFSourceLanguageHIP: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(46);
-    pub const LLVMDWARFSourceLanguageAssembly: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(47);
+    pub const LLVMDWARFSourceLanguageAssembly: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(47);
     pub const LLVMDWARFSourceLanguageC_sharp: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(48);
     pub const LLVMDWARFSourceLanguageMojo: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(49);
     pub const LLVMDWARFSourceLanguageGLSL: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(50);
     pub const LLVMDWARFSourceLanguageGLSL_ES: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(51);
     pub const LLVMDWARFSourceLanguageHLSL: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(52);
-    pub const LLVMDWARFSourceLanguageOpenCL_CPP: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(53);
-    pub const LLVMDWARFSourceLanguageCPP_for_OpenCL: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(54);
+    pub const LLVMDWARFSourceLanguageOpenCL_CPP: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(53);
+    pub const LLVMDWARFSourceLanguageCPP_for_OpenCL: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(54);
     pub const LLVMDWARFSourceLanguageSYCL: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(55);
     pub const LLVMDWARFSourceLanguageRuby: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(56);
     pub const LLVMDWARFSourceLanguageMove: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(57);
     pub const LLVMDWARFSourceLanguageHylo: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(58);
     pub const LLVMDWARFSourceLanguageMetal: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(59);
-    pub const LLVMDWARFSourceLanguageMips_Assembler: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(60);
-    pub const LLVMDWARFSourceLanguageGOOGLE_RenderScript: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(61);
-    pub const LLVMDWARFSourceLanguageBORLAND_Delphi: LLVMDWARFSourceLanguage =
-        LLVMDWARFSourceLanguage(62);
+    pub const LLVMDWARFSourceLanguageMips_Assembler: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(60);
+    pub const LLVMDWARFSourceLanguageGOOGLE_RenderScript: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(61);
+    pub const LLVMDWARFSourceLanguageBORLAND_Delphi: LLVMDWARFSourceLanguage = LLVMDWARFSourceLanguage(62);
 }
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -4425,16 +4106,11 @@ impl LLVMChecksumKind {
 pub struct LLVMChecksumKind(pub ::std::os::raw::c_uint);
 pub type LLVMDWARFTypeEncoding = ::std::os::raw::c_uint;
 impl LLVMDWARFMacinfoRecordType {
-    pub const LLVMDWARFMacinfoRecordTypeDefine: LLVMDWARFMacinfoRecordType =
-        LLVMDWARFMacinfoRecordType(1);
-    pub const LLVMDWARFMacinfoRecordTypeMacro: LLVMDWARFMacinfoRecordType =
-        LLVMDWARFMacinfoRecordType(2);
-    pub const LLVMDWARFMacinfoRecordTypeStartFile: LLVMDWARFMacinfoRecordType =
-        LLVMDWARFMacinfoRecordType(3);
-    pub const LLVMDWARFMacinfoRecordTypeEndFile: LLVMDWARFMacinfoRecordType =
-        LLVMDWARFMacinfoRecordType(4);
-    pub const LLVMDWARFMacinfoRecordTypeVendorExt: LLVMDWARFMacinfoRecordType =
-        LLVMDWARFMacinfoRecordType(255);
+    pub const LLVMDWARFMacinfoRecordTypeDefine: LLVMDWARFMacinfoRecordType = LLVMDWARFMacinfoRecordType(1);
+    pub const LLVMDWARFMacinfoRecordTypeMacro: LLVMDWARFMacinfoRecordType = LLVMDWARFMacinfoRecordType(2);
+    pub const LLVMDWARFMacinfoRecordTypeStartFile: LLVMDWARFMacinfoRecordType = LLVMDWARFMacinfoRecordType(3);
+    pub const LLVMDWARFMacinfoRecordTypeEndFile: LLVMDWARFMacinfoRecordType = LLVMDWARFMacinfoRecordType(4);
+    pub const LLVMDWARFMacinfoRecordTypeVendorExt: LLVMDWARFMacinfoRecordType = LLVMDWARFMacinfoRecordType(255);
 }
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -5053,16 +4729,10 @@ unsafe extern "C" {
     ) -> LLVMMetadataRef;
 }
 unsafe extern "C" {
-    pub fn LLVMDIBuilderCreateArtificialType(
-        Builder: LLVMDIBuilderRef,
-        Type: LLVMMetadataRef,
-    ) -> LLVMMetadataRef;
+    pub fn LLVMDIBuilderCreateArtificialType(Builder: LLVMDIBuilderRef, Type: LLVMMetadataRef) -> LLVMMetadataRef;
 }
 unsafe extern "C" {
-    pub fn LLVMDITypeGetName(
-        DType: LLVMMetadataRef,
-        Length: *mut usize,
-    ) -> *const ::std::os::raw::c_char;
+    pub fn LLVMDITypeGetName(DType: LLVMMetadataRef, Length: *mut usize) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
     pub fn LLVMDITypeGetSizeInBits(DType: LLVMMetadataRef) -> u64;
@@ -5080,11 +4750,7 @@ unsafe extern "C" {
     pub fn LLVMDITypeGetFlags(DType: LLVMMetadataRef) -> LLVMDIFlags;
 }
 unsafe extern "C" {
-    pub fn LLVMDIBuilderGetOrCreateSubrange(
-        Builder: LLVMDIBuilderRef,
-        LowerBound: i64,
-        Count: i64,
-    ) -> LLVMMetadataRef;
+    pub fn LLVMDIBuilderGetOrCreateSubrange(Builder: LLVMDIBuilderRef, LowerBound: i64, Count: i64) -> LLVMMetadataRef;
 }
 unsafe extern "C" {
     pub fn LLVMDIBuilderGetOrCreateArray(
@@ -5094,17 +4760,10 @@ unsafe extern "C" {
     ) -> LLVMMetadataRef;
 }
 unsafe extern "C" {
-    pub fn LLVMDIBuilderCreateExpression(
-        Builder: LLVMDIBuilderRef,
-        Addr: *mut u64,
-        Length: usize,
-    ) -> LLVMMetadataRef;
+    pub fn LLVMDIBuilderCreateExpression(Builder: LLVMDIBuilderRef, Addr: *mut u64, Length: usize) -> LLVMMetadataRef;
 }
 unsafe extern "C" {
-    pub fn LLVMDIBuilderCreateConstantValueExpression(
-        Builder: LLVMDIBuilderRef,
-        Value: u64,
-    ) -> LLVMMetadataRef;
+    pub fn LLVMDIBuilderCreateConstantValueExpression(Builder: LLVMDIBuilderRef, Value: u64) -> LLVMMetadataRef;
 }
 unsafe extern "C" {
     pub fn LLVMDIBuilderCreateGlobalVariableExpression(
@@ -5142,20 +4801,13 @@ unsafe extern "C" {
     pub fn LLVMDIVariableGetLine(Var: LLVMMetadataRef) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMTemporaryMDNode(
-        Ctx: LLVMContextRef,
-        Data: *mut LLVMMetadataRef,
-        NumElements: usize,
-    ) -> LLVMMetadataRef;
+    pub fn LLVMTemporaryMDNode(Ctx: LLVMContextRef, Data: *mut LLVMMetadataRef, NumElements: usize) -> LLVMMetadataRef;
 }
 unsafe extern "C" {
     pub fn LLVMDisposeTemporaryMDNode(TempNode: LLVMMetadataRef);
 }
 unsafe extern "C" {
-    pub fn LLVMMetadataReplaceAllUsesWith(
-        TempTargetMetadata: LLVMMetadataRef,
-        Replacement: LLVMMetadataRef,
-    );
+    pub fn LLVMMetadataReplaceAllUsesWith(TempTargetMetadata: LLVMMetadataRef, Replacement: LLVMMetadataRef);
 }
 unsafe extern "C" {
     pub fn LLVMDIBuilderCreateTempGlobalVariableFwdDecl(
@@ -5251,10 +4903,7 @@ unsafe extern "C" {
     pub fn LLVMDISubprogramGetLine(Subprogram: LLVMMetadataRef) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMDISubprogramReplaceType(
-        Subprogram: LLVMMetadataRef,
-        SubroutineType: LLVMMetadataRef,
-    );
+    pub fn LLVMDISubprogramReplaceType(Subprogram: LLVMMetadataRef, SubroutineType: LLVMMetadataRef);
 }
 unsafe extern "C" {
     pub fn LLVMInstructionGetDebugLoc(Inst: LLVMValueRef) -> LLVMMetadataRef;
@@ -5446,10 +5095,7 @@ unsafe extern "C" {
     pub fn LLVMPointerSize(TD: LLVMTargetDataRef) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMPointerSizeForAS(
-        TD: LLVMTargetDataRef,
-        AS: ::std::os::raw::c_uint,
-    ) -> ::std::os::raw::c_uint;
+    pub fn LLVMPointerSizeForAS(TD: LLVMTargetDataRef, AS: ::std::os::raw::c_uint) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
     pub fn LLVMIntPtrType(TD: LLVMTargetDataRef) -> LLVMTypeRef;
@@ -5468,42 +5114,25 @@ unsafe extern "C" {
     ) -> LLVMTypeRef;
 }
 unsafe extern "C" {
-    pub fn LLVMSizeOfTypeInBits(
-        TD: LLVMTargetDataRef,
-        Ty: LLVMTypeRef,
-    ) -> ::std::os::raw::c_ulonglong;
+    pub fn LLVMSizeOfTypeInBits(TD: LLVMTargetDataRef, Ty: LLVMTypeRef) -> ::std::os::raw::c_ulonglong;
 }
 unsafe extern "C" {
-    pub fn LLVMStoreSizeOfType(
-        TD: LLVMTargetDataRef,
-        Ty: LLVMTypeRef,
-    ) -> ::std::os::raw::c_ulonglong;
+    pub fn LLVMStoreSizeOfType(TD: LLVMTargetDataRef, Ty: LLVMTypeRef) -> ::std::os::raw::c_ulonglong;
 }
 unsafe extern "C" {
-    pub fn LLVMABISizeOfType(TD: LLVMTargetDataRef, Ty: LLVMTypeRef)
-    -> ::std::os::raw::c_ulonglong;
+    pub fn LLVMABISizeOfType(TD: LLVMTargetDataRef, Ty: LLVMTypeRef) -> ::std::os::raw::c_ulonglong;
 }
 unsafe extern "C" {
-    pub fn LLVMABIAlignmentOfType(TD: LLVMTargetDataRef, Ty: LLVMTypeRef)
-    -> ::std::os::raw::c_uint;
+    pub fn LLVMABIAlignmentOfType(TD: LLVMTargetDataRef, Ty: LLVMTypeRef) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMCallFrameAlignmentOfType(
-        TD: LLVMTargetDataRef,
-        Ty: LLVMTypeRef,
-    ) -> ::std::os::raw::c_uint;
+    pub fn LLVMCallFrameAlignmentOfType(TD: LLVMTargetDataRef, Ty: LLVMTypeRef) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMPreferredAlignmentOfType(
-        TD: LLVMTargetDataRef,
-        Ty: LLVMTypeRef,
-    ) -> ::std::os::raw::c_uint;
+    pub fn LLVMPreferredAlignmentOfType(TD: LLVMTargetDataRef, Ty: LLVMTypeRef) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMPreferredAlignmentOfGlobal(
-        TD: LLVMTargetDataRef,
-        GlobalVar: LLVMValueRef,
-    ) -> ::std::os::raw::c_uint;
+    pub fn LLVMPreferredAlignmentOfGlobal(TD: LLVMTargetDataRef, GlobalVar: LLVMValueRef) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
     pub fn LLVMElementAtOffset(
@@ -5580,8 +5209,7 @@ pub struct LLVMCodeGenFileType(pub ::std::os::raw::c_uint);
 impl LLVMGlobalISelAbortMode {
     pub const LLVMGlobalISelAbortEnable: LLVMGlobalISelAbortMode = LLVMGlobalISelAbortMode(0);
     pub const LLVMGlobalISelAbortDisable: LLVMGlobalISelAbortMode = LLVMGlobalISelAbortMode(1);
-    pub const LLVMGlobalISelAbortDisableWithDiag: LLVMGlobalISelAbortMode =
-        LLVMGlobalISelAbortMode(2);
+    pub const LLVMGlobalISelAbortDisableWithDiag: LLVMGlobalISelAbortMode = LLVMGlobalISelAbortMode(2);
 }
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -5624,10 +5252,7 @@ unsafe extern "C" {
     pub fn LLVMDisposeTargetMachineOptions(Options: LLVMTargetMachineOptionsRef);
 }
 unsafe extern "C" {
-    pub fn LLVMTargetMachineOptionsSetCPU(
-        Options: LLVMTargetMachineOptionsRef,
-        CPU: *const ::std::os::raw::c_char,
-    );
+    pub fn LLVMTargetMachineOptionsSetCPU(Options: LLVMTargetMachineOptionsRef, CPU: *const ::std::os::raw::c_char);
 }
 unsafe extern "C" {
     pub fn LLVMTargetMachineOptionsSetFeatures(
@@ -5636,28 +5261,16 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    pub fn LLVMTargetMachineOptionsSetABI(
-        Options: LLVMTargetMachineOptionsRef,
-        ABI: *const ::std::os::raw::c_char,
-    );
+    pub fn LLVMTargetMachineOptionsSetABI(Options: LLVMTargetMachineOptionsRef, ABI: *const ::std::os::raw::c_char);
 }
 unsafe extern "C" {
-    pub fn LLVMTargetMachineOptionsSetCodeGenOptLevel(
-        Options: LLVMTargetMachineOptionsRef,
-        Level: LLVMCodeGenOptLevel,
-    );
+    pub fn LLVMTargetMachineOptionsSetCodeGenOptLevel(Options: LLVMTargetMachineOptionsRef, Level: LLVMCodeGenOptLevel);
 }
 unsafe extern "C" {
-    pub fn LLVMTargetMachineOptionsSetRelocMode(
-        Options: LLVMTargetMachineOptionsRef,
-        Reloc: LLVMRelocMode,
-    );
+    pub fn LLVMTargetMachineOptionsSetRelocMode(Options: LLVMTargetMachineOptionsRef, Reloc: LLVMRelocMode);
 }
 unsafe extern "C" {
-    pub fn LLVMTargetMachineOptionsSetCodeModel(
-        Options: LLVMTargetMachineOptionsRef,
-        CodeModel: LLVMCodeModel,
-    );
+    pub fn LLVMTargetMachineOptionsSetCodeModel(Options: LLVMTargetMachineOptionsRef, CodeModel: LLVMCodeModel);
 }
 unsafe extern "C" {
     pub fn LLVMCreateTargetMachineWithOptions(
@@ -5690,9 +5303,7 @@ unsafe extern "C" {
     pub fn LLVMGetTargetMachineCPU(T: LLVMTargetMachineRef) -> *mut ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    pub fn LLVMGetTargetMachineFeatureString(
-        T: LLVMTargetMachineRef,
-    ) -> *mut ::std::os::raw::c_char;
+    pub fn LLVMGetTargetMachineFeatureString(T: LLVMTargetMachineRef) -> *mut ::std::os::raw::c_char;
 }
 unsafe extern "C" {
     pub fn LLVMCreateTargetDataLayout(T: LLVMTargetMachineRef) -> LLVMTargetDataRef;
@@ -5707,10 +5318,7 @@ unsafe extern "C" {
     pub fn LLVMSetTargetMachineGlobalISel(T: LLVMTargetMachineRef, Enable: LLVMBool);
 }
 unsafe extern "C" {
-    pub fn LLVMSetTargetMachineGlobalISelAbort(
-        T: LLVMTargetMachineRef,
-        Mode: LLVMGlobalISelAbortMode,
-    );
+    pub fn LLVMSetTargetMachineGlobalISelAbort(T: LLVMTargetMachineRef, Mode: LLVMGlobalISelAbortMode);
 }
 unsafe extern "C" {
     pub fn LLVMSetTargetMachineMachineOutliner(T: LLVMTargetMachineRef, Enable: LLVMBool);
@@ -5737,9 +5345,7 @@ unsafe extern "C" {
     pub fn LLVMGetDefaultTargetTriple() -> *mut ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    pub fn LLVMNormalizeTargetTriple(
-        triple: *const ::std::os::raw::c_char,
-    ) -> *mut ::std::os::raw::c_char;
+    pub fn LLVMNormalizeTargetTriple(triple: *const ::std::os::raw::c_char) -> *mut ::std::os::raw::c_char;
 }
 unsafe extern "C" {
     pub fn LLVMGetHostCPUName() -> *mut ::std::os::raw::c_char;
@@ -5800,10 +5406,7 @@ unsafe extern "C" {
     pub fn LLVMGenericValueIntWidth(GenValRef: LLVMGenericValueRef) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn LLVMGenericValueToInt(
-        GenVal: LLVMGenericValueRef,
-        IsSigned: LLVMBool,
-    ) -> ::std::os::raw::c_ulonglong;
+    pub fn LLVMGenericValueToInt(GenVal: LLVMGenericValueRef, IsSigned: LLVMBool) -> ::std::os::raw::c_ulonglong;
 }
 unsafe extern "C" {
     pub fn LLVMGenericValueToPointer(GenVal: LLVMGenericValueRef) -> *mut ::std::os::raw::c_void;
@@ -5837,10 +5440,7 @@ unsafe extern "C" {
     ) -> LLVMBool;
 }
 unsafe extern "C" {
-    pub fn LLVMInitializeMCJITCompilerOptions(
-        Options: *mut LLVMMCJITCompilerOptions,
-        SizeOfOptions: usize,
-    );
+    pub fn LLVMInitializeMCJITCompilerOptions(Options: *mut LLVMMCJITCompilerOptions, SizeOfOptions: usize);
 }
 unsafe extern "C" {
     pub fn LLVMCreateMCJITCompilerForModule(
@@ -5899,10 +5499,7 @@ unsafe extern "C" {
     ) -> LLVMBool;
 }
 unsafe extern "C" {
-    pub fn LLVMRecompileAndRelinkFunction(
-        EE: LLVMExecutionEngineRef,
-        Fn: LLVMValueRef,
-    ) -> *mut ::std::os::raw::c_void;
+    pub fn LLVMRecompileAndRelinkFunction(EE: LLVMExecutionEngineRef, Fn: LLVMValueRef) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
     pub fn LLVMGetExecutionEngineTargetData(EE: LLVMExecutionEngineRef) -> LLVMTargetDataRef;
@@ -5911,29 +5508,16 @@ unsafe extern "C" {
     pub fn LLVMGetExecutionEngineTargetMachine(EE: LLVMExecutionEngineRef) -> LLVMTargetMachineRef;
 }
 unsafe extern "C" {
-    pub fn LLVMAddGlobalMapping(
-        EE: LLVMExecutionEngineRef,
-        Global: LLVMValueRef,
-        Addr: *mut ::std::os::raw::c_void,
-    );
+    pub fn LLVMAddGlobalMapping(EE: LLVMExecutionEngineRef, Global: LLVMValueRef, Addr: *mut ::std::os::raw::c_void);
 }
 unsafe extern "C" {
-    pub fn LLVMGetPointerToGlobal(
-        EE: LLVMExecutionEngineRef,
-        Global: LLVMValueRef,
-    ) -> *mut ::std::os::raw::c_void;
+    pub fn LLVMGetPointerToGlobal(EE: LLVMExecutionEngineRef, Global: LLVMValueRef) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    pub fn LLVMGetGlobalValueAddress(
-        EE: LLVMExecutionEngineRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> u64;
+    pub fn LLVMGetGlobalValueAddress(EE: LLVMExecutionEngineRef, Name: *const ::std::os::raw::c_char) -> u64;
 }
 unsafe extern "C" {
-    pub fn LLVMGetFunctionAddress(
-        EE: LLVMExecutionEngineRef,
-        Name: *const ::std::os::raw::c_char,
-    ) -> u64;
+    pub fn LLVMGetFunctionAddress(EE: LLVMExecutionEngineRef, Name: *const ::std::os::raw::c_char) -> u64;
 }
 unsafe extern "C" {
     pub fn LLVMExecutionEngineGetErrMsg(
@@ -5961,10 +5545,7 @@ pub type LLVMMemoryManagerAllocateDataSectionCallback = ::std::option::Option<
     ) -> *mut u8,
 >;
 pub type LLVMMemoryManagerFinalizeMemoryCallback = ::std::option::Option<
-    unsafe extern "C" fn(
-        Opaque: *mut ::std::os::raw::c_void,
-        ErrMsg: *mut *mut ::std::os::raw::c_char,
-    ) -> LLVMBool,
+    unsafe extern "C" fn(Opaque: *mut ::std::os::raw::c_void, ErrMsg: *mut *mut ::std::os::raw::c_char) -> LLVMBool,
 >;
 pub type LLVMMemoryManagerDestroyCallback =
     ::std::option::Option<unsafe extern "C" fn(Opaque: *mut ::std::os::raw::c_void)>;
@@ -6011,14 +5592,10 @@ unsafe extern "C" {
 pub type LLVMOrcJITTargetAddress = u64;
 pub type LLVMOrcExecutorAddress = u64;
 impl LLVMJITSymbolGenericFlags {
-    pub const LLVMJITSymbolGenericFlagsNone: LLVMJITSymbolGenericFlags =
-        LLVMJITSymbolGenericFlags(0);
-    pub const LLVMJITSymbolGenericFlagsExported: LLVMJITSymbolGenericFlags =
-        LLVMJITSymbolGenericFlags(1);
-    pub const LLVMJITSymbolGenericFlagsWeak: LLVMJITSymbolGenericFlags =
-        LLVMJITSymbolGenericFlags(2);
-    pub const LLVMJITSymbolGenericFlagsCallable: LLVMJITSymbolGenericFlags =
-        LLVMJITSymbolGenericFlags(4);
+    pub const LLVMJITSymbolGenericFlagsNone: LLVMJITSymbolGenericFlags = LLVMJITSymbolGenericFlags(0);
+    pub const LLVMJITSymbolGenericFlagsExported: LLVMJITSymbolGenericFlags = LLVMJITSymbolGenericFlags(1);
+    pub const LLVMJITSymbolGenericFlagsWeak: LLVMJITSymbolGenericFlags = LLVMJITSymbolGenericFlags(2);
+    pub const LLVMJITSymbolGenericFlagsCallable: LLVMJITSymbolGenericFlags = LLVMJITSymbolGenericFlags(4);
     pub const LLVMJITSymbolGenericFlagsMaterializationSideEffectsOnly: LLVMJITSymbolGenericFlags =
         LLVMJITSymbolGenericFlags(8);
 }
@@ -6044,9 +5621,8 @@ pub struct LLVMOrcOpaqueExecutionSession {
     _unused: [u8; 0],
 }
 pub type LLVMOrcExecutionSessionRef = *mut LLVMOrcOpaqueExecutionSession;
-pub type LLVMOrcErrorReporterFunction = ::std::option::Option<
-    unsafe extern "C" fn(Ctx: *mut ::std::os::raw::c_void, Err: LLVMErrorRef),
->;
+pub type LLVMOrcErrorReporterFunction =
+    ::std::option::Option<unsafe extern "C" fn(Ctx: *mut ::std::os::raw::c_void, Err: LLVMErrorRef)>;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct LLVMOrcOpaqueSymbolStringPool {
@@ -6122,8 +5698,7 @@ pub struct LLVMOrcLookupKind(pub ::std::os::raw::c_uint);
 impl LLVMOrcJITDylibLookupFlags {
     pub const LLVMOrcJITDylibLookupFlagsMatchExportedSymbolsOnly: LLVMOrcJITDylibLookupFlags =
         LLVMOrcJITDylibLookupFlags(0);
-    pub const LLVMOrcJITDylibLookupFlagsMatchAllSymbols: LLVMOrcJITDylibLookupFlags =
-        LLVMOrcJITDylibLookupFlags(1);
+    pub const LLVMOrcJITDylibLookupFlagsMatchAllSymbols: LLVMOrcJITDylibLookupFlags = LLVMOrcJITDylibLookupFlags(1);
 }
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -6136,10 +5711,8 @@ pub struct LLVMOrcCJITDylibSearchOrderElement {
 }
 pub type LLVMOrcCJITDylibSearchOrder = *mut LLVMOrcCJITDylibSearchOrderElement;
 impl LLVMOrcSymbolLookupFlags {
-    pub const LLVMOrcSymbolLookupFlagsRequiredSymbol: LLVMOrcSymbolLookupFlags =
-        LLVMOrcSymbolLookupFlags(0);
-    pub const LLVMOrcSymbolLookupFlagsWeaklyReferencedSymbol: LLVMOrcSymbolLookupFlags =
-        LLVMOrcSymbolLookupFlags(1);
+    pub const LLVMOrcSymbolLookupFlagsRequiredSymbol: LLVMOrcSymbolLookupFlags = LLVMOrcSymbolLookupFlags(0);
+    pub const LLVMOrcSymbolLookupFlagsWeaklyReferencedSymbol: LLVMOrcSymbolLookupFlags = LLVMOrcSymbolLookupFlags(1);
 }
 #[repr(transparent)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -6164,10 +5737,7 @@ pub struct LLVMOrcOpaqueMaterializationResponsibility {
 }
 pub type LLVMOrcMaterializationResponsibilityRef = *mut LLVMOrcOpaqueMaterializationResponsibility;
 pub type LLVMOrcMaterializationUnitMaterializeFunction = ::std::option::Option<
-    unsafe extern "C" fn(
-        Ctx: *mut ::std::os::raw::c_void,
-        MR: LLVMOrcMaterializationResponsibilityRef,
-    ),
+    unsafe extern "C" fn(Ctx: *mut ::std::os::raw::c_void, MR: LLVMOrcMaterializationResponsibilityRef),
 >;
 pub type LLVMOrcMaterializationUnitDiscardFunction = ::std::option::Option<
     unsafe extern "C" fn(
@@ -6228,9 +5798,8 @@ pub struct LLVMOrcOpaqueThreadSafeModule {
     _unused: [u8; 0],
 }
 pub type LLVMOrcThreadSafeModuleRef = *mut LLVMOrcOpaqueThreadSafeModule;
-pub type LLVMOrcGenericIRModuleOperationFunction = ::std::option::Option<
-    unsafe extern "C" fn(Ctx: *mut ::std::os::raw::c_void, M: LLVMModuleRef) -> LLVMErrorRef,
->;
+pub type LLVMOrcGenericIRModuleOperationFunction =
+    ::std::option::Option<unsafe extern "C" fn(Ctx: *mut ::std::os::raw::c_void, M: LLVMModuleRef) -> LLVMErrorRef>;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct LLVMOrcOpaqueJITTargetMachineBuilder {
@@ -6269,10 +5838,7 @@ pub struct LLVMOrcOpaqueObjectTransformLayer {
 }
 pub type LLVMOrcObjectTransformLayerRef = *mut LLVMOrcOpaqueObjectTransformLayer;
 pub type LLVMOrcObjectTransformLayerTransformFunction = ::std::option::Option<
-    unsafe extern "C" fn(
-        Ctx: *mut ::std::os::raw::c_void,
-        ObjInOut: *mut LLVMMemoryBufferRef,
-    ) -> LLVMErrorRef,
+    unsafe extern "C" fn(Ctx: *mut ::std::os::raw::c_void, ObjInOut: *mut LLVMMemoryBufferRef) -> LLVMErrorRef,
 >;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -6300,9 +5866,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    pub fn LLVMOrcExecutionSessionGetSymbolStringPool(
-        ES: LLVMOrcExecutionSessionRef,
-    ) -> LLVMOrcSymbolStringPoolRef;
+    pub fn LLVMOrcExecutionSessionGetSymbolStringPool(ES: LLVMOrcExecutionSessionRef) -> LLVMOrcSymbolStringPoolRef;
 }
 unsafe extern "C" {
     pub fn LLVMOrcSymbolStringPoolClearDeadEntries(SSP: LLVMOrcSymbolStringPoolRef);
@@ -6340,18 +5904,13 @@ unsafe extern "C" {
     pub fn LLVMOrcReleaseSymbolStringPoolEntry(S: LLVMOrcSymbolStringPoolEntryRef);
 }
 unsafe extern "C" {
-    pub fn LLVMOrcSymbolStringPoolEntryStr(
-        S: LLVMOrcSymbolStringPoolEntryRef,
-    ) -> *const ::std::os::raw::c_char;
+    pub fn LLVMOrcSymbolStringPoolEntryStr(S: LLVMOrcSymbolStringPoolEntryRef) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
     pub fn LLVMOrcReleaseResourceTracker(RT: LLVMOrcResourceTrackerRef);
 }
 unsafe extern "C" {
-    pub fn LLVMOrcResourceTrackerTransferTo(
-        SrcRT: LLVMOrcResourceTrackerRef,
-        DstRT: LLVMOrcResourceTrackerRef,
-    );
+    pub fn LLVMOrcResourceTrackerTransferTo(SrcRT: LLVMOrcResourceTrackerRef, DstRT: LLVMOrcResourceTrackerRef);
 }
 unsafe extern "C" {
     pub fn LLVMOrcResourceTrackerRemove(RT: LLVMOrcResourceTrackerRef) -> LLVMErrorRef;
@@ -6375,10 +5934,7 @@ unsafe extern "C" {
     ) -> LLVMOrcMaterializationUnitRef;
 }
 unsafe extern "C" {
-    pub fn LLVMOrcAbsoluteSymbols(
-        Syms: LLVMOrcCSymbolMapPairs,
-        NumPairs: usize,
-    ) -> LLVMOrcMaterializationUnitRef;
+    pub fn LLVMOrcAbsoluteSymbols(Syms: LLVMOrcCSymbolMapPairs, NumPairs: usize) -> LLVMOrcMaterializationUnitRef;
 }
 unsafe extern "C" {
     pub fn LLVMOrcLazyReexports(
@@ -6447,9 +6003,7 @@ unsafe extern "C" {
     ) -> LLVMErrorRef;
 }
 unsafe extern "C" {
-    pub fn LLVMOrcMaterializationResponsibilityFailMaterialization(
-        MR: LLVMOrcMaterializationResponsibilityRef,
-    );
+    pub fn LLVMOrcMaterializationResponsibilityFailMaterialization(MR: LLVMOrcMaterializationResponsibilityRef);
 }
 unsafe extern "C" {
     pub fn LLVMOrcMaterializationResponsibilityReplace(
@@ -6485,20 +6039,13 @@ unsafe extern "C" {
     ) -> LLVMOrcJITDylibRef;
 }
 unsafe extern "C" {
-    pub fn LLVMOrcJITDylibCreateResourceTracker(
-        JD: LLVMOrcJITDylibRef,
-    ) -> LLVMOrcResourceTrackerRef;
+    pub fn LLVMOrcJITDylibCreateResourceTracker(JD: LLVMOrcJITDylibRef) -> LLVMOrcResourceTrackerRef;
 }
 unsafe extern "C" {
-    pub fn LLVMOrcJITDylibGetDefaultResourceTracker(
-        JD: LLVMOrcJITDylibRef,
-    ) -> LLVMOrcResourceTrackerRef;
+    pub fn LLVMOrcJITDylibGetDefaultResourceTracker(JD: LLVMOrcJITDylibRef) -> LLVMOrcResourceTrackerRef;
 }
 unsafe extern "C" {
-    pub fn LLVMOrcJITDylibDefine(
-        JD: LLVMOrcJITDylibRef,
-        MU: LLVMOrcMaterializationUnitRef,
-    ) -> LLVMErrorRef;
+    pub fn LLVMOrcJITDylibDefine(JD: LLVMOrcJITDylibRef, MU: LLVMOrcMaterializationUnitRef) -> LLVMErrorRef;
 }
 unsafe extern "C" {
     pub fn LLVMOrcJITDylibClear(JD: LLVMOrcJITDylibRef) -> LLVMErrorRef;
@@ -6544,9 +6091,7 @@ unsafe extern "C" {
     pub fn LLVMOrcCreateNewThreadSafeContext() -> LLVMOrcThreadSafeContextRef;
 }
 unsafe extern "C" {
-    pub fn LLVMOrcCreateNewThreadSafeContextFromLLVMContext(
-        Ctx: LLVMContextRef,
-    ) -> LLVMOrcThreadSafeContextRef;
+    pub fn LLVMOrcCreateNewThreadSafeContextFromLLVMContext(Ctx: LLVMContextRef) -> LLVMOrcThreadSafeContextRef;
 }
 unsafe extern "C" {
     pub fn LLVMOrcDisposeThreadSafeContext(TSCtx: LLVMOrcThreadSafeContextRef);
@@ -6568,9 +6113,7 @@ unsafe extern "C" {
     ) -> LLVMErrorRef;
 }
 unsafe extern "C" {
-    pub fn LLVMOrcJITTargetMachineBuilderDetectHost(
-        Result: *mut LLVMOrcJITTargetMachineBuilderRef,
-    ) -> LLVMErrorRef;
+    pub fn LLVMOrcJITTargetMachineBuilderDetectHost(Result: *mut LLVMOrcJITTargetMachineBuilderRef) -> LLVMErrorRef;
 }
 unsafe extern "C" {
     pub fn LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine(
@@ -6709,10 +6252,7 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    pub fn LLVMOrcCreateLLJIT(
-        Result: *mut LLVMOrcLLJITRef,
-        Builder: LLVMOrcLLJITBuilderRef,
-    ) -> LLVMErrorRef;
+    pub fn LLVMOrcCreateLLJIT(Result: *mut LLVMOrcLLJITRef, Builder: LLVMOrcLLJITBuilderRef) -> LLVMErrorRef;
 }
 unsafe extern "C" {
     pub fn LLVMOrcDisposeLLJIT(J: LLVMOrcLLJITRef) -> LLVMErrorRef;
@@ -6863,19 +6403,13 @@ unsafe extern "C" {
     pub fn LLVMObjectFileCopySectionIterator(BR: LLVMBinaryRef) -> LLVMSectionIteratorRef;
 }
 unsafe extern "C" {
-    pub fn LLVMObjectFileIsSectionIteratorAtEnd(
-        BR: LLVMBinaryRef,
-        SI: LLVMSectionIteratorRef,
-    ) -> LLVMBool;
+    pub fn LLVMObjectFileIsSectionIteratorAtEnd(BR: LLVMBinaryRef, SI: LLVMSectionIteratorRef) -> LLVMBool;
 }
 unsafe extern "C" {
     pub fn LLVMObjectFileCopySymbolIterator(BR: LLVMBinaryRef) -> LLVMSymbolIteratorRef;
 }
 unsafe extern "C" {
-    pub fn LLVMObjectFileIsSymbolIteratorAtEnd(
-        BR: LLVMBinaryRef,
-        SI: LLVMSymbolIteratorRef,
-    ) -> LLVMBool;
+    pub fn LLVMObjectFileIsSymbolIteratorAtEnd(BR: LLVMBinaryRef, SI: LLVMSymbolIteratorRef) -> LLVMBool;
 }
 unsafe extern "C" {
     pub fn LLVMDisposeSectionIterator(SI: LLVMSectionIteratorRef);
@@ -6905,10 +6439,7 @@ unsafe extern "C" {
     pub fn LLVMGetSectionAddress(SI: LLVMSectionIteratorRef) -> u64;
 }
 unsafe extern "C" {
-    pub fn LLVMGetSectionContainsSymbol(
-        SI: LLVMSectionIteratorRef,
-        Sym: LLVMSymbolIteratorRef,
-    ) -> LLVMBool;
+    pub fn LLVMGetSectionContainsSymbol(SI: LLVMSectionIteratorRef, Sym: LLVMSymbolIteratorRef) -> LLVMBool;
 }
 unsafe extern "C" {
     pub fn LLVMGetRelocations(Section: LLVMSectionIteratorRef) -> LLVMRelocationIteratorRef;
@@ -6917,10 +6448,7 @@ unsafe extern "C" {
     pub fn LLVMDisposeRelocationIterator(RI: LLVMRelocationIteratorRef);
 }
 unsafe extern "C" {
-    pub fn LLVMIsRelocationIteratorAtEnd(
-        Section: LLVMSectionIteratorRef,
-        RI: LLVMRelocationIteratorRef,
-    ) -> LLVMBool;
+    pub fn LLVMIsRelocationIteratorAtEnd(Section: LLVMSectionIteratorRef, RI: LLVMRelocationIteratorRef) -> LLVMBool;
 }
 unsafe extern "C" {
     pub fn LLVMMoveToNextRelocation(RI: LLVMRelocationIteratorRef);
@@ -6944,14 +6472,10 @@ unsafe extern "C" {
     pub fn LLVMGetRelocationType(RI: LLVMRelocationIteratorRef) -> u64;
 }
 unsafe extern "C" {
-    pub fn LLVMGetRelocationTypeName(
-        RI: LLVMRelocationIteratorRef,
-    ) -> *const ::std::os::raw::c_char;
+    pub fn LLVMGetRelocationTypeName(RI: LLVMRelocationIteratorRef) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    pub fn LLVMGetRelocationValueString(
-        RI: LLVMRelocationIteratorRef,
-    ) -> *const ::std::os::raw::c_char;
+    pub fn LLVMGetRelocationValueString(RI: LLVMRelocationIteratorRef) -> *const ::std::os::raw::c_char;
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -6969,23 +6493,16 @@ unsafe extern "C" {
     pub fn LLVMGetSections(ObjectFile: LLVMObjectFileRef) -> LLVMSectionIteratorRef;
 }
 unsafe extern "C" {
-    pub fn LLVMIsSectionIteratorAtEnd(
-        ObjectFile: LLVMObjectFileRef,
-        SI: LLVMSectionIteratorRef,
-    ) -> LLVMBool;
+    pub fn LLVMIsSectionIteratorAtEnd(ObjectFile: LLVMObjectFileRef, SI: LLVMSectionIteratorRef) -> LLVMBool;
 }
 unsafe extern "C" {
     pub fn LLVMGetSymbols(ObjectFile: LLVMObjectFileRef) -> LLVMSymbolIteratorRef;
 }
 unsafe extern "C" {
-    pub fn LLVMIsSymbolIteratorAtEnd(
-        ObjectFile: LLVMObjectFileRef,
-        SI: LLVMSymbolIteratorRef,
-    ) -> LLVMBool;
+    pub fn LLVMIsSymbolIteratorAtEnd(ObjectFile: LLVMObjectFileRef, SI: LLVMSymbolIteratorRef) -> LLVMBool;
 }
-pub type LLVMMemoryManagerCreateContextCallback = ::std::option::Option<
-    unsafe extern "C" fn(CtxCtx: *mut ::std::os::raw::c_void) -> *mut ::std::os::raw::c_void,
->;
+pub type LLVMMemoryManagerCreateContextCallback =
+    ::std::option::Option<unsafe extern "C" fn(CtxCtx: *mut ::std::os::raw::c_void) -> *mut ::std::os::raw::c_void>;
 pub type LLVMMemoryManagerNotifyTerminatingCallback =
     ::std::option::Option<unsafe extern "C" fn(CtxCtx: *mut ::std::os::raw::c_void)>;
 unsafe extern "C" {
@@ -7111,10 +6628,7 @@ unsafe extern "C" {
     pub fn LLVMRemarkEntryGetFirstArg(Remark: LLVMRemarkEntryRef) -> LLVMRemarkArgRef;
 }
 unsafe extern "C" {
-    pub fn LLVMRemarkEntryGetNextArg(
-        It: LLVMRemarkArgRef,
-        Remark: LLVMRemarkEntryRef,
-    ) -> LLVMRemarkArgRef;
+    pub fn LLVMRemarkEntryGetNextArg(It: LLVMRemarkArgRef, Remark: LLVMRemarkEntryRef) -> LLVMRemarkArgRef;
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -7123,16 +6637,10 @@ pub struct LLVMRemarkOpaqueParser {
 }
 pub type LLVMRemarkParserRef = *mut LLVMRemarkOpaqueParser;
 unsafe extern "C" {
-    pub fn LLVMRemarkParserCreateYAML(
-        Buf: *const ::std::os::raw::c_void,
-        Size: u64,
-    ) -> LLVMRemarkParserRef;
+    pub fn LLVMRemarkParserCreateYAML(Buf: *const ::std::os::raw::c_void, Size: u64) -> LLVMRemarkParserRef;
 }
 unsafe extern "C" {
-    pub fn LLVMRemarkParserCreateBitstream(
-        Buf: *const ::std::os::raw::c_void,
-        Size: u64,
-    ) -> LLVMRemarkParserRef;
+    pub fn LLVMRemarkParserCreateBitstream(Buf: *const ::std::os::raw::c_void, Size: u64) -> LLVMRemarkParserRef;
 }
 unsafe extern "C" {
     pub fn LLVMRemarkParserGetNext(Parser: LLVMRemarkParserRef) -> LLVMRemarkEntryRef;
@@ -7141,9 +6649,7 @@ unsafe extern "C" {
     pub fn LLVMRemarkParserHasError(Parser: LLVMRemarkParserRef) -> LLVMBool;
 }
 unsafe extern "C" {
-    pub fn LLVMRemarkParserGetErrorMessage(
-        Parser: LLVMRemarkParserRef,
-    ) -> *const ::std::os::raw::c_char;
+    pub fn LLVMRemarkParserGetErrorMessage(Parser: LLVMRemarkParserRef) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
     pub fn LLVMRemarkParserDispose(Parser: LLVMRemarkParserRef);
@@ -7162,15 +6668,10 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    pub fn LLVMSearchForAddressOfSymbol(
-        symbolName: *const ::std::os::raw::c_char,
-    ) -> *mut ::std::os::raw::c_void;
+    pub fn LLVMSearchForAddressOfSymbol(symbolName: *const ::std::os::raw::c_char) -> *mut ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    pub fn LLVMAddSymbol(
-        symbolName: *const ::std::os::raw::c_char,
-        symbolValue: *mut ::std::os::raw::c_void,
-    );
+    pub fn LLVMAddSymbol(symbolName: *const ::std::os::raw::c_char, symbolValue: *mut ::std::os::raw::c_void);
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -7198,16 +6699,10 @@ unsafe extern "C" {
     pub fn LLVMCreatePassBuilderOptions() -> LLVMPassBuilderOptionsRef;
 }
 unsafe extern "C" {
-    pub fn LLVMPassBuilderOptionsSetVerifyEach(
-        Options: LLVMPassBuilderOptionsRef,
-        VerifyEach: LLVMBool,
-    );
+    pub fn LLVMPassBuilderOptionsSetVerifyEach(Options: LLVMPassBuilderOptionsRef, VerifyEach: LLVMBool);
 }
 unsafe extern "C" {
-    pub fn LLVMPassBuilderOptionsSetDebugLogging(
-        Options: LLVMPassBuilderOptionsRef,
-        DebugLogging: LLVMBool,
-    );
+    pub fn LLVMPassBuilderOptionsSetDebugLogging(Options: LLVMPassBuilderOptionsRef, DebugLogging: LLVMBool);
 }
 unsafe extern "C" {
     pub fn LLVMPassBuilderOptionsSetAAPipeline(
@@ -7216,28 +6711,16 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    pub fn LLVMPassBuilderOptionsSetLoopInterleaving(
-        Options: LLVMPassBuilderOptionsRef,
-        LoopInterleaving: LLVMBool,
-    );
+    pub fn LLVMPassBuilderOptionsSetLoopInterleaving(Options: LLVMPassBuilderOptionsRef, LoopInterleaving: LLVMBool);
 }
 unsafe extern "C" {
-    pub fn LLVMPassBuilderOptionsSetLoopVectorization(
-        Options: LLVMPassBuilderOptionsRef,
-        LoopVectorization: LLVMBool,
-    );
+    pub fn LLVMPassBuilderOptionsSetLoopVectorization(Options: LLVMPassBuilderOptionsRef, LoopVectorization: LLVMBool);
 }
 unsafe extern "C" {
-    pub fn LLVMPassBuilderOptionsSetSLPVectorization(
-        Options: LLVMPassBuilderOptionsRef,
-        SLPVectorization: LLVMBool,
-    );
+    pub fn LLVMPassBuilderOptionsSetSLPVectorization(Options: LLVMPassBuilderOptionsRef, SLPVectorization: LLVMBool);
 }
 unsafe extern "C" {
-    pub fn LLVMPassBuilderOptionsSetLoopUnrolling(
-        Options: LLVMPassBuilderOptionsRef,
-        LoopUnrolling: LLVMBool,
-    );
+    pub fn LLVMPassBuilderOptionsSetLoopUnrolling(Options: LLVMPassBuilderOptionsRef, LoopUnrolling: LLVMBool);
 }
 unsafe extern "C" {
     pub fn LLVMPassBuilderOptionsSetForgetAllSCEVInLoopUnroll(
@@ -7258,16 +6741,10 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    pub fn LLVMPassBuilderOptionsSetCallGraphProfile(
-        Options: LLVMPassBuilderOptionsRef,
-        CallGraphProfile: LLVMBool,
-    );
+    pub fn LLVMPassBuilderOptionsSetCallGraphProfile(Options: LLVMPassBuilderOptionsRef, CallGraphProfile: LLVMBool);
 }
 unsafe extern "C" {
-    pub fn LLVMPassBuilderOptionsSetMergeFunctions(
-        Options: LLVMPassBuilderOptionsRef,
-        MergeFunctions: LLVMBool,
-    );
+    pub fn LLVMPassBuilderOptionsSetMergeFunctions(Options: LLVMPassBuilderOptionsRef, MergeFunctions: LLVMBool);
 }
 unsafe extern "C" {
     pub fn LLVMPassBuilderOptionsSetInlinerThreshold(
@@ -7306,10 +6783,7 @@ unsafe extern "C" {
     pub fn llvm_blake3_hasher_init_keyed(self_: *mut llvm_blake3_hasher, key: *const u8);
 }
 unsafe extern "C" {
-    pub fn llvm_blake3_hasher_init_derive_key(
-        self_: *mut llvm_blake3_hasher,
-        context: *const ::std::os::raw::c_char,
-    );
+    pub fn llvm_blake3_hasher_init_derive_key(self_: *mut llvm_blake3_hasher, context: *const ::std::os::raw::c_char);
 }
 unsafe extern "C" {
     pub fn llvm_blake3_hasher_init_derive_key_raw(
@@ -7326,19 +6800,10 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    pub fn llvm_blake3_hasher_finalize(
-        self_: *const llvm_blake3_hasher,
-        out: *mut u8,
-        out_len: usize,
-    );
+    pub fn llvm_blake3_hasher_finalize(self_: *const llvm_blake3_hasher, out: *mut u8, out_len: usize);
 }
 unsafe extern "C" {
-    pub fn llvm_blake3_hasher_finalize_seek(
-        self_: *const llvm_blake3_hasher,
-        seek: u64,
-        out: *mut u8,
-        out_len: usize,
-    );
+    pub fn llvm_blake3_hasher_finalize_seek(self_: *const llvm_blake3_hasher, seek: u64, out: *mut u8, out_len: usize);
 }
 unsafe extern "C" {
     pub fn llvm_blake3_hasher_reset(self_: *mut llvm_blake3_hasher);
@@ -7361,8 +6826,7 @@ impl lto_symbol_attributes {
     pub const LTO_SYMBOL_SCOPE_HIDDEN: lto_symbol_attributes = lto_symbol_attributes(4096);
     pub const LTO_SYMBOL_SCOPE_PROTECTED: lto_symbol_attributes = lto_symbol_attributes(8192);
     pub const LTO_SYMBOL_SCOPE_DEFAULT: lto_symbol_attributes = lto_symbol_attributes(6144);
-    pub const LTO_SYMBOL_SCOPE_DEFAULT_CAN_BE_HIDDEN: lto_symbol_attributes =
-        lto_symbol_attributes(10240);
+    pub const LTO_SYMBOL_SCOPE_DEFAULT_CAN_BE_HIDDEN: lto_symbol_attributes = lto_symbol_attributes(10240);
     pub const LTO_SYMBOL_COMDAT: lto_symbol_attributes = lto_symbol_attributes(16384);
     pub const LTO_SYMBOL_ALIAS: lto_symbol_attributes = lto_symbol_attributes(32768);
 }
@@ -7419,16 +6883,10 @@ unsafe extern "C" {
     ) -> lto_bool_t;
 }
 unsafe extern "C" {
-    pub fn lto_module_has_objc_category(
-        mem: *const ::std::os::raw::c_void,
-        length: usize,
-    ) -> lto_bool_t;
+    pub fn lto_module_has_objc_category(mem: *const ::std::os::raw::c_void, length: usize) -> lto_bool_t;
 }
 unsafe extern "C" {
-    pub fn lto_module_is_object_file_in_memory(
-        mem: *const ::std::os::raw::c_void,
-        length: usize,
-    ) -> lto_bool_t;
+    pub fn lto_module_is_object_file_in_memory(mem: *const ::std::os::raw::c_void, length: usize) -> lto_bool_t;
 }
 unsafe extern "C" {
     pub fn lto_module_is_object_file_in_memory_for_target(
@@ -7441,10 +6899,7 @@ unsafe extern "C" {
     pub fn lto_module_create(path: *const ::std::os::raw::c_char) -> lto_module_t;
 }
 unsafe extern "C" {
-    pub fn lto_module_create_from_memory(
-        mem: *const ::std::os::raw::c_void,
-        length: usize,
-    ) -> lto_module_t;
+    pub fn lto_module_create_from_memory(mem: *const ::std::os::raw::c_void, length: usize) -> lto_module_t;
 }
 unsafe extern "C" {
     pub fn lto_module_create_from_memory_with_path(
@@ -7503,10 +6958,7 @@ unsafe extern "C" {
     ) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    pub fn lto_module_get_symbol_attribute(
-        mod_: lto_module_t,
-        index: ::std::os::raw::c_uint,
-    ) -> lto_symbol_attributes;
+    pub fn lto_module_get_symbol_attribute(mod_: lto_module_t, index: ::std::os::raw::c_uint) -> lto_symbol_attributes;
 }
 unsafe extern "C" {
     pub fn lto_module_get_num_asm_undef_symbols(mod_: lto_module_t) -> ::std::os::raw::c_uint;
@@ -7531,12 +6983,9 @@ unsafe extern "C" {
     pub fn lto_module_has_ctor_dtor(mod_: lto_module_t) -> lto_bool_t;
 }
 impl lto_codegen_diagnostic_severity_t {
-    pub const LTO_DS_ERROR: lto_codegen_diagnostic_severity_t =
-        lto_codegen_diagnostic_severity_t(0);
-    pub const LTO_DS_WARNING: lto_codegen_diagnostic_severity_t =
-        lto_codegen_diagnostic_severity_t(1);
-    pub const LTO_DS_REMARK: lto_codegen_diagnostic_severity_t =
-        lto_codegen_diagnostic_severity_t(3);
+    pub const LTO_DS_ERROR: lto_codegen_diagnostic_severity_t = lto_codegen_diagnostic_severity_t(0);
+    pub const LTO_DS_WARNING: lto_codegen_diagnostic_severity_t = lto_codegen_diagnostic_severity_t(1);
+    pub const LTO_DS_REMARK: lto_codegen_diagnostic_severity_t = lto_codegen_diagnostic_severity_t(3);
     pub const LTO_DS_NOTE: lto_codegen_diagnostic_severity_t = lto_codegen_diagnostic_severity_t(2);
 }
 #[repr(transparent)]
@@ -7591,46 +7040,28 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    pub fn lto_codegen_add_must_preserve_symbol(
-        cg: lto_code_gen_t,
-        symbol: *const ::std::os::raw::c_char,
-    );
+    pub fn lto_codegen_add_must_preserve_symbol(cg: lto_code_gen_t, symbol: *const ::std::os::raw::c_char);
 }
 unsafe extern "C" {
-    pub fn lto_codegen_write_merged_modules(
-        cg: lto_code_gen_t,
-        path: *const ::std::os::raw::c_char,
-    ) -> lto_bool_t;
+    pub fn lto_codegen_write_merged_modules(cg: lto_code_gen_t, path: *const ::std::os::raw::c_char) -> lto_bool_t;
 }
 unsafe extern "C" {
-    pub fn lto_codegen_compile(
-        cg: lto_code_gen_t,
-        length: *mut usize,
-    ) -> *const ::std::os::raw::c_void;
+    pub fn lto_codegen_compile(cg: lto_code_gen_t, length: *mut usize) -> *const ::std::os::raw::c_void;
 }
 unsafe extern "C" {
-    pub fn lto_codegen_compile_to_file(
-        cg: lto_code_gen_t,
-        name: *mut *const ::std::os::raw::c_char,
-    ) -> lto_bool_t;
+    pub fn lto_codegen_compile_to_file(cg: lto_code_gen_t, name: *mut *const ::std::os::raw::c_char) -> lto_bool_t;
 }
 unsafe extern "C" {
     pub fn lto_codegen_optimize(cg: lto_code_gen_t) -> lto_bool_t;
 }
 unsafe extern "C" {
-    pub fn lto_codegen_compile_optimized(
-        cg: lto_code_gen_t,
-        length: *mut usize,
-    ) -> *const ::std::os::raw::c_void;
+    pub fn lto_codegen_compile_optimized(cg: lto_code_gen_t, length: *mut usize) -> *const ::std::os::raw::c_void;
 }
 unsafe extern "C" {
     pub fn lto_api_version() -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn lto_set_debug_options(
-        options: *const *const ::std::os::raw::c_char,
-        number: ::std::os::raw::c_int,
-    );
+    pub fn lto_set_debug_options(options: *const *const ::std::os::raw::c_char, number: ::std::os::raw::c_int);
 }
 unsafe extern "C" {
     pub fn lto_codegen_debug_options(cg: lto_code_gen_t, arg1: *const ::std::os::raw::c_char);
@@ -7649,10 +7080,7 @@ unsafe extern "C" {
     pub fn lto_codegen_set_should_internalize(cg: lto_code_gen_t, ShouldInternalize: lto_bool_t);
 }
 unsafe extern "C" {
-    pub fn lto_codegen_set_should_embed_uselists(
-        cg: lto_code_gen_t,
-        ShouldEmbedUselists: lto_bool_t,
-    );
+    pub fn lto_codegen_set_should_embed_uselists(cg: lto_code_gen_t, ShouldEmbedUselists: lto_bool_t);
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -7710,10 +7138,7 @@ unsafe extern "C" {
     pub fn thinlto_module_get_num_objects(cg: thinlto_code_gen_t) -> ::std::os::raw::c_uint;
 }
 unsafe extern "C" {
-    pub fn thinlto_module_get_object(
-        cg: thinlto_code_gen_t,
-        index: ::std::os::raw::c_uint,
-    ) -> LTOObjectBuffer;
+    pub fn thinlto_module_get_object(cg: thinlto_code_gen_t, index: ::std::os::raw::c_uint) -> LTOObjectBuffer;
 }
 unsafe extern "C" {
     pub fn thinlto_module_get_num_object_files(cg: thinlto_code_gen_t) -> ::std::os::raw::c_uint;
@@ -7725,22 +7150,13 @@ unsafe extern "C" {
     ) -> *const ::std::os::raw::c_char;
 }
 unsafe extern "C" {
-    pub fn thinlto_codegen_set_pic_model(
-        cg: thinlto_code_gen_t,
-        arg1: lto_codegen_model,
-    ) -> lto_bool_t;
+    pub fn thinlto_codegen_set_pic_model(cg: thinlto_code_gen_t, arg1: lto_codegen_model) -> lto_bool_t;
 }
 unsafe extern "C" {
-    pub fn thinlto_codegen_set_savetemps_dir(
-        cg: thinlto_code_gen_t,
-        save_temps_dir: *const ::std::os::raw::c_char,
-    );
+    pub fn thinlto_codegen_set_savetemps_dir(cg: thinlto_code_gen_t, save_temps_dir: *const ::std::os::raw::c_char);
 }
 unsafe extern "C" {
-    pub fn thinlto_set_generated_objects_dir(
-        cg: thinlto_code_gen_t,
-        save_temps_dir: *const ::std::os::raw::c_char,
-    );
+    pub fn thinlto_set_generated_objects_dir(cg: thinlto_code_gen_t, save_temps_dir: *const ::std::os::raw::c_char);
 }
 unsafe extern "C" {
     pub fn thinlto_codegen_set_cpu(cg: thinlto_code_gen_t, cpu: *const ::std::os::raw::c_char);
@@ -7752,10 +7168,7 @@ unsafe extern "C" {
     pub fn thinlto_codegen_set_codegen_only(cg: thinlto_code_gen_t, codegen_only: lto_bool_t);
 }
 unsafe extern "C" {
-    pub fn thinlto_debug_options(
-        options: *const *const ::std::os::raw::c_char,
-        number: ::std::os::raw::c_int,
-    );
+    pub fn thinlto_debug_options(options: *const *const ::std::os::raw::c_char, number: ::std::os::raw::c_int);
 }
 unsafe extern "C" {
     pub fn lto_module_is_thinlto(mod_: lto_module_t) -> lto_bool_t;
@@ -7775,16 +7188,10 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    pub fn thinlto_codegen_set_cache_dir(
-        cg: thinlto_code_gen_t,
-        cache_dir: *const ::std::os::raw::c_char,
-    );
+    pub fn thinlto_codegen_set_cache_dir(cg: thinlto_code_gen_t, cache_dir: *const ::std::os::raw::c_char);
 }
 unsafe extern "C" {
-    pub fn thinlto_codegen_set_cache_pruning_interval(
-        cg: thinlto_code_gen_t,
-        interval: ::std::os::raw::c_int,
-    );
+    pub fn thinlto_codegen_set_cache_pruning_interval(cg: thinlto_code_gen_t, interval: ::std::os::raw::c_int);
 }
 unsafe extern "C" {
     pub fn thinlto_codegen_set_final_cache_size_relative_to_available_space(
@@ -7793,26 +7200,14 @@ unsafe extern "C" {
     );
 }
 unsafe extern "C" {
-    pub fn thinlto_codegen_set_cache_entry_expiration(
-        cg: thinlto_code_gen_t,
-        expiration: ::std::os::raw::c_uint,
-    );
+    pub fn thinlto_codegen_set_cache_entry_expiration(cg: thinlto_code_gen_t, expiration: ::std::os::raw::c_uint);
 }
 unsafe extern "C" {
-    pub fn thinlto_codegen_set_cache_size_bytes(
-        cg: thinlto_code_gen_t,
-        max_size_bytes: ::std::os::raw::c_uint,
-    );
+    pub fn thinlto_codegen_set_cache_size_bytes(cg: thinlto_code_gen_t, max_size_bytes: ::std::os::raw::c_uint);
 }
 unsafe extern "C" {
-    pub fn thinlto_codegen_set_cache_size_megabytes(
-        cg: thinlto_code_gen_t,
-        max_size_megabytes: ::std::os::raw::c_uint,
-    );
+    pub fn thinlto_codegen_set_cache_size_megabytes(cg: thinlto_code_gen_t, max_size_megabytes: ::std::os::raw::c_uint);
 }
 unsafe extern "C" {
-    pub fn thinlto_codegen_set_cache_size_files(
-        cg: thinlto_code_gen_t,
-        max_size_files: ::std::os::raw::c_uint,
-    );
+    pub fn thinlto_codegen_set_cache_size_files(cg: thinlto_code_gen_t, max_size_files: ::std::os::raw::c_uint);
 }

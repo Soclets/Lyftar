@@ -26,8 +26,14 @@ fn main() -> Result<(), String> {
 
     let library_directory = run(&llvm_config, &["--libdir"])?;
     println!("cargo:rustc-link-search=native={library_directory}");
-    for library in run(&llvm_config, &["--link-shared", "--libs"])?.split_whitespace() {
-        // `-lLLVM` on Unix, and `LLVM-C.lib` on Windows.
+    // Windows' official download has no shared LLVM, only static libraries, and those need the system's libraries too.
+    let libraries = if run(&llvm_config, &["--shared-mode"])? == "static" {
+        run(&llvm_config, &["--link-static", "--libs", "--system-libs"])?
+    } else {
+        run(&llvm_config, &["--link-shared", "--libs"])?
+    };
+    for library in libraries.split_whitespace() {
+        // `-lLLVM` on Unix, and `LLVMCore.lib` on Windows.
         let name = library
             .strip_prefix("-l")
             .or_else(|| library.strip_suffix(".lib"))
@@ -48,13 +54,18 @@ fn main() -> Result<(), String> {
 
 // trace: D25
 fn compile_shim(llvm_config: &Path) -> Result<(), String> {
+    let is_msvc = std::env::var("CARGO_CFG_TARGET_ENV").is_ok_and(|environment| environment == "msvc");
     let mut shim = cc::Build::new();
     shim.cpp(true)
         .file("shim/shim.cpp")
         .file("shim/passes.cpp")
         .warnings(true)
         .extra_warnings(true)
-        .warnings_into_errors(true);
+        .warnings_into_errors(!is_msvc);
+    // Windows' official LLVM is built with the static C runtime, and everything linked with it has to match.
+    if is_msvc {
+        shim.static_crt(true);
+    }
     // A plugin built with another compiler against Homebrew's libc++ LLVM crashed `opt` (D25), so on macOS the shim is
     // always built with the Clang beside the LLVM it links.
     if cfg!(target_os = "macos") {
@@ -64,12 +75,12 @@ fn compile_shim(llvm_config: &Path) -> Result<(), String> {
     for flag in run(llvm_config, &["--cxxflags"])?.split_whitespace() {
         if let Some(directory) = flag.strip_prefix("-I") {
             // LLVM's own headers do not build under the shim's warnings.
-            shim.flag("-isystem").flag(directory);
-        } else if !flag.starts_with("-std=") {
+            shim.flag(if is_msvc { "/imsvc" } else { "-isystem" }).flag(directory);
+        } else if !flag.starts_with("-std=") && !flag.starts_with("-std:") {
             shim.flag(flag);
         }
     }
-    shim.flag("-std=c++23");
+    shim.flag(if is_msvc { "/std:c++latest" } else { "-std=c++23" });
     shim.define("_LIBCPP_HARDENING_MODE", "_LIBCPP_HARDENING_MODE_FAST");
     // LLVM's inline code keeps its assertions in a debug build of the shim, which catches a broken contract early.
     if std::env::var("PROFILE").is_ok_and(|profile| profile == "release") {

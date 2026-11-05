@@ -1,6 +1,9 @@
 # trace: D13, D14
-# Linux and Windows generate their bindings during the build; macOS checks that the committed ones are current. This workflow
-# has not been run yet, so treat a first failure here as news about the workflow as much as about the code.
+# Linux and Windows generate their bindings during the build; macOS checks that the committed ones are current.
+#
+# rustc words some type names differently per platform, as `Value` or `lyftar::Value`, so the exact text of each compile-fail
+# error is only checked on macOS, where it is committed. `TRYBUILD=overwrite` elsewhere still fails if one of those programs
+# compiles.
 name: ci
 
 on:
@@ -24,6 +27,8 @@ jobs:
           sudo apt-get install -y llvm-23-dev libclang-23-dev libpolly-23-dev libzstd-dev zlib1g-dev
           echo "LYFTAR_LLVM_CONFIG=/usr/bin/llvm-config-23" >> "$GITHUB_ENV"
           echo "LIBCLANG_PATH=/usr/lib/llvm-23/lib" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=/usr/lib/llvm-23/lib" >> "$GITHUB_ENV"
+          echo "TRYBUILD=overwrite" >> "$GITHUB_ENV"
           echo "CXX=clang++-23" >> "$GITHUB_ENV"
       - run: cargo build --all-targets
       - run: cargo test --no-fail-fast
@@ -42,7 +47,9 @@ jobs:
           root="$(pwd -W)/${name}"
           echo "LYFTAR_LLVM_CONFIG=${root}/bin/llvm-config.exe" >> "$GITHUB_ENV"
           echo "LIBCLANG_PATH=${root}/bin" >> "$GITHUB_ENV"
-          echo "CXX=${root}/bin/clang++.exe" >> "$GITHUB_ENV"
+          echo "CXX=${root}/bin/clang-cl.exe" >> "$GITHUB_ENV"
+          echo "RUSTFLAGS=-C target-feature=+crt-static" >> "$GITHUB_ENV"
+          echo "TRYBUILD=overwrite" >> "$GITHUB_ENV"
           echo "${root}/bin" >> "$GITHUB_PATH"
       - run: cargo build --all-targets
       - run: cargo test --no-fail-fast

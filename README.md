@@ -10,7 +10,9 @@ assumes about LLVM in [ASSUMPTIONS.md](ASSUMPTIONS.md).
 
 LLVM 23 with its `llvm-config`, found on `PATH`, at Homebrew's `llvm`, or through `LYFTAR_LLVM_CONFIG`. `build.rs` stops with
 a clear error on any other version. macOS uses the committed bindings. Linux and Windows generate theirs during the build and
-need `libclang` for it, and neither has been run yet.
+need `libclang` for it. On Linux, a program using Lyftar also needs LLVM's library directory on its library path, for `libLTO`,
+such as through `LD_LIBRARY_PATH`. Windows links LLVM statically, with the static C runtime: build with
+`RUSTFLAGS="-C target-feature=+crt-static"`, and use `clang-cl` as the C++ compiler.
 
 ## Building a function
 
