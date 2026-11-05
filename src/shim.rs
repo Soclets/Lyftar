@@ -25,6 +25,11 @@ unsafe extern "C" {
     pub fn lyftar_value_can_replace_uses(value: LLVMValueRef, replacement: LLVMValueRef) -> bool;
     pub fn lyftar_value_has_constant_user(value: LLVMValueRef) -> bool;
     pub fn lyftar_replacing_keeps_metadata(value: LLVMValueRef, replacement: LLVMValueRef) -> bool;
+    pub fn lyftar_replace_find_conflict(
+        old_values: *const LLVMValueRef,
+        new_values: *const LLVMValueRef,
+        count: usize,
+    ) -> LLVMValueRef;
     pub fn lyftar_value_is_erasable(value: LLVMValueRef) -> bool;
     pub fn lyftar_value_is_context_constant(value: LLVMValueRef) -> bool;
     pub fn lyftar_value_is_in_function(value: LLVMValueRef, function: LLVMValueRef) -> bool;

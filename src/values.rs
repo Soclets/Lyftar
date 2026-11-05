@@ -564,7 +564,9 @@ impl<'context, 'module, T> Value<'context, 'module, T> {
     /// Replaces every use of this value with `replacement`.
     ///
     /// This takes only a shared borrow, so it refuses when LLVM would delete something in doing it, which a `Value` or
-    /// `Metadata` might still point at: a constant that uses this value, or the metadata around it.
+    /// `Metadata` might still point at: a constant that uses this value, or the metadata around it. For those,
+    /// [`Module::replacement_to_make`](crate::Module::replacement_to_make) and [`Module::replace`](crate::Module::replace)
+    /// take exclusive access, so nothing can be held across them (D34).
     ///
     /// # Panics
     /// If the two types differ, if this value belongs only to the context, whose uses can be in any module, if a constant
@@ -591,14 +593,16 @@ impl<'context, 'module, T> Value<'context, 'module, T> {
         // SAFETY: both are live, and the check above means this one keeps a use list.
         if unsafe { shim::lyftar_value_has_constant_user(self.raw) } {
             bad_call(format_args!(
-                "replace_all_uses_with: a constant uses {}, and LLVM would delete that constant",
+                "replace_all_uses_with: a constant uses {}, and LLVM can delete that constant; \
+                 Module::replacement_to_make and Module::replace do this with exclusive access",
                 self.describe()
             ));
         }
         // SAFETY: both are live.
         if unsafe { !shim::lyftar_replacing_keeps_metadata(self.raw, replacement.raw) } {
             bad_call(format_args!(
-                "replace_all_uses_with: metadata refers to {}, and LLVM would delete it for {}",
+                "replace_all_uses_with: metadata refers to {}, and LLVM can delete it for {}; \
+                 Module::replacement_to_make and Module::replace do this with exclusive access",
                 self.describe(),
                 replacement.describe()
             ));

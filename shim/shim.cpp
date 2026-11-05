@@ -242,8 +242,9 @@ extern "C" bool lyftar_value_can_replace_uses(LLVMValueRef value,
 }
 
 // Contract: `value` keeps a use list. Returns whether a constant other than a
-// global uses it. Replacing `value` has LLVM delete such a constant, which Rust
-// may be holding under only a shared borrow. trace: D11
+// global uses it. Replacing `value` can have LLVM delete such a constant, which
+// Rust may be holding under only a shared borrow. It does when what the
+// constant would become exists already. trace: D11
 extern "C" bool lyftar_value_has_constant_user(LLVMValueRef value) {
   require(value != nullptr, "lyftar_value_has_constant_user: null value");
   const Value *checked = unwrap(value);
@@ -283,6 +284,57 @@ extern "C" bool lyftar_replacing_keeps_metadata(LLVMValueRef value,
   return localFunction(old_value) == localFunction(new_value);
 }
 
+// Contract: `old_values` and `new_values` each have `count` live values, to be
+// replaced in order. Replacing a value can have LLVM delete the constants that
+// use it, so this returns the first of these values that is such a constant,
+// for a value the list replaces, or null. A global isn't deleted that way, and
+// neither is what it holds. trace: D34
+extern "C" LLVMValueRef
+lyftar_replace_find_conflict(const LLVMValueRef *old_values,
+                             const LLVMValueRef *new_values, size_t count) {
+  require((old_values != nullptr && new_values != nullptr) || count == 0,
+          "lyftar_replace_find_conflict: null list");
+  const ArrayRef<LLVMValueRef> olds(old_values, count);
+  const ArrayRef<LLVMValueRef> news(new_values, count);
+  SmallPtrSet<const Value *, 16> replaced;
+  for (LLVMValueRef old_value : olds) {
+    replaced.insert(unwrap(old_value));
+  }
+  const auto usesAReplacedValue = [&replaced](const Value *root) {
+    const auto *constant = dyn_cast<Constant>(root);
+    if (constant == nullptr || isa<GlobalValue>(constant)) {
+      return false;
+    }
+    SmallVector<const Constant *, 8> work{constant};
+    SmallPtrSet<const Constant *, 8> seen;
+    while (!work.empty()) {
+      const Constant *current = work.pop_back_val();
+      if (!seen.insert(current).second) {
+        continue;
+      }
+      for (const Use &operand : current->operands()) {
+        const auto *next = dyn_cast<Constant>(operand.get());
+        if (replaced.contains(operand.get())) {
+          return true;
+        }
+        if (next != nullptr && !isa<GlobalValue>(next)) {
+          work.push_back(next);
+        }
+      }
+    }
+    return false;
+  };
+  for (size_t index = 0; index < count; ++index) {
+    if (usesAReplacedValue(unwrap(olds[index]))) {
+      return olds[index];
+    }
+    if (usesAReplacedValue(unwrap(news[index]))) {
+      return news[index];
+    }
+  }
+  return nullptr;
+}
+
 // Contract: returns whether LLVM lets an operand of `value` change. A constant
 // other than a global is shared across its context, so LLVM keeps its operands
 // fixed.
@@ -292,8 +344,8 @@ extern "C" bool lyftar_value_operands_can_change(LLVMValueRef value) {
   return !isa<Constant>(checked) || isa<GlobalValue>(checked);
 }
 
-// Contract: `function` is a function. Returns whether `value` is an instruction
-// or block in that function. trace: D11
+// Contract: `function` is a function. Returns whether `value` is an
+// instruction, block or argument in that function. trace: D11
 extern "C" bool lyftar_value_is_in_function(LLVMValueRef value,
                                             LLVMValueRef function) {
   require(value != nullptr && function != nullptr,
@@ -304,6 +356,9 @@ extern "C" bool lyftar_value_is_in_function(LLVMValueRef value,
   }
   if (const auto *block = dyn_cast<BasicBlock>(unwrap(value))) {
     return block->getParent() == wanted;
+  }
+  if (const auto *argument = dyn_cast<Argument>(unwrap(value))) {
+    return argument->getParent() == wanted;
   }
   return false;
 }

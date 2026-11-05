@@ -287,3 +287,85 @@ fn decision_11_metadata_around_a_value_moves_to_its_replacement_and_stays_alive(
         assert_eq!(module.verify(), Ok(()));
     });
 }
+
+#[test]
+fn decision_34_a_global_a_constant_uses_can_be_replaced_with_exclusive_access() {
+    with_context(|context| {
+        let mut module = context
+            .parse_ir_text(
+                "@first = global i64 0\n@second = global i64 0\n\
+                 @address = global i64 ptrtoint (ptr @first to i64)\n\
+                 define i64 @f() {\n ret i64 ptrtoint (ptr @first to i64)\n}",
+            )
+            .expect("good IR");
+        let entry = {
+            let first = module.get_global("first").expect("the global");
+            let second = module.get_global("second").expect("the global");
+            module.replacement_to_make(first, second)
+        };
+        module.replace(&[entry]);
+        assert_eq!(module.verify(), Ok(()));
+        let text = module.print_to_string();
+        assert!(text.contains("@address = global i64 ptrtoint (ptr @second to i64)"), "{text}");
+        assert!(text.contains("ret i64 ptrtoint (ptr @second to i64)"), "{text}");
+    });
+}
+
+#[test]
+fn decision_34_a_value_wrapped_in_metadata_can_become_a_constant_with_exclusive_access() {
+    with_context(|context| {
+        let mut module = context.parse_ir_text(IR).expect("the test's IR");
+        let entry = {
+            let y = instruction_named(&module, "f", "y");
+            let _wrapped = y.as_metadata();
+            module.replacement_to_make(y, context.get_type::<I64>().constant_integer(9, false))
+        };
+        module.replace(&[entry]);
+        assert_eq!(module.verify(), Ok(()));
+        assert!(module.print_to_string().contains("%z = add i64 9, 2"), "{}", module.print_to_string());
+    });
+}
+
+#[test]
+fn decision_34_replacements_happen_in_order() {
+    with_context(|context| {
+        let mut module = context.parse_ir_text(IR).expect("the test's IR");
+        let entries = {
+            let y = instruction_named(&module, "f", "y");
+            let z = instruction_named(&module, "f", "z");
+            let parameter = module.get_function("f").expect("the function").parameter(0);
+            // The uses of %y go to %z, and then the uses of %z go to the parameter.
+            [module.replacement_to_make(y, z), module.replacement_to_make(z, parameter)]
+        };
+        module.replace(&entries);
+        assert_eq!(module.verify(), Ok(()));
+        let text = module.print_to_string();
+        assert!(text.contains("ret i64 %x"), "{text}");
+        assert!(text.contains("%z = add i64 %x, 2"), "{text}");
+    });
+}
+
+#[test]
+fn decision_34_a_handle_says_whether_a_replacement_deleted_a_constant() {
+    const WITHOUT_THE_NEW_FORM: &str = "@first = global i64 0\n@second = global i64 0\n\
+                                        @address = global i64 ptrtoint (ptr @first to i64)";
+    const WITH_THE_NEW_FORM: &str = "@first = global i64 0\n@second = global i64 0\n\
+                                     @address = global i64 ptrtoint (ptr @first to i64)\n\
+                                     @already = global i64 ptrtoint (ptr @second to i64)";
+    for (ir, deleted) in [(WITHOUT_THE_NEW_FORM, false), (WITH_THE_NEW_FORM, true)] {
+        with_context(|context| {
+            let mut module = context.parse_ir_text(ir).expect("good IR");
+            let (entry, handle) = {
+                let first = module.get_global("first").expect("the global");
+                let second = module.get_global("second").expect("the global");
+                let address = module.get_global("address").expect("the global");
+                let constant = address.initializer().expect("an initializer");
+                (module.replacement_to_make(first, second), module.track(constant))
+            };
+            assert!(handle.is_present());
+            module.replace(&[entry]);
+            assert_eq!(handle.is_present(), !deleted);
+            assert_eq!(module.verify(), Ok(()));
+        });
+    }
+}

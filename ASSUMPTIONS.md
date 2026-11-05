@@ -18,10 +18,14 @@ If one turns out false, the safety promise named beside it falls with it.
   closed. LLVM's `strip` passes clear what `llvm.used` held, so an aggregate of plain constants used only there, and held
   in Rust across that pass, could go. This is from reading what those passes are documented to do, not from a test.
 - **A shared call to LLVM deletes nothing a `Value` can point at**, except the two cases `replace_all_uses_with` refuses:
-  - It destroys a constant other than a global that uses the value being replaced.
+  - It can destroy a constant other than a global that uses the value being replaced. Seen against the real library: it
+    changes the constant in place, unless what the constant would become exists already.
   - LLVM moves that metadata in place only when the replacement has no metadata of its own, and the two are both constants
     or local to one function. In every other case it deletes the metadata. `ValueAsMetadata::handleRAUW` isn't in the
     headers; `tests/decision_11_deletion.rs` sees the in-place case hold.
+- **`Module::replace` holds exclusive access, so LLVM can delete those.** What it can't cover is a constant in its own list,
+  which LLVM could delete midway, so `lyftar_replace_find_conflict` refuses that list. A constant that uses a module's value
+  has the module's lifetime, so nothing with `'static` can be among what goes.
 - **A uniqued metadata node is deleted only when it is unresolved** and an operand changes, which
   `lyftar_metadata_node_can_change_operand` checks.
 - **Erasing a block.** A block address is rewritten by LLVM when its block goes, and `removeDeadConstantUsers` clears only

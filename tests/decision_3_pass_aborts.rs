@@ -124,6 +124,37 @@ impl FunctionPass for ErasesElsewhereByBlock {
     }
 }
 
+struct ReplacesElsewhereByValue;
+
+impl FunctionPass for ReplacesElsewhereByValue {
+    fn run<'context>(
+        &mut self,
+        function: &mut FunctionInPass<'context>,
+        _analyses: &Analyses<'_>,
+    ) -> PreservedAnalyses {
+        let elsewhere = function.module().get_function("other").expect("the function").parameter(0);
+        let _ = function.replacement_to_make(elsewhere, function.function().parameter(0));
+        PreservedAnalyses::None
+    }
+}
+
+struct ReplacesElsewhereThroughTheModule;
+
+impl FunctionPass for ReplacesElsewhereThroughTheModule {
+    fn run<'context>(
+        &mut self,
+        function: &mut FunctionInPass<'context>,
+        _analyses: &Analyses<'_>,
+    ) -> PreservedAnalyses {
+        let entry = {
+            let elsewhere = function.module().get_function("other").expect("the function").parameter(0);
+            function.module().replacement_to_make(elsewhere, function.function().parameter(0))
+        };
+        function.replace(&[entry]);
+        PreservedAnalyses::None
+    }
+}
+
 struct ErasesElsewhereThroughTheModule;
 impl FunctionPass for ErasesElsewhereThroughTheModule {
     fn run<'context>(
@@ -215,6 +246,8 @@ fn run_case(name: &str) {
         "erases_elsewhere_by_value" => run_function_pass(|| ErasesElsewhereByValue),
         "erases_elsewhere_by_block" => run_function_pass(|| ErasesElsewhereByBlock),
         "erases_elsewhere_through_the_module" => run_function_pass(|| ErasesElsewhereThroughTheModule),
+        "replaces_elsewhere_by_value" => run_function_pass(|| ReplacesElsewhereByValue),
+        "replaces_elsewhere_through_the_module" => run_function_pass(|| ReplacesElsewhereThroughTheModule),
         "inlines_elsewhere" => run_function_pass(|| InlinesElsewhere),
         "analyses_for_another_module" => run_module_pass(|| AnalysesForAnotherModule),
         "analyses_of_a_declaration" => run_module_pass(|| AnalysesOfADeclaration),
@@ -310,4 +343,20 @@ fn decision_3_a_block_from_another_function_stops_loop_info() {
 #[test]
 fn decision_11_a_pass_that_replaces_its_module_stops() {
     aborts_with("replaces_its_module", "a module pass replaced its module with another");
+}
+
+#[test]
+fn decision_34_a_function_pass_replacing_elsewhere_aborts() {
+    aborts_with(
+        "replaces_elsewhere_by_value",
+        "replacement_to_make: a function pass can only replace in its own function, and",
+    );
+}
+
+#[test]
+fn decision_34_a_function_pass_replacing_elsewhere_through_its_module_aborts() {
+    aborts_with(
+        "replaces_elsewhere_through_the_module",
+        "replace: a function pass can only replace in its own function, and this entry is from elsewhere",
+    );
 }

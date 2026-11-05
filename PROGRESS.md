@@ -30,8 +30,6 @@ hang without them.
   `Type`/`Value` until answered.
 - Spelling of the value markers (`Value<Function>`, `Value<GlobalVariable>`, `Value<Instruction>`) and of `Block`. Design claude
   is taking these to the owner as well, so they stay easy to rename.
-- `replace_all_uses_with` takes a shared borrow, and LLVM would delete constants that use the value, or metadata around it, in
-  some cases. It panics there. Whether there should be an exclusive form for those cases is the owner's call; it is unbuilt.
 
 ## Untested
 

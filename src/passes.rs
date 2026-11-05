@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 use crate::bad_call::bad_call;
 use crate::block::Block;
 use crate::error::Error;
-use crate::module::{Module, TrackedHandle, ValueToErase};
+use crate::module::{Module, ReplacementToMake, TrackedHandle, ValueToErase};
 use crate::raw;
 use crate::shim;
 use crate::target::TargetMachine;
@@ -54,6 +54,48 @@ impl<'context> FunctionInPass<'context> {
     pub fn function(&self) -> Value<'context, '_, Function> {
         // SAFETY: LLVM gave the pass this function; it lives as long as this borrow, since only `&mut self` can erase.
         unsafe { Value::from_raw(self.function) }
+    }
+
+    // trace: D34
+    /// Chooses a replacement for [`FunctionInPass::replace`], of an instruction or argument of this function.
+    ///
+    /// # Panics
+    /// As [`Module::replacement_to_make`], and if `old` isn't in this function (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn replacement_to_make<T, U>(
+        &self,
+        old: Value<'context, '_, T>,
+        new: Value<'context, '_, U>,
+    ) -> ReplacementToMake {
+        // SAFETY: the value is live; the shim only reads it.
+        if !unsafe { shim::lyftar_value_is_in_function(old.raw, self.function) } {
+            bad_call(format_args!(
+                "replacement_to_make: a function pass can only replace in its own function, and {} isn't there",
+                old.describe()
+            ));
+        }
+        self.module.replacement_to_make(old, new)
+    }
+
+    // trace: D34
+    /// Makes these replacements, as [`Module::replace`] does.
+    ///
+    /// # Panics
+    /// As [`Module::replace`], and if an entry wasn't chosen for this function (D3).
+    #[track_caller]
+    pub fn replace(&mut self, entries: &[ReplacementToMake]) {
+        // A stale entry may be dangling, so this asks of it only after `Module::replace` would have refused it.
+        self.module.check_replacements_are_current(entries);
+        for entry in entries {
+            // SAFETY: the entry is current, so its value is live; the shim only reads it.
+            if !unsafe { shim::lyftar_value_is_in_function(entry.old, self.function) } {
+                bad_call(format_args!(
+                    "replace: a function pass can only replace in its own function, and this entry is from elsewhere"
+                ));
+            }
+        }
+        self.module.replace(entries);
     }
 
     /// The function's module, to read and to build in. Erasing from it needs [`FunctionInPass::erase`].

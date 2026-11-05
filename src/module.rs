@@ -53,6 +53,18 @@ pub struct ValueToErase {
     generation: u64,
 }
 
+// trace: D34
+/// A replacement chosen for [`Module::replace`], from [`Module::replacement_to_make`].
+///
+/// It remembers the module's generation when it was made, and [`Module::replace`] panics if anything exclusive has happened
+/// to the module since, because that could have deleted what it points at.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ReplacementToMake {
+    pub(crate) old: raw::LLVMValueRef,
+    new: raw::LLVMValueRef,
+    generation: u64,
+}
+
 /// A handle that survives changes to its module and says whether its value is still there, built on LLVM's `WeakVH`
 /// (D11). It carries no module borrow, so it can be held across a delete or a pass run.
 pub struct TrackedHandle<'context, T> {
@@ -379,6 +391,90 @@ impl<'context> Module<'context> {
         self.bump_generation();
         // SAFETY: just checked what the shim's contract says, and exclusive access means no `Value` is left to dangle.
         unsafe { shim::lyftar_erase_values(values.as_ptr(), values.len()) };
+    }
+
+    #[track_caller]
+    pub(crate) fn check_replacements_are_current(&self, entries: &[ReplacementToMake]) {
+        for entry in entries {
+            if !checks::entry_is_current(entry.generation, self.generation) {
+                bad_call(format_args!(
+                    "replace: this entry is stale: it was chosen before something exclusive happened to this module, \
+                     or it came from another module"
+                ));
+            }
+        }
+    }
+
+    // trace: D34
+    /// Chooses a replacement for [`Module::replace`]: every use of `old` becomes `new`.
+    ///
+    /// # Panics
+    /// If the two types differ, if `old` is `new`, or if either belongs to another module, or `old` belongs only to the
+    /// context, whose uses can be in any module (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn replacement_to_make<T, U>(
+        &self,
+        old: Value<'context, '_, T>,
+        new: Value<'context, '_, U>,
+    ) -> ReplacementToMake {
+        self.check_owns("replacement_to_make", old);
+        self.check_owns("replacement_to_make", new);
+        // SAFETY: both are live.
+        let (old_type, new_type) = unsafe { (raw::LLVMTypeOf(old.raw), raw::LLVMTypeOf(new.raw)) };
+        if !checks::same_identity(old_type as usize, new_type as usize) {
+            bad_call(format_args!(
+                "replacement_to_make: {} and {} have different types",
+                old.describe(),
+                new.describe()
+            ));
+        }
+        // SAFETY: both are live; the shim only reads them.
+        if unsafe { !shim::lyftar_value_can_replace_uses(old.raw, new.raw) } {
+            bad_call(format_args!(
+                "replacement_to_make: can't replace the uses of {} with {}",
+                old.describe(),
+                new.describe()
+            ));
+        }
+        ReplacementToMake { old: old.raw, new: new.raw, generation: self.generation }
+    }
+
+    // trace: D34
+    /// Makes these replacements in order, so the uses of the first can be replaced again by the second.
+    ///
+    /// This is the form for what [`Value::replace_all_uses_with`] refuses. LLVM can delete the constants that use a replaced
+    /// value, and the metadata around it, and exclusive access means nothing is left to dangle.
+    ///
+    /// # Panics
+    /// If an entry is stale, or is from another module, if the list replaces one value twice, or if a constant the list
+    /// names uses a value the list replaces, since LLVM could delete it midway (D3).
+    #[track_caller]
+    pub fn replace(&mut self, entries: &[ReplacementToMake]) {
+        self.check_replacements_are_current(entries);
+        let mut addresses: Vec<usize> = entries.iter().map(|entry| entry.old as usize).collect();
+        addresses.sort_unstable();
+        if !checks::sorted_has_no_duplicates(&addresses) {
+            bad_call(format_args!("replace: the list replaces the same value twice"));
+        }
+        let olds: Vec<raw::LLVMValueRef> = entries.iter().map(|entry| entry.old).collect();
+        let news: Vec<raw::LLVMValueRef> = entries.iter().map(|entry| entry.new).collect();
+        // SAFETY: each entry is current, so its values are live; the shim only reads them.
+        let conflict = unsafe { shim::lyftar_replace_find_conflict(olds.as_ptr(), news.as_ptr(), olds.len()) };
+        if !conflict.is_null() {
+            // SAFETY: the shim found this among the live values.
+            let conflict: Value<'context, '_> = unsafe { Value::from_raw(conflict) };
+            bad_call(format_args!(
+                "replace: {} uses a value this list replaces, and LLVM could delete it midway",
+                conflict.describe()
+            ));
+        }
+        self.bump_generation();
+        for entry in entries {
+            // SAFETY: `replacement_to_make` checked what LLVM asserts, the check above means the replacing so far has deleted
+            // neither value, and exclusive access means no `Value` is left to dangle.
+            unsafe { raw::LLVMReplaceAllUsesWith(entry.old, entry.new) };
+        }
     }
 
     // trace: D11

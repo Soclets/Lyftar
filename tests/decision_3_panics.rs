@@ -1879,7 +1879,7 @@ fn decision_3_a_symbol_cursor_past_the_end_panics() {
 // ---- Replacing, where LLVM would delete what Rust may hold ----
 
 #[test]
-#[should_panic(expected = "replace_all_uses_with: a constant uses @first, and LLVM would delete that constant")]
+#[should_panic(expected = "replace_all_uses_with: a constant uses @first, and LLVM can delete that constant")]
 fn decision_11_replacing_a_global_a_constant_uses_panics() {
     with_context(|context| {
         let module = context.parse_ir_text("@first = global i64 0\n@second = global i64 0").expect("good IR");
@@ -1929,6 +1929,106 @@ fn decision_11_replacing_a_context_constant_panics() {
         let first = context.constant_struct(&[i64_type.constant_integer(1, false)], false);
         let second = context.constant_struct(&[i64_type.constant_integer(2, false)], false);
         first.replace_all_uses_with(second);
+    });
+}
+
+// ---- Replacing with exclusive access (D34) ----
+
+const TWO_FUNCTIONS: &str = "define i64 @f(i64 %x) {\n %y = add i64 %x, 1\n ret i64 %y\n}\n\
+                             define i8 @g(i8 %small) {\n ret i8 %small\n}";
+
+#[test]
+#[should_panic(expected = "replacement_to_make: i64 %x and i8 %small have different types")]
+fn decision_34_a_replacement_of_another_type_panics() {
+    with_context(|context| {
+        let module = context.parse_ir_text(TWO_FUNCTIONS).expect("good IR");
+        let x = module.get_function("f").expect("the function").parameter(0);
+        let small = module.get_function("g").expect("the function").parameter(0);
+        let _ = module.replacement_to_make(x, small);
+    });
+}
+
+#[test]
+#[should_panic(expected = "replacement_to_make: can't replace the uses of i64 %x with i64 %x")]
+fn decision_34_replacing_a_value_with_itself_panics() {
+    with_context(|context| {
+        let module = context.parse_ir_text(TWO_FUNCTIONS).expect("good IR");
+        let x = module.get_function("f").expect("the function").parameter(0);
+        let _ = module.replacement_to_make(x, x);
+    });
+}
+
+#[test]
+#[should_panic(expected = "replacement_to_make: can't replace the uses of { i64 } { i64 1 } with")]
+fn decision_34_replacing_a_context_constant_panics() {
+    with_context(|context| {
+        let module = context.create_module("m");
+        let i64_type = context.get_type::<I64>();
+        let first = context.constant_struct(&[i64_type.constant_integer(1, false)], false);
+        let second = context.constant_struct(&[i64_type.constant_integer(2, false)], false);
+        let _ = module.replacement_to_make(first, second);
+    });
+}
+
+#[test]
+#[should_panic(expected = "replace: this entry is stale")]
+fn decision_34_a_stale_replacement_panics() {
+    with_context(|context| {
+        let mut module = context.parse_ir_text(TWO_FUNCTIONS).expect("good IR");
+        let entry = {
+            let function = module.get_function("f").expect("the function");
+            let y = function.function_instructions().next().expect("the add");
+            module.replacement_to_make(y, function.parameter(0))
+        };
+        module.replace(&[entry]);
+        module.replace(&[entry]);
+    });
+}
+
+#[test]
+#[should_panic(expected = "replace: the list replaces the same value twice")]
+fn decision_34_replacing_one_value_twice_panics() {
+    with_context(|context| {
+        let mut module = context.parse_ir_text(TWO_FUNCTIONS).expect("good IR");
+        let entry = {
+            let function = module.get_function("f").expect("the function");
+            let y = function.function_instructions().next().expect("the add");
+            module.replacement_to_make(y, function.parameter(0))
+        };
+        module.replace(&[entry, entry]);
+    });
+}
+
+#[test]
+#[should_panic(expected = "uses a value this list replaces, and LLVM could delete it midway")]
+fn decision_34_a_constant_in_the_list_that_uses_a_replaced_value_panics() {
+    with_context(|context| {
+        let mut module = context.parse_ir_text("@first = global i64 0\n@second = global i64 0").expect("good IR");
+        let (one, two) = {
+            let first = module.get_global("first").expect("the global");
+            let second = module.get_global("second").expect("the global");
+            let i64_type = context.get_type::<I64>();
+            let of_first = first.as_pointer().constant_pointer_to_integer(i64_type);
+            let of_second = second.as_pointer().constant_pointer_to_integer(i64_type);
+            (module.replacement_to_make(first, second), module.replacement_to_make(of_first, of_second))
+        };
+        module.replace(&[one, two]);
+    });
+}
+
+#[test]
+#[should_panic(expected = "uses a value this list replaces, and LLVM could delete it midway")]
+fn decision_34_replacing_a_value_with_a_constant_that_uses_it_panics() {
+    with_context(|context| {
+        let mut module = context.parse_ir_text("@first = global ptr null").expect("good IR");
+        let entry = {
+            let first = module.get_global("first").expect("the global");
+            let pointer = first.as_pointer();
+            let i64_type = context.get_type::<I64>();
+            let cast = pointer.constant_pointer_to_integer(i64_type).constant_integer_to_pointer(pointer.get_type());
+            module.replacement_to_make(first, cast)
+        };
+        module.replace(&[entry]);
     });
 }
 
