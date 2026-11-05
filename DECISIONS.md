@@ -178,3 +178,10 @@ that keeps LLVM's word, such as `Value<Function>`, `Value<GlobalVariable>`, `Val
 `Value<Terminator>`, `Value<PhiNode<T>>` and `Value<MetadataAsValue>`, since LLVM treats them all as values. A block is its own
 type, spelled `BasicBlock`, as LLVM's concepts keep LLVM's words (D5). Lyftar impl proposed the markers and the name `Block`;
 Claude proposed `BasicBlock`; the owner chose it: "yea". (Owner, 2026-11-05)
+
+**D36. The names Lyftar impl chose.** Specific calls and structs go up to 12 items. A specific function is added with
+`module.add_specific_function::<Function<R, (A, B)>>("name")`. `builder.call` is one name, taking a tuple for a specific function
+and a slice for a dynamic one, and a variadic call reads `builder.call(printf, ((format,), &[rest]), "")`. A block as a value is
+`Value<BasicBlockAsValue>`. D4's checked cast is `checked_cast`. A constant of a specific aggregate is built dynamically and then
+cast. D31's unknown space is plain `Value<Dynamic>`. Lyftar impl chose these; Claude listed them; the owner asked for no changes:
+"nah". (Owner, 2026-11-05)
