@@ -24,6 +24,7 @@ fn main() {
         let ret = builder.return_value(sum);
         let _ = ret;
         let machine = TargetMachine::for_host().unwrap();
+        drop(builder);
         machine.emit_to_memory_buffer(&mut module, CodeGenerationFileType::Object).unwrap();
         let _ = sum.print_to_string();
     });

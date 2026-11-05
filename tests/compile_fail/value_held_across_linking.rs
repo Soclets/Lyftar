@@ -23,6 +23,7 @@ fn main() {
         let sum = builder.integer_add(parameter, parameter, "sum");
         let ret = builder.return_value(sum);
         let _ = ret;
+        drop(builder);
         module.link_in(context.create_module("other")).unwrap();
         let _ = sum.print_to_string();
     });

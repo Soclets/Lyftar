@@ -22,6 +22,7 @@ fn main() {
         let parameter = function.parameter(0);
         let sum = builder.integer_add(parameter, parameter, "sum");
         let ret = builder.return_value(sum);
+        drop(builder);
         let chosen = [module.value_to_erase(ret)];
         module.erase(&chosen);
         let _ = block.name();

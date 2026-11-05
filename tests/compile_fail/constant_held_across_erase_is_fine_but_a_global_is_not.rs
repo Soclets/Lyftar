@@ -24,6 +24,7 @@ fn main() {
         let ret = builder.return_value(sum);
         let _ = (sum, ret);
         let global = module.add_global("g", i64_type);
+        drop(builder);
         let chosen = [module.value_to_erase(global)];
         module.erase(&chosen);
         let _ = global.name();

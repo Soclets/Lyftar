@@ -9,7 +9,7 @@ warning: variable does not need to be mutable
    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
 
 error[E0505]: cannot move out of `module` because it is borrowed
-  --> tests/compile_fail/module_dropped_with_a_value_held.rs:26:14
+  --> tests/compile_fail/module_dropped_with_a_value_held.rs:27:14
    |
 16 |         let mut module = context.create_module("m");
    |             ---------- binding `module` declared here
@@ -17,8 +17,7 @@ error[E0505]: cannot move out of `module` because it is borrowed
 19 |         let function = module.add_function("f", function_type);
    |                        ------ borrow of `module` occurs here
 ...
-26 |         drop(module);
+27 |         drop(module);
    |              ^^^^^^ move out of `module` occurs here
-27 |         let _ = sum.print_to_string();
-28 |     });
-   |     - borrow might be used here, when `builder` is dropped and runs the `Drop` code for type `lyftar::Builder`
+28 |         let _ = sum.print_to_string();
+   |                 --- borrow later used here

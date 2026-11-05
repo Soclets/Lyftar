@@ -26,6 +26,7 @@ fn main() {
         builder.position_before(ret);
         let call = builder.call(function, &[sum], "again");
         let choice = module.call_to_inline(call);
+        drop(builder);
         let _ = module.inline_call(choice);
         let _ = sum.print_to_string();
     });
