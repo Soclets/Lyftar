@@ -93,3 +93,8 @@ checks that (D13). Cargo treats each new date as breaking, so a dependency is ed
 two releases on one day count as compatible. Claude suggested putting `2300` first to keep automatic updates; the owner
 chose otherwise: "The one that can break too. I mean, it's for me anyways". Reading this as the date-first scheme is
 Claude's. (Owner, 2026-11-04)
+
+**D19. Normal versions.** This replaces D18. Versions are ordinary ones, starting at `0.1.0`, and moving to a new LLVM
+counts as a breaking change. The number does not say which LLVM; `build.rs` checks that (D13). After date-based versions
+in both orders ran into Cargo's rules, the owner chose: "Fuck it, let's just do normal". Reading "normal" as `0.1.0`
+rather than the date in y/m/d order is Claude's. (Owner, 2026-11-05)
