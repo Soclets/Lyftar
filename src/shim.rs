@@ -96,6 +96,9 @@ unsafe extern "C" {
     pub fn lyftar_attribute_kind_takes_integer_or_nothing(kind: u32, value: u64) -> bool;
     pub fn lyftar_attribute_kind_takes_type(kind: u32) -> bool;
     pub fn lyftar_attribute_kind_takes_constant_range(kind: u32) -> bool;
+    pub fn lyftar_debug_record_is_trailing(record: crate::raw::LLVMDbgRecordRef) -> bool;
+    pub fn lyftar_metadata_is(metadata: crate::raw::LLVMMetadataRef, which: u32) -> bool;
+    pub fn lyftar_temporary_metadata_dispose(metadata: crate::raw::LLVMMetadataRef);
 }
 
 /// What a pass gets told about how a pass manager is set up; the Rust side of `LyftarPassOptions` in `shim/passes.cpp`.
