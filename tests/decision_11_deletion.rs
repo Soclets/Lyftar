@@ -253,3 +253,37 @@ fn decision_11_cloning_a_module_leaves_the_first_alone() {
         assert!(module.get_function("unused_function").is_some());
     });
 }
+
+#[test]
+fn decision_11_replacing_a_global_with_only_instructions_and_globals_using_it_works() {
+    with_context(|context| {
+        let module = context
+            .parse_ir_text(
+                "@first = global i64 0\n@second = global i64 0\n@points = global ptr @first\n\
+                 define ptr @f() {\n ret ptr @first\n}",
+            )
+            .expect("good IR");
+        let first = module.get_global("first").expect("the global");
+        let second = module.get_global("second").expect("the global");
+        first.replace_all_uses_with(second);
+        assert_eq!(module.verify(), Ok(()));
+        let text = module.print_to_string();
+        assert!(text.contains("@points = global ptr @second"), "{text}");
+        assert!(text.contains("ret ptr @second"), "{text}");
+    });
+}
+
+#[test]
+fn decision_11_metadata_around_a_value_moves_to_its_replacement_and_stays_alive() {
+    with_context(|context| {
+        let module = context.parse_ir_text(IR).expect("the test's IR");
+        let y = instruction_named(&module, "f", "y");
+        let parameter = module.get_function("f").expect("the function").parameter(0);
+        let held = y.as_metadata();
+        assert!(held.as_value(context).print_to_string().contains("%y"));
+        y.replace_all_uses_with(parameter);
+        let text = held.as_value(context).print_to_string();
+        assert!(text.contains("%x"), "{text}");
+        assert_eq!(module.verify(), Ok(()));
+    });
+}

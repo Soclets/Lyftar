@@ -69,7 +69,7 @@ impl<'context, 'module, T> Value<'context, 'module, T> {
     /// This value wrapped as metadata.
     ///
     /// # Panics
-    /// If this value is already metadata (D3).
+    /// If this value is a block (D3).
     #[must_use]
     #[track_caller]
     pub fn as_metadata(self) -> Metadata<'context, 'module> {

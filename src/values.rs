@@ -560,10 +560,15 @@ impl<'context, 'module, T> Value<'context, 'module, T> {
         Uses { next: unsafe { raw::LLVMGetFirstUse(self.raw) }, module: module.raw, marker: PhantomData }
     }
 
+    // trace: D11
     /// Replaces every use of this value with `replacement`.
     ///
+    /// This takes only a shared borrow, so it refuses when LLVM would delete something in doing it, which a `Value` or
+    /// `Metadata` might still point at: a constant that uses this value, or the metadata around it.
+    ///
     /// # Panics
-    /// If the two types differ, or this value is a constant, whose uses LLVM doesn't track here (D3).
+    /// If the two types differ, if this value belongs only to the context, whose uses can be in any module, if a constant
+    /// other than a global uses it, or if metadata refers to it and LLVM can't move that over to `replacement` (D3).
     #[track_caller]
     pub fn replace_all_uses_with<U>(self, replacement: Value<'context, 'module, U>) {
         // SAFETY: both are live for `'module`.
@@ -583,7 +588,22 @@ impl<'context, 'module, T> Value<'context, 'module, T> {
                 replacement.describe()
             ));
         }
-        // SAFETY: just checked what LLVM asserts.
+        // SAFETY: both are live, and the check above means this one keeps a use list.
+        if unsafe { shim::lyftar_value_has_constant_user(self.raw) } {
+            bad_call(format_args!(
+                "replace_all_uses_with: a constant uses {}, and LLVM would delete that constant",
+                self.describe()
+            ));
+        }
+        // SAFETY: both are live.
+        if unsafe { !shim::lyftar_replacing_keeps_metadata(self.raw, replacement.raw) } {
+            bad_call(format_args!(
+                "replace_all_uses_with: metadata refers to {}, and LLVM would delete it for {}",
+                self.describe(),
+                replacement.describe()
+            ));
+        }
+        // SAFETY: just checked what LLVM asserts, and that it deletes nothing a `Value` or `Metadata` can point at.
         unsafe { raw::LLVMReplaceAllUsesWith(self.raw, replacement.raw) };
     }
 }

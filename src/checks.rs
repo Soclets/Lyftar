@@ -1,8 +1,8 @@
 //! Lyftar's own checks that stand between safe Rust and an `unsafe` LLVM call, proven with Verus (D21, D22).
 //!
 //! To rustc this file is plain Rust with no dependency; the proofs only exist when Verus compiles it, since only Verus
-//! sets `verus_keep_ghost`. Run them with `tools/verus.sh`. What LLVM itself does is assumed, and those assumptions are
-//! written down in `ASSUMPTIONS.md`.
+//! sets `verus_keep_ghost`. `tests/decision_22_proofs.rs` runs them. What LLVM itself does is assumed, and those assumptions
+//! are written down in `ASSUMPTIONS.md`.
 
 // Verus reads this file, and knows plain arithmetic rather than these library calls.
 #![allow(
@@ -80,7 +80,17 @@ pub open spec fn valid_radix(radix: u8) -> bool {
 
 /// All the digits at or after `start` are digits of the radix.
 pub open spec fn digits_valid_from(text: Seq<u8>, start: int, radix: u8) -> bool {
-    forall|index: int| start <= index < text.len() ==> digit_value(text[index]) < radix as int
+    forall|index: int| start <= index < text.len() ==> digit_value(#[trigger] text[index]) < radix as int
+}
+
+/// Where the digits start, after an optional sign.
+pub open spec fn digits_start(text: Seq<u8>) -> int {
+    if text.len() > 0 && (text[0] == 45 || text[0] == 43) { 1 } else { 0 }
+}
+
+/// An optional sign, then at least one digit, all of them digits of the radix.
+pub open spec fn valid_integer_text(text: Seq<u8>, radix: u8) -> bool {
+    text.len() > 0 && digits_start(text) < text.len() && digits_valid_from(text, digits_start(text), radix)
 }
 
 }
@@ -123,9 +133,7 @@ pub(crate) fn data_fits_elements(size_in_bytes: u64, element_size_in_bits: u64) 
 /// Whether `text` is a number in `radix`: a radix LLVM takes, an optional sign, and at least one digit, all of them
 /// digits of the radix. `LLVMConstIntOfStringAndSize` aborts on anything else.
 #[cfg_attr(verus_keep_ghost, verus_spec(result =>
-    ensures
-        result ==> valid_radix(radix),
-        result ==> text@.len() > 0,
+    ensures result == (valid_radix(radix) && valid_integer_text(text@, radix)),
 ))]
 pub(crate) fn integer_text_is_valid(text: &[u8], radix: u8) -> bool {
     if !(radix == 2 || radix == 8 || radix == 10 || radix == 16 || radix == 36) {
@@ -140,7 +148,12 @@ pub(crate) fn integer_text_is_valid(text: &[u8], radix: u8) -> bool {
     }
     #[cfg_attr(verus_keep_ghost, verus_spec(
         invariant
-            index <= text@.len(),
+            valid_radix(radix),
+            text@.len() > 0,
+            digits_start(text@) <= index <= text@.len(),
+            digits_start(text@) < text@.len(),
+            forall|earlier: int| digits_start(text@) <= earlier < index ==>
+                digit_value(#[trigger] text@[earlier]) < radix as int,
         decreases text@.len() - index,
     ))]
     while index < text.len() {

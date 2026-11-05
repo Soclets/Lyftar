@@ -1876,6 +1876,62 @@ fn decision_3_a_symbol_cursor_past_the_end_panics() {
     let _ = symbols.name();
 }
 
+// ---- Replacing, where LLVM would delete what Rust may hold ----
+
+#[test]
+#[should_panic(expected = "replace_all_uses_with: a constant uses @first, and LLVM would delete that constant")]
+fn decision_11_replacing_a_global_a_constant_uses_panics() {
+    with_context(|context| {
+        let module = context.parse_ir_text("@first = global i64 0\n@second = global i64 0").expect("good IR");
+        let first = module.get_global("first").expect("the global");
+        let second = module.get_global("second").expect("the global");
+        let held = first.as_pointer().constant_pointer_to_integer(context.get_type::<I64>());
+        first.replace_all_uses_with(second);
+        let _ = held.print_to_string();
+    });
+}
+
+#[test]
+#[should_panic(expected = "replace_all_uses_with: metadata refers to %x")]
+fn decision_11_replacing_a_value_wrapped_in_metadata_with_a_constant_panics() {
+    with_context(|context| {
+        let module =
+            context.parse_ir_text("define i64 @f(i64 %a) {\n %x = add i64 %a, 1\n ret i64 %x\n}").expect("good IR");
+        let function = module.get_function("f").expect("the function");
+        let x = function.function_instructions().next().expect("the add");
+        let held = x.as_metadata();
+        x.replace_all_uses_with(context.get_type::<I64>().constant_integer(1, false));
+        let _ = held.as_value(context).print_to_string();
+    });
+}
+
+#[test]
+#[should_panic(expected = "replace_all_uses_with: metadata refers to %x")]
+fn decision_11_replacing_a_value_with_one_that_has_metadata_panics() {
+    with_context(|context| {
+        let module =
+            context.parse_ir_text("define i64 @f(i64 %a) {\n %x = add i64 %a, 1\n ret i64 %x\n}").expect("good IR");
+        let function = module.get_function("f").expect("the function");
+        let x = function.function_instructions().next().expect("the add");
+        let a = function.parameter(0);
+        let held = x.as_metadata();
+        let other = a.as_metadata();
+        x.replace_all_uses_with(a);
+        let _ = (held.as_value(context).print_to_string(), other.as_value(context).print_to_string());
+    });
+}
+
+#[test]
+#[should_panic(expected = "replace_all_uses_with: can't replace the uses of { i64 } { i64 1 } with")]
+fn decision_11_replacing_a_context_constant_panics() {
+    with_context(|context| {
+        let i64_type = context.get_type::<I64>();
+        let first = context.constant_struct(&[i64_type.constant_integer(1, false)], false);
+        let second = context.constant_struct(&[i64_type.constant_integer(2, false)], false);
+        first.replace_all_uses_with(second);
+    });
+}
+
 // ---- LTO ----
 
 fn lto_module() -> lyftar::lto::LtoModule {

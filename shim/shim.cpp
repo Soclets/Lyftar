@@ -245,7 +245,10 @@ extern "C" bool lyftar_values_share_module(LLVMValueRef user,
 
 // Contract: returns whether LLVM can replace `value`'s uses with `replacement`:
 // not with itself, and only for what keeps a use list, since LLVM's constants
-// of plain data don't have one. The two types were compared by the caller.
+// of plain data don't have one. A value that belongs only to the context can
+// have uses in any module, so a replacement from one module would reach the
+// others, and those values aren't replaced. The two types were compared by the
+// caller.
 extern "C" bool lyftar_value_can_replace_uses(LLVMValueRef value,
                                               LLVMValueRef replacement) {
   require(value != nullptr && replacement != nullptr,
@@ -258,7 +261,49 @@ extern "C" bool lyftar_value_can_replace_uses(LLVMValueRef value,
   bool mixed = false;
   const Module *first = moduleOf(old_value, &mixed);
   const Module *second = moduleOf(new_value, &mixed);
-  return !mixed && (first == nullptr || second == nullptr || first == second);
+  return !mixed && first != nullptr && (second == nullptr || first == second);
+}
+
+// Contract: `value` keeps a use list. Returns whether a constant other than a
+// global uses it. Replacing `value` has LLVM delete such a constant, which Rust
+// may be holding under only a shared borrow. trace: D11
+extern "C" bool lyftar_value_has_constant_user(LLVMValueRef value) {
+  require(value != nullptr, "lyftar_value_has_constant_user: null value");
+  const Value *checked = unwrap(value);
+  require(checked->hasUseList(), "lyftar_value_has_constant_user: no use list");
+  return any_of(checked->users(), [](const User *user) {
+    return isa<Constant>(user) && !isa<GlobalValue>(user);
+  });
+}
+
+// Contract: returns whether replacing `value` with `replacement` leaves the
+// metadata wrapped around `value` alive. LLVM moves that metadata over in place
+// only when `replacement` has none of its own and is the same kind of thing, a
+// constant, or local to the same function. Otherwise it deletes the metadata,
+// which Rust may be holding under only a shared borrow. (ASSUMPTIONS.md)
+// trace: D11
+extern "C" bool lyftar_replacing_keeps_metadata(LLVMValueRef value,
+                                                LLVMValueRef replacement) {
+  require(value != nullptr && replacement != nullptr,
+          "lyftar_replacing_keeps_metadata: null argument");
+  const Value *old_value = unwrap(value);
+  const Value *new_value = unwrap(replacement);
+  if (!old_value->isUsedByMetadata()) {
+    return true;
+  }
+  if (new_value->isUsedByMetadata()) {
+    return false;
+  }
+  const auto localFunction = [](const Value *local) -> const Function * {
+    if (const auto *argument = dyn_cast<Argument>(local)) {
+      return argument->getParent();
+    }
+    if (const auto *instruction = dyn_cast<Instruction>(local)) {
+      return instruction->getFunction();
+    }
+    return nullptr;
+  };
+  return localFunction(old_value) == localFunction(new_value);
 }
 
 // Contract: returns whether LLVM lets an operand of `value` change. A constant
