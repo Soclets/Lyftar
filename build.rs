@@ -43,8 +43,10 @@ fn main() -> Result<(), String> {
             .ok_or_else(|| format!("unexpected library from llvm-config: {library}"))?;
         println!("cargo:rustc-link-lib=dylib={name}");
     }
-    // LLVM keeps the C API of `lto.h` in a library of its own.
+    // LLVM keeps the C API of `lto.h` in a library of its own, and `LLVMRemarkVersion` alone in another. These come last, so
+    // the rest of the remark functions resolve to the LLVM linked above.
     println!("cargo:rustc-link-lib=dylib=LTO");
+    println!("cargo:rustc-link-lib=dylib=Remarks");
 
     compile_shim(&llvm_config)?;
 

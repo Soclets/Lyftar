@@ -273,6 +273,11 @@ Args:
 ";
 
 #[test]
+fn decision_16_the_remark_version_is_the_one_in_the_header() {
+    assert_eq!(lyftar::remarks::version(), lyftar::raw::REMARKS_API_VERSION);
+}
+
+#[test]
 fn decision_16_remarks_are_read_back() {
     let mut parser = RemarkParser::yaml(REMARKS_YAML.as_bytes());
     let remark = parser.next_remark().expect("good YAML").expect("one remark");
