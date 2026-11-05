@@ -119,3 +119,8 @@ and deliberate panics, with Radium's C++ rule added. Where an inherited rule con
 wins, so `build.rs` compiles the shim (D16). Nothing undecided is guessed, which replaces the provisional choices in the
 draft build prompt. Cyborg's design session advised starting from what exists; Claude proposed this base; the owner chose
 it: "yea". (Owner, 2026-11-05)
+
+**D24. Optimizations from the start.** Lyftar is built fast as it goes, never as a plain version sped up later. This means
+Lyftar's own overhead on top of LLVM: no runtime check a specific type makes unnecessary, no avoidable allocation on a
+build call, and a benchmark tracking what Lyftar adds over raw LLVM calls. Claude proposed carrying over Cyborg's rule; the
+owner chose it: "yea". (Owner, 2026-11-05)

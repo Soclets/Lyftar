@@ -36,6 +36,9 @@ changes, `DECISIONS.md` gets a new entry and this file is updated to match. Noth
 14. **Scratchpad.** Scratch space is for what can be lost. Anything needed later goes in the repository and gets committed.
 15. **Downloads are free.** A dependency or tool is chosen on maturity, safety, maintenance and speed. A less mature or less
     safe option never wins because the better one needs installing. If an install needs the owner's approval, ask for it.
+16. **Optimizations from the start.** Lyftar is built fast as it goes, never as a plain version sped up later: no runtime check
+    a specific type makes unnecessary, no avoidable allocation on a build call, and a benchmark tracking what Lyftar adds over
+    raw LLVM calls. (D24)
 
 ## Tracing
 
@@ -57,7 +60,6 @@ A check fails on a tag that names no decision, and lists the decisions nothing t
 
 ## Not decided yet
 
-- Whether Lyftar's optimizations come from the start, as in Cyborg's rule 10.
 - Which C++ version the shim uses, since LLVM's flags here say C++17 and Radium's rule says C++23.
 - Whether C++ runs under sanitizers, and `clang-tidy` and `clang-format`.
 - The build session's name, whether it works in its own clone, and when anything is pushed.
