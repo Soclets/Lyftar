@@ -7,6 +7,7 @@ mod heap_to_stack;
 mod recursive_inline;
 
 use std::cell::Cell;
+#[cfg(not(target_os = "windows"))]
 use std::process::Command;
 
 use heap_to_stack::HeapToStack;
@@ -271,6 +272,9 @@ fn decision_1_heap_to_stack_moves_what_stays_and_leaves_the_rest() {
     });
 }
 
+// Plugins are a compile error on Windows, because the official LLVM there is built with plugins off, and against it one of these
+// two tests hung (D44). They come back when that's fixed.
+#[cfg(not(target_os = "windows"))]
 fn plugin_path() -> std::path::PathBuf {
     // `cargo test --test kayo_passes` doesn't build examples, so this does, and it's quick if they are there already.
     static BUILT: std::sync::Once = std::sync::Once::new();
@@ -290,6 +294,7 @@ fn plugin_path() -> std::path::PathBuf {
     path.join(format!("examples/{}kayo_passes_plugin{}", std::env::consts::DLL_PREFIX, std::env::consts::DLL_SUFFIX))
 }
 
+#[cfg(not(target_os = "windows"))]
 fn opt_with_plugin(pipeline: &str, input: &str) -> String {
     let directory = std::env::temp_dir().join(format!("lyftar-plugin-{}-{pipeline}", std::process::id()));
     std::fs::create_dir_all(&directory).expect("a temporary directory");
@@ -312,12 +317,14 @@ fn opt_with_plugin(pipeline: &str, input: &str) -> String {
     String::from_utf8_lossy(&output.stdout).into_owned()
 }
 
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn decision_1_heap_to_stack_runs_through_opt_as_a_plugin() {
     let printed = opt_with_plugin("function(heap-to-stack)", HEAP_TO_STACK_IR);
     assert!(printed.contains("%on_stack = alloca [16 x i8], align 16"), "{printed}");
 }
 
+#[cfg(not(target_os = "windows"))]
 #[test]
 fn decision_1_recursive_inline_runs_through_opt_as_a_plugin() {
     let printed = opt_with_plugin("recursive-inline", RECURSIVE_INLINE_IR);

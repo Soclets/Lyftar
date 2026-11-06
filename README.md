@@ -129,7 +129,8 @@ module.run_passes_with("count-functions", None, &PassOptions::default(), |builde
 ```
 
 As a plugin, a `cdylib` uses `lyftar::pass_plugin!` and loads with `opt -load-pass-plugin`. See
-`examples/kayo_passes_plugin.rs`.
+`examples/kayo_passes_plugin.rs`. On Windows that's a compile error, because the official LLVM there is built with plugins off;
+passes linked into a compiler work there.
 
 ## Commands
 

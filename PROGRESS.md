@@ -46,15 +46,11 @@ Nothing. D30 to D43 are built.
 ## CI
 
 `.github/workflows/ci.yml` runs on every push. Read it with `gh run list`: don't call Linux or Windows untested without looking.
-Every run up to 6db7931 failed. At fdd8b2c:
+Every run up to 6db7931 failed. Now:
 
 - Linux and the macOS check pass on GitHub. The Verus proofs and the shim's `clang-format` and `clang-tidy` checks run on the Mac only.
-- Windows builds and passes everything except `decision_1_recursive_inline_runs_through_opt_as_a_plugin`, which hangs, so the job
-  fails. `decision_2_end_to_end`, `decision_3_pass_aborts` and the program-linking test in `decision_33_functions` are `cfg(unix)`,
-  so they don't run there.
-- Open, with design claude: plugins on Windows. The official LLVM is built with `LLVM_ENABLE_PLUGINS` off, so a plugin DLL carries
-  its own whole copy of LLVM, separate from `opt`'s. `decision_1_heap_to_stack_runs_through_opt_as_a_plugin` passes there, which
-  doesn't show that this is sound.
+- Windows builds and passes, with `pass_plugin!` a compile error and the two plugin tests off there (D44). `decision_2_end_to_end`,
+  `decision_3_pass_aborts` and the program-linking test in `decision_33_functions` are `cfg(unix)`, so they don't run there either.
 
 ## kayo's passes
 

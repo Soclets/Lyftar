@@ -67,10 +67,7 @@ jobs:
           cp "$installed/zstd.lib" "$root/lib/zstd_static.lib"
           cp "$installed/libxml2.lib" "$root/lib/xml2s.lib"
       - run: cargo build --all-targets
-      - run: cargo test --no-fail-fast -- --skip as_a_plugin
-      # This LLVM is built with plugins off, and one of these hung for 50 minutes. They stay here, failing, until that's decided.
-      - run: cargo test --test kayo_passes as_a_plugin
-        timeout-minutes: 5
+      - run: cargo test --no-fail-fast
 
   macos-bindings:
     runs-on: macos-15

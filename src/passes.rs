@@ -1348,6 +1348,9 @@ impl Module<'_> {
 /// Makes this crate a pass plugin for `opt -load-pass-plugin` or `clang -fpass-plugin`: the crate is a `cdylib`, and this
 /// names it and says what it registers, as `lyftar::pass_plugin!("name", "version", register)` where `register` takes a
 /// `&mut PassBuilder<'static>`.
+///
+/// Not on Windows, where it is a compile error (D44).
+#[cfg(not(target_os = "windows"))]
 #[macro_export]
 macro_rules! pass_plugin {
     ($name:literal, $version:literal, $register:path) => {
@@ -1367,6 +1370,19 @@ macro_rules! pass_plugin {
                 pre_code_generation_callback: ::std::ptr::null(),
             }
         }
+    };
+}
+
+// trace: D44
+/// Windows' official LLVM is built with plugins off, so a plugin would carry its own copy of LLVM, separate from `opt`'s.
+#[cfg(target_os = "windows")]
+#[macro_export]
+macro_rules! pass_plugin {
+    ($($anything:tt)*) => {
+        compile_error!(
+            "Lyftar's plugins don't work on Windows yet, because the official LLVM there is built with plugins off. \
+             Passes linked into a compiler work, through `Module::run_passes_with`."
+        );
     };
 }
 

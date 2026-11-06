@@ -1,6 +1,9 @@
 //! kayo's two passes as one plugin, for `opt -load-pass-plugin` and `clang -fpass-plugin`:
 //! `opt -load-pass-plugin=libkayo_passes_plugin.dylib -passes='function(heap-to-stack),recursive-inline'`.
 
+// `pass_plugin!` is a compile error on Windows (D44).
+#![cfg(not(target_os = "windows"))]
+
 #[path = "kayo/heap_to_stack.rs"]
 mod heap_to_stack;
 #[path = "kayo/recursive_inline.rs"]
