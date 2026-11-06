@@ -233,3 +233,8 @@ type, `Context` is not a copy, and anything built from values is a method on it.
 Plain data and types borrow nothing and survive passes. Constants can be shared across modules, so D37's limit is gone. A value held
 across an exclusive call on another module does not compile, and a tracked handle (D11) is the way around that. Lyftar impl proposed
 it after trying it against kayo's passes; Claude agreed; the owner chose it: "yes". (Owner, 2026-11-05)
+
+**D44. No plugins on Windows for now.** `pass_plugin!` is a compile error on Windows, and its plugin tests are off there, because the
+official Windows LLVM is built with plugins turned off and a plugin test hung against it. Passes linked into a compiler still work
+on Windows. This gets fixed when the owner needs Windows. Lyftar impl proposed it; Claude agreed; the owner chose: "I mean, it's for
+me, and I'm on Mac. So, like, we could fix it when I need Windows". Reading that as this option is Claude's. (Owner, 2026-11-06)
