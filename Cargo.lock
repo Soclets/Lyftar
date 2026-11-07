@@ -148,9 +148,14 @@ version = "0.1.0"
 dependencies = [
  "bindgen",
  "cc",
+ "lyftar-stack-maps",
  "serde_json",
  "trybuild",
 ]
+
+[[package]]
+name = "lyftar-stack-maps"
+version = "0.1.0"
 
 [[package]]
 name = "memchr"

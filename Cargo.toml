@@ -18,6 +18,8 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_keep_ghost)'] }
 cc = "1"
 
 [dev-dependencies]
+# trace: D46
+lyftar-stack-maps = { path = "stack-maps" }
 serde_json = "1"
 trybuild = "1"
 
@@ -26,6 +28,8 @@ trybuild = "1"
 bindgen = { version = "0.72", default-features = false, features = ["runtime"] }
 
 [workspace]
+# trace: D46
+members = ["stack-maps"]
 exclude = ["tools/bindings"]
 
 # kayo's two passes in Rust, as one plugin for `opt` and `clang`.

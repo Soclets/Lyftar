@@ -1,0 +1,13 @@
+[package]
+name = "lyftar-stack-maps"
+# trace: D19
+version = "0.1.0"
+edition = "2024"
+description = "Read LLVM's stack maps in a running program, with no LLVM"
+# trace: D17
+license = "Apache-2.0 WITH LLVM-exception"
+repository = "https://github.com/Soclets/Lyftar"
+
+[lints.rust]
+# Verus sets this cfg when it reads the proven checks (D22); plain rustc never does.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_keep_ghost)'] }

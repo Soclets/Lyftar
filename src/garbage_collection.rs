@@ -131,6 +131,14 @@ fn scalar_type(value_type: Type<'_>) -> Type<'_> {
     }
 }
 
+/// Whether a pointer this function's strategy says it doesn't manage, which is a request the stack map can't honour.
+fn strategy_refuses(function: raw::LLVMValueRef, value: Value<'_, '_>) -> bool {
+    let pointer_type = scalar_type(value.get_type());
+    // SAFETY: `set_garbage_collector` and the verifier keep a function's strategy registered, and this is a pointer type.
+    pointer_type.kind() == TypeKind::Pointer
+        && unsafe { shim::lyftar_strategy_manages_pointer(function, pointer_type.raw) } == 0
+}
+
 fn intrinsic_id(name: &str) -> u32 {
     // SAFETY: LLVM reads `name.len()` bytes.
     unsafe { raw::LLVMLookupIntrinsicID(name.as_ptr().cast(), name.len()) }
@@ -157,14 +165,6 @@ impl<'context, 'module> Builder<'context, 'module> {
                 raw::LLVMGetIntrinsicDeclaration(self.module, id, overloads.as_ptr().cast_mut(), overloads.len());
             (declaration, raw::LLVMGlobalGetValueType(declaration))
         }
-    }
-
-    /// Whether a pointer this function's strategy says it doesn't manage, which is a request the stack map can't honour.
-    fn strategy_refuses(&self, function: raw::LLVMValueRef, value: Value<'context, 'module>) -> bool {
-        let pointer_type = scalar_type(value.get_type());
-        // SAFETY: `set_garbage_collector` and the verifier keep a function's strategy registered, and this is a pointer type.
-        pointer_type.kind() == TypeKind::Pointer
-            && unsafe { shim::lyftar_strategy_manages_pointer(function, pointer_type.raw) } == 0
     }
 
     #[track_caller]
@@ -199,7 +199,7 @@ impl<'context, 'module> Builder<'context, 'module> {
                     value.describe()
                 ));
             }
-            if !is_allocation && self.strategy_refuses(function, *value) {
+            if !is_allocation && strategy_refuses(function, *value) {
                 bad_call(format_args!(
                     "{operation}: {} is a pointer this function's garbage collector doesn't manage, so nothing would rewrite it",
                     value.describe()
@@ -377,7 +377,7 @@ impl<'context, 'module> Builder<'context, 'module> {
         let base = live[base_index as usize];
         let derived = live[derived_index as usize];
         for value in [base, derived] {
-            if scalar_type(value.get_type()).kind() != TypeKind::Pointer || self.strategy_refuses(function, value) {
+            if scalar_type(value.get_type()).kind() != TypeKind::Pointer || strategy_refuses(function, value) {
                 bad_call(format_args!(
                     "{operation}: {} is not a pointer this function's garbage collector manages, so it has nothing to relocate",
                     value.describe()

@@ -15,39 +15,49 @@ fn verus() -> PathBuf {
     path
 }
 
-fn source() -> String {
-    std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/checks.rs")).expect("reading the checks")
+/// Each file of proven checks: Lyftar's, and the stack map reader's, which has to stay free of Lyftar (D46).
+const CHECKS: [&str; 2] = ["src/checks.rs", "stack-maps/src/checks.rs"];
+
+fn source(file: &str) -> String {
+    std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join(file)).expect("reading the checks")
 }
 
 #[test]
 fn decision_22_verus_proves_the_checks() {
-    let output = Command::new(verus())
-        .current_dir(env!("CARGO_MANIFEST_DIR"))
-        .args(["src/checks.rs", "--crate-type=lib", "--", "-Zcrate-attr=feature(proc_macro_hygiene)"])
-        .output()
-        .expect("running Verus");
-    let text = format!("{}{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
-    assert!(output.status.success(), "{text}");
-    let result = text.lines().find(|line| line.starts_with("verification results::")).expect("Verus's result line");
-    assert!(result.ends_with(" 0 errors"), "{result}");
-    let verified: u32 = result
-        .trim_start_matches("verification results:: ")
-        .split_whitespace()
-        .next()
-        .and_then(|count| count.parse().ok())
-        .expect("a count");
-    let functions = u32::try_from(source().matches("pub(crate) fn ").count()).expect("a small count");
-    assert!(verified >= functions, "{verified} verified, for {functions} checks: {result}");
+    for file in CHECKS {
+        let output = Command::new(verus())
+            .current_dir(env!("CARGO_MANIFEST_DIR"))
+            .args([file, "--crate-type=lib", "--", "-Zcrate-attr=feature(proc_macro_hygiene)"])
+            .output()
+            .expect("running Verus");
+        let text = format!("{}{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
+        assert!(output.status.success(), "{file}: {text}");
+        let result = text.lines().find(|line| line.starts_with("verification results::")).expect("Verus's result line");
+        assert!(result.ends_with(" 0 errors"), "{file}: {result}");
+        let verified: u32 = result
+            .trim_start_matches("verification results:: ")
+            .split_whitespace()
+            .next()
+            .and_then(|count| count.parse().ok())
+            .expect("a count");
+        let functions = u32::try_from(source(file).matches("pub(crate) fn ").count()).expect("a small count");
+        assert!(verified >= functions, "{file}: {verified} verified, for {functions} checks: {result}");
+    }
 }
 
 #[test]
 fn decision_22_every_check_has_a_specification() {
-    let source = source();
-    let lines: Vec<&str> = source.lines().collect();
-    for (index, line) in lines.iter().enumerate() {
-        if line.starts_with("pub(crate) fn ") {
-            let attributes = lines[..index].iter().rev().take_while(|above| !above.starts_with("///"));
-            assert!(attributes.clone().any(|above| above.contains("verus_spec")), "this check isn't proven: {line}");
+    for file in CHECKS {
+        let source = source(file);
+        let lines: Vec<&str> = source.lines().collect();
+        for (index, line) in lines.iter().enumerate() {
+            if line.starts_with("pub(crate) fn ") {
+                let attributes = lines[..index].iter().rev().take_while(|above| !above.starts_with("///"));
+                assert!(
+                    attributes.clone().any(|above| above.contains("verus_spec")),
+                    "this check isn't proven: {line}"
+                );
+            }
         }
     }
 }
