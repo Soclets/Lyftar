@@ -67,7 +67,14 @@ fn decision_22_the_assumptions_are_written_down_in_one_place() {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("ASSUMPTIONS.md");
     let text = std::fs::read_to_string(path).expect("ASSUMPTIONS.md");
     // Each entry the checks and the shim point at.
-    for entry in ["uniques types", "sort_unstable", "generation", "WeakVH", "moves that metadata"] {
+    for entry in [
+        "uniques types",
+        "sort_unstable",
+        "generation",
+        "WeakVH",
+        "moves that metadata",
+        "strategy registry has no lock",
+    ] {
         assert!(text.contains(entry), "ASSUMPTIONS.md says nothing about {entry}");
     }
 }

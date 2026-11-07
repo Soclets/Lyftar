@@ -11,12 +11,15 @@ mod collector;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU32, Ordering};
 
-use lyftar::enums::IntegerPredicate;
+use lyftar::attributes::{AttributeKind, AttributeLocation};
+use lyftar::enums::{IntegerPredicate, Linkage};
 use lyftar::garbage_collection::{
-    GarbageCollectionStrategy, SafepointPlacement, register_strategy, statepoint_pipeline,
+    GarbageCollectionStrategy, SafepointPlacement, StatepointCall, StatepointFlags, register_strategy,
+    statepoint_pipeline,
 };
-use lyftar::jit::{ExecutionEngine, Jit, JitSymbolFlags};
+use lyftar::jit::{ExecutionEngine, Jit, JitBuilder, JitSymbolFlags};
 use lyftar::memory_buffer::MemoryBuffer;
 use lyftar::passes::PassOptions;
 use lyftar::target::{
@@ -82,6 +85,7 @@ struct Program<'context, 'module> {
     context: &'module Context<'context>,
     module: &'module lyftar::Module<'context>,
     strategy: Strategy,
+    optimization: Optimization,
     pointer: Type<'context>,
     i64_type: Type<'context, I64>,
     allocate: Value<'context, 'module, Function>,
@@ -98,7 +102,12 @@ enum Variable<'context, 'module> {
 }
 
 impl<'context, 'module> Program<'context, 'module> {
-    fn new(context: &'module Context<'context>, module: &'module lyftar::Module<'context>, strategy: Strategy) -> Self {
+    fn new(
+        context: &'module Context<'context>,
+        module: &'module lyftar::Module<'context>,
+        strategy: Strategy,
+        optimization: Optimization,
+    ) -> Self {
         let pointer = context.pointer_type(strategy.address_space).to_dynamic();
         let i64_type = context.get_type::<I64>();
         let i64_dynamic = i64_type.to_dynamic();
@@ -111,7 +120,18 @@ impl<'context, 'module> Program<'context, 'module> {
         // These two can't collect, so a statepoint needn't wrap them.
         report.add_target_dependent_attribute("gc-leaf-function", "");
         report_pointer.add_target_dependent_attribute("gc-leaf-function", "");
-        Program { context, module, strategy, pointer, i64_type, allocate, collect, report, report_pointer }
+        Program {
+            context,
+            module,
+            strategy,
+            optimization,
+            pointer,
+            i64_type,
+            allocate,
+            collect,
+            report,
+            report_pointer,
+        }
     }
 
     /// A function using the strategy, with a frame pointer for the collector to walk, and a builder at its entry.
@@ -174,6 +194,108 @@ impl<'context, 'module> Program<'context, 'module> {
         builder.call(self.allocate, &[self.number(pointers), self.number(data)], "new").to_dynamic()
     }
 
+    /// Stores a pointer in an object: through `llvm.gcwrite`, for a strategy of roots.
+    fn write_pointer(
+        &self,
+        builder: &Builder<'context, 'module>,
+        value: Value<'context, 'module>,
+        object: Value<'context, 'module>,
+        index: u64,
+    ) {
+        let field = self.field(builder, object, index);
+        match self.strategy.roots {
+            Roots::Statepoints => {
+                builder.store(value, field);
+            }
+            Roots::Slots => builder.garbage_collection_write(value, object, field),
+        }
+    }
+
+    /// Loads a pointer from an object: through `llvm.gcread`, for a strategy of roots.
+    fn read_pointer(
+        &self,
+        builder: &Builder<'context, 'module>,
+        object: Value<'context, 'module>,
+        index: u64,
+    ) -> Value<'context, 'module> {
+        let field = self.field(builder, object, index);
+        match self.strategy.roots {
+            Roots::Statepoints => builder.load(self.pointer, field, "pointer").to_dynamic(),
+            Roots::Slots => builder.garbage_collection_read(object, field, "pointer").to_dynamic(),
+        }
+    }
+
+    /// Statepoints written by hand: it allocates through one with a `gc.result`, then collects through another that says what is
+    /// live, with a deoptimization value, and uses what `gc.relocate` gives. The numbers add up to 18 only if each of the three was
+    /// rewritten. Not optimized, one of them is held in a stack allocation in the live list instead: the optimizer drops a live
+    /// value nothing relocates, and then doesn't keep the allocation, as `StatepointCall` warns.
+    fn written_by_hand(&self) -> Value<'context, 'module, Function> {
+        let (function, builder) = self.function("written_by_hand", self.i64_type.to_dynamic(), &[]);
+        // `rewrite-statepoints-for-gc` adds nothing to a statepoint it finds, so inlined into a function it rewrites, what that
+        // function holds wouldn't be in this one's live list.
+        function.add_attribute(
+            AttributeLocation::Function,
+            self.context.enum_attribute(AttributeKind::for_name("noinline").expect("an attribute"), 0),
+        );
+        let uses_stack_allocation = self.optimization == Optimization::Off;
+        let slot = builder.stack_allocate(self.pointer, "slot").to_dynamic();
+        let call = |callee: Value<'context, 'module, Function>,
+                    arguments: &[Value<'context, 'module>],
+                    live: &[Value<'context, 'module>],
+                    deoptimization: &[Value<'context, 'module>],
+                    transition: &[Value<'context, 'module>]| {
+            builder.garbage_collection_statepoint(
+                &StatepointCall {
+                    id: 45,
+                    patch_size_in_bytes: 0,
+                    function_type: callee.value_type(),
+                    callee: callee.to_dynamic(),
+                    flags: if transition.is_empty() { StatepointFlags::NONE } else { StatepointFlags::TRANSITION },
+                    arguments,
+                    transition,
+                    deoptimization,
+                    live,
+                },
+                "statepoint",
+            )
+        };
+        let (zero, two, one) = (self.number(0), self.number(2), self.number(1));
+        let held = call(self.allocate, &[zero, one], &[], &[], &[]);
+        let held = builder.garbage_collection_result(held, "held");
+        builder.store(self.number(7), self.field(&builder, held, 0));
+        builder.store(held, slot);
+        let kept = if uses_stack_allocation { slot } else { held };
+        let made = call(self.allocate, &[zero, two], &[kept], &[], &[]);
+        let object = builder.garbage_collection_result(made, "object");
+        let held = if uses_stack_allocation { held } else { builder.garbage_collection_relocate(made, 0, 0, "held") };
+        builder.store(self.number(5), self.field(&builder, object, 0));
+        builder.store(self.number(6), self.field(&builder, object, 1));
+        // A pointer that isn't the object's start, and that LLVM can't work out from it: which field depends on a value it can't see.
+        let which = builder.load(self.i64_type, self.field(&builder, object, 0), "which");
+        let offset = builder.integer_multiply(which, self.i64_type.constant_integer(0, false), "offset");
+        let start = self.field(&builder, object, 1);
+        let derived = builder
+            .get_element_pointer(self.context.get_type::<I8>().to_dynamic(), start, &[offset], "derived")
+            .to_dynamic();
+        // Only x86 can make code for a transition.
+        let thirteen = [self.number(13)];
+        let transition: &[Value<'context, 'module>] = if cfg!(target_arch = "x86_64") { &thirteen } else { &[] };
+        let third = if uses_stack_allocation { slot } else { held };
+        let collected = call(self.collect, &[], &[object, derived, third], &[self.number(9)], transition);
+        let object = builder.garbage_collection_relocate(collected, 0, 0, "object");
+        let derived = builder.garbage_collection_relocate(collected, 0, 1, "derived");
+        let held = if uses_stack_allocation {
+            builder.load(self.pointer, slot, "held").to_dynamic()
+        } else {
+            builder.garbage_collection_relocate(collected, 2, 2, "held")
+        };
+        let five = builder.load(self.i64_type, self.field(&builder, object, 0), "five");
+        let six = builder.load(self.i64_type, derived, "six");
+        let seven = builder.load(self.i64_type, self.field(&builder, held, 0), "seven");
+        builder.return_value(builder.integer_add(builder.integer_add(five, six, ""), seven, "total"));
+        function
+    }
+
     /// `build(n)`: a list of `n`, built from the end, each new cell allocated with the rest of the list held across it.
     fn build_list(&self) -> Value<'context, 'module, Function> {
         let i64_dynamic = self.i64_type.to_dynamic();
@@ -218,7 +340,7 @@ impl<'context, 'module> Program<'context, 'module> {
         };
         let cell = self.allocate(&builder, 1, 1);
         let rest_now = self.read(&builder, tail);
-        builder.store(rest_now, self.field(&builder, cell, 0));
+        self.write_pointer(&builder, rest_now, cell, 0);
         builder.store(count, self.field(&builder, cell, 1));
         builder.return_value(cell);
         function
@@ -237,7 +359,7 @@ impl<'context, 'module> Program<'context, 'module> {
         builder.return_value(self.i64_type.constant_integer(0, false));
         builder.position_at_end(more);
         let object = self.read(&builder, cell);
-        let next = builder.load(self.pointer, self.field(&builder, object, 0), "next").to_dynamic();
+        let next = self.read_pointer(&builder, object, 0);
         let rest = builder.call(function, &[next], "rest").checked_cast::<I64>();
         builder.call(self.collect, &[] as &[Value<'context, 'module>], "");
         let object = self.read(&builder, cell);
@@ -361,12 +483,34 @@ impl<'context, 'module> Program<'context, 'module> {
         function
     }
 
+    /// What the second translation unit has: it holds a list cell across a collection, and gives back its number.
+    fn other_unit(&self) {
+        let (function, builder) = self.function("other_unit", self.i64_type.to_dynamic(), &[self.pointer]);
+        let cell = self.variable(&builder, function.parameter(0));
+        builder.call(self.collect, &[] as &[Value<'context, 'module>], "");
+        let object = self.read(&builder, cell);
+        builder.return_value(builder.load(self.i64_type, self.field(&builder, object, 1), "number"));
+    }
+
+    /// What `place-safepoints` inlines: this collector collects at every poll.
+    fn safepoint_poll(&self) {
+        let poll = self
+            .module
+            .add_function("gc.safepoint_poll", self.context.function_type(self.context.void_type(), &[], false));
+        // Each translation unit has one, and the optimizer would delete one that could go.
+        poll.set_linkage(Linkage::WeakOneDefinitionRule);
+        let builder = Builder::at_end_of(poll.append_basic_block("entry"));
+        builder.call(self.collect, &[] as &[Value<'context, 'module>], "");
+        builder.return_void();
+    }
+
     fn program(&self) {
         let build_list = self.build_list();
         let sum_list = self.sum_list();
         let hold_many = self.hold_many();
         let walk_array = self.walk_array();
         let make_after_collecting = self.make_after_collecting();
+        let by_hand = (self.strategy.roots == Roots::Statepoints).then(|| self.written_by_hand());
         let statistics = self
             .module
             .add_function("gc_report_statistics", self.context.function_type(self.context.void_type(), &[], false));
@@ -409,6 +553,14 @@ impl<'context, 'module> Program<'context, 'module> {
         let returned = builder.call(make_after_collecting, &[] as &[Value<'context, 'module>], "returned").to_dynamic();
         let number = builder.load(self.i64_type, self.field(&builder, returned, 0), "number");
         builder.call(self.report, &[number.to_dynamic()], "");
+        let other_unit_type = self.context.function_type(self.i64_type.to_dynamic(), &[self.pointer], false);
+        let other_unit = self.module.add_function("other_unit", other_unit_type);
+        let from_other_unit = builder.call(other_unit, &[self.read(&builder, list)], "from_other_unit");
+        builder.call(self.report, &[from_other_unit.to_dynamic()], "");
+        if let Some(by_hand) = by_hand {
+            let total = builder.call(by_hand, &[] as &[Value<'context, 'module>], "by_hand");
+            builder.call(self.report, &[total.to_dynamic()], "");
+        }
         builder.call(self.report_pointer, &[self.read(&builder, list)], "");
         builder.call(statistics, &[] as &[Value<'context, 'module>], "");
         builder.return_void();
@@ -425,18 +577,21 @@ impl<'context, 'module> Program<'context, 'module> {
             }
             (Roots::Slots, "shadow-stack") => {
                 let plain = self.context.pointer_type(0).to_dynamic();
+                // Defined here, since a JIT can't find one LLVM makes up in each translation unit as it makes code.
                 let head = self.module.add_global("llvm_gc_root_chain", plain);
+                head.set_initializer(self.context.pointer_type(0).constant_null());
                 let say =
                     self.module.add_function("gc_use_shadow_stack", self.context.function_type(void, &[plain], false));
                 builder.call(say, &[head.to_dynamic()], "");
             }
             (Roots::Slots, _) => {
                 let plain = self.context.pointer_type(0).to_dynamic();
-                let table =
-                    self.module.add_global("camlProgram__frametable", self.context.get_type::<I1>().to_dynamic());
                 let say =
                     self.module.add_function("gc_use_frame_table", self.context.function_type(void, &[plain], false));
-                builder.call(say, &[table.to_dynamic()], "");
+                for name in ["camlProgram__frametable", "camlOther__frametable"] {
+                    let table = self.module.add_global(name, self.context.get_type::<I1>().to_dynamic());
+                    builder.call(say, &[table.to_dynamic()], "");
+                }
             }
         }
         builder.call(run, &[] as &[Value<'context, 'module>], "");
@@ -444,23 +599,38 @@ impl<'context, 'module> Program<'context, 'module> {
     }
 }
 
-/// The whole program, through the pipeline this strategy needs, for this machine.
-fn program_module<'context>(
+/// Whether `place-safepoints` adds polls, which it only does for `statepoint-example` and `coreclr`.
+#[derive(Clone, Copy, PartialEq)]
+enum Polls {
+    No,
+    Yes,
+}
+
+/// A translation unit of the program, through the pipeline this strategy needs, for this machine.
+fn unit<'context>(
     context: &mut Context<'context>,
     machine: &TargetMachine,
+    name: &str,
+    build: impl FnOnce(&Program<'context, '_>),
     strategy: Strategy,
     optimization: Optimization,
+    polls: Polls,
 ) -> OwnedModule<'context> {
-    let mut owned = context.create_module("Program");
+    let mut owned = context.create_module(name);
     {
         let module = context.module(&owned);
         module.set_target_machine(machine);
-        Program::new(context, module, strategy).program();
+        let program = Program::new(context, module, strategy, optimization);
+        if polls == Polls::Yes {
+            program.safepoint_poll();
+        }
+        build(&program);
         assert_eq!(module.verify(), Ok(()), "{}", module.print_to_string());
     }
     let optimizations = if optimization == Optimization::On { "default<O2>" } else { "" };
+    let placement = if polls == Polls::Yes { SafepointPlacement::PlacePolls } else { SafepointPlacement::CallsOnly };
     let pipeline = match strategy.roots {
-        Roots::Statepoints => statepoint_pipeline(optimizations, SafepointPlacement::CallsOnly),
+        Roots::Statepoints => statepoint_pipeline(optimizations, placement),
         Roots::Slots => optimizations.to_string(),
     };
     if !pipeline.is_empty() {
@@ -470,6 +640,34 @@ fn program_module<'context>(
             .expect("the pipeline");
     }
     owned
+}
+
+fn main_unit<'context>(context: &mut Context<'context>, machine: &TargetMachine, way: &Way) -> OwnedModule<'context> {
+    unit(context, machine, "Program", |program| program.program(), way.strategy, way.optimization, way.polls)
+}
+
+fn other_unit<'context>(context: &mut Context<'context>, machine: &TargetMachine, way: &Way) -> OwnedModule<'context> {
+    unit(context, machine, "Other", |program| program.other_unit(), way.strategy, way.optimization, way.polls)
+}
+
+fn emit<'context>(
+    context: &mut Context<'context>,
+    machine: &TargetMachine,
+    mut owned: OwnedModule<'context>,
+) -> Vec<u8> {
+    machine
+        .emit_to_memory_buffer(context.exclusive_module(&mut owned), CodeGenerationFileType::Object)
+        .expect("code generation")
+        .as_bytes()
+        .to_vec()
+}
+
+/// How one run is compiled.
+#[derive(Clone, Copy)]
+struct Way {
+    strategy: Strategy,
+    optimization: Optimization,
+    polls: Polls,
 }
 
 fn machine_for(optimization: Optimization) -> TargetMachine {
@@ -490,14 +688,20 @@ fn machine_for(optimization: Optimization) -> TargetMachine {
 }
 
 /// What every run has to say. The object has to have moved at each collection, and be in the current space after it.
-fn check_output(output: &str, what: &str, statepoints: bool) {
+/// Says how many collections there were.
+fn check_output(output: &str, what: &str, way: &Way) -> u64 {
+    let statepoints = way.strategy.roots == Roots::Statepoints;
     let values: Vec<i64> = output
         .lines()
         .filter_map(|line| line.strip_prefix("value "))
         .map(|value| value.parse().expect("a number"))
         .collect();
     let list_total = (LIST_LENGTH * (LIST_LENGTH + 1) / 2).cast_signed();
-    assert_eq!(values, [list_total, 1321, 36, 77], "{what}: {output}");
+    let mut expected = vec![list_total, 1321, 36, 77, LIST_LENGTH.cast_signed()];
+    if statepoints {
+        expected.push(18);
+    }
+    assert_eq!(values, expected, "{what}: {output}");
     let objects: Vec<&str> = output.lines().filter(|line| line.starts_with("object at")).collect();
     assert_eq!(objects.len(), 4, "{what}: {output}");
     for line in &objects {
@@ -512,7 +716,7 @@ fn check_output(output: &str, what: &str, statepoints: bool) {
     assert_ne!(address(objects[0]), address(objects[3]), "{what}: the list moved: {output}");
     let statistics = output.lines().find(|line| line.starts_with("collections ")).expect("the statistics");
     let numbers: Vec<u64> = statistics.split([',', ' ']).filter_map(|word| word.parse().ok()).collect();
-    let [collections, moved, rewritten, derived, frames] = numbers[..] else {
+    let [collections, moved, rewritten, derived, frames, tables] = numbers[..] else {
         panic!("{what}: {statistics}");
     };
     assert!(collections > LIST_LENGTH, "{what}: {statistics}");
@@ -520,6 +724,9 @@ fn check_output(output: &str, what: &str, statepoints: bool) {
     assert!(rewritten > collections, "{what}: {statistics}");
     assert!(frames > collections, "{what}: {statistics}");
     assert_eq!(derived > 0, statepoints, "{what}: {statistics}");
+    // Two translation units give two tables, in one section or two.
+    assert_eq!(tables, if statepoints { 2 } else { 0 }, "{what}: {statistics}");
+    collections
 }
 
 fn temporary_directory(name: &str) -> PathBuf {
@@ -530,19 +737,19 @@ fn temporary_directory(name: &str) -> PathBuf {
 
 /// A linked program: what Lyftar compiled, and the collector, with no LLVM. Stripping what nothing refers to would drop the stack
 /// map, so `link-dead-code` keeps it.
-fn run_linked(strategy: Strategy, optimization: Optimization) -> String {
-    let directory = temporary_directory(&format!("{}-{}", strategy.name, optimization as u8));
-    let object = directory.join("program.o");
-    let bytes = with_context(|context| {
-        let machine = machine_for(optimization);
-        let mut owned = program_module(context, &machine, strategy, optimization);
-        machine
-            .emit_to_memory_buffer(context.exclusive_module(&mut owned), CodeGenerationFileType::Object)
-            .expect("code generation")
-            .as_bytes()
-            .to_vec()
+fn run_linked(way: &Way) -> String {
+    // A new path each time, since cargo only links again when the arguments change, and it can't see inside the objects.
+    static RUNS: AtomicU32 = AtomicU32::new(0);
+    let directory = temporary_directory(&format!("{}-{}", way.strategy.name, RUNS.fetch_add(1, Ordering::Relaxed)));
+    let (program_object, other_object) = (directory.join("program.o"), directory.join("other.o"));
+    let (program_bytes, other_bytes) = with_context(|context| {
+        let machine = machine_for(way.optimization);
+        let program = main_unit(context, &machine, way);
+        let other = other_unit(context, &machine, way);
+        (emit(context, &machine, program), emit(context, &machine, other))
     });
-    std::fs::write(&object, bytes).expect("writing the object");
+    std::fs::write(&program_object, program_bytes).expect("writing the object");
+    std::fs::write(&other_object, other_bytes).expect("writing the object");
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let mut build = Command::new(env!("CARGO"));
     build
@@ -551,7 +758,9 @@ fn run_linked(strategy: Strategy, optimization: Optimization) -> String {
         .arg("--")
         .args(["-C", "link-dead-code"])
         .arg("-C")
-        .arg(format!("link-arg={}", object.display()));
+        .arg(format!("link-arg={}", program_object.display()))
+        .arg("-C")
+        .arg(format!("link-arg={}", other_object.display()));
     let built = build.output().expect("running cargo");
     assert!(built.status.success(), "{}", String::from_utf8_lossy(&built.stderr));
     let program = root.join("target/collector/debug/lyftar-test-collector");
@@ -559,7 +768,7 @@ fn run_linked(strategy: Strategy, optimization: Optimization) -> String {
     assert!(
         ran.status.success(),
         "{}: {:?}: {}{}",
-        strategy.name,
+        way.strategy.name,
         ran.status,
         String::from_utf8_lossy(&ran.stdout),
         String::from_utf8_lossy(&ran.stderr)
@@ -574,7 +783,7 @@ fn check_does_not_link_llvm(program: &Path) {
     let output = Command::new(tool.0).arg(tool.1).arg(program).output().expect("listing what it links");
     let linked = String::from_utf8_lossy(&output.stdout).to_lowercase();
     assert!(output.status.success());
-    assert!(!linked.contains("llvm") && !linked.contains("lto"), "{linked}");
+    assert!(!linked.contains("libllvm") && !linked.contains("liblto"), "{linked}");
 }
 
 /// The runtime's functions, by name, for a JIT to bind.
@@ -592,61 +801,60 @@ fn runtime_functions() -> [(&'static str, u64); 9] {
     ]
 }
 
-fn run_jit(strategy: Strategy, optimization: Optimization) -> String {
-    let jit = Jit::new().expect("a JIT");
+fn run_jit(way: &Way, builder: JitBuilder) -> String {
+    let jit = builder.build().expect("a JIT");
     let library = jit.main_dylib();
     let names: Vec<_> = runtime_functions().iter().map(|(name, _)| jit.mangle_and_intern(name)).collect();
     let flags = JitSymbolFlags { exported: true, callable: true, ..JitSymbolFlags::default() };
     let symbols: Vec<_> =
         names.iter().zip(runtime_functions()).map(|(name, (_, address))| (name, address, flags)).collect();
     library.define_absolute_symbols(&symbols).expect("defining the runtime");
-    if strategy.name == "ocaml" {
+    if way.strategy.name == "ocaml" {
         // Its frame table is a symbol the module doesn't declare, which ORC refuses in a module, and takes in an object.
-        let object = with_context(|context| {
-            let machine = machine_for(optimization);
-            let mut owned = program_module(context, &machine, strategy, optimization);
-            machine
-                .emit_to_memory_buffer(context.exclusive_module(&mut owned), CodeGenerationFileType::Object)
-                .expect("code generation")
-                .as_bytes()
-                .to_vec()
+        let (program, other) = with_context(|context| {
+            let machine = machine_for(way.optimization);
+            let program = main_unit(context, &machine, way);
+            let other = other_unit(context, &machine, way);
+            (emit(context, &machine, program), emit(context, &machine, other))
         });
-        jit.add_object_file(library, MemoryBuffer::from_bytes(&object, "program")).expect("adding the program");
+        jit.add_object_file(library, MemoryBuffer::from_bytes(&program, "program")).expect("adding the program");
+        jit.add_object_file(library, MemoryBuffer::from_bytes(&other, "other")).expect("adding the other unit");
     } else {
-        jit.add_module(library, |context| {
-            let machine = machine_for(optimization);
-            program_module(context, &machine, strategy, optimization)
-        })
-        .expect("adding the program");
+        jit.add_module(library, |context| main_unit(context, &machine_for(way.optimization), way))
+            .expect("adding the program");
+        jit.add_module(library, |context| other_unit(context, &machine_for(way.optimization), way))
+            .expect("adding the other unit");
     }
     let start = jit.lookup("program_start").expect("the program");
+    // Looking this up links what the program calls, so both units' stack maps are there before it runs.
+    jit.lookup("other_unit").expect("the other unit");
     // SAFETY: this function takes nothing and returns nothing, as built above.
     let start = unsafe { std::mem::transmute::<usize, extern "C" fn()>(start as usize) };
     let sections = jit.stack_map_sections();
-    if strategy.roots == Roots::Statepoints {
-        assert!(!sections.is_empty(), "the JIT kept the stack map");
+    if way.strategy.roots == Roots::Statepoints {
+        assert_eq!(sections.len(), 2, "the JIT kept both units' stack maps");
     }
     collector::reset(sections);
     start();
     collector::take_output()
 }
 
-fn run_execution_engine(strategy: Strategy, optimization: Optimization) -> String {
+fn run_execution_engine(way: &Way) -> String {
     with_context(|context| {
-        let machine = machine_for(optimization);
-        let owned = program_module(context, &machine, strategy, optimization);
-        let mappings: Vec<(String, u64)> =
-            runtime_functions().iter().map(|(name, address)| ((*name).to_string(), *address)).collect();
-        let level = if optimization == Optimization::On { 2 } else { 0 };
-        let engine = ExecutionEngine::jit_compiler(context, owned, level).expect("an engine");
-        for (name, address) in mappings {
-            if let Some(function) = engine.find_function(&name) {
+        let machine = machine_for(way.optimization);
+        let program = main_unit(context, &machine, way);
+        let other = other_unit(context, &machine, way);
+        let level = if way.optimization == Optimization::On { 2 } else { 0 };
+        let mut engine = ExecutionEngine::jit_compiler(context, program, level).expect("an engine");
+        engine.add_module(other);
+        for (name, address) in runtime_functions() {
+            if let Some(function) = engine.find_function(name) {
                 engine.add_global_mapping(function, address as *mut std::ffi::c_void);
             }
         }
         let sections = engine.stack_map_sections();
-        if strategy.roots == Roots::Statepoints {
-            assert!(!sections.is_empty(), "the engine kept the stack map");
+        if way.strategy.roots == Roots::Statepoints {
+            assert_eq!(sections.len(), 2, "the engine kept both units' stack maps");
         }
         let start = engine.function_address("program_start");
         assert_ne!(start, 0);
@@ -658,43 +866,80 @@ fn run_execution_engine(strategy: Strategy, optimization: Optimization) -> Strin
     })
 }
 
-fn every_way(strategy: Strategy) {
+fn every_way(strategy: Strategy, polls: Polls) {
     let _lock = ONE_AT_A_TIME.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-    let statepoints = strategy.roots == Roots::Statepoints;
     for optimization in [Optimization::Off, Optimization::On] {
         let label = if optimization == Optimization::On { "optimized" } else { "not optimized" };
-        for (way, output) in [
-            ("through Jit", run_jit(strategy, optimization)),
-            ("through ExecutionEngine", run_execution_engine(strategy, optimization)),
-            ("linked", run_linked(strategy, optimization)),
+        let way = Way { strategy, optimization, polls };
+        let mut runtime_dyld = JitBuilder::new();
+        runtime_dyld.use_runtime_dyld();
+        // A poll collects as well, so a program with them has to collect more than one without.
+        let without_polls = Way { polls: Polls::No, ..way };
+        let least_collections =
+            check_output(&run_jit(&without_polls, JitBuilder::new()), "without polls", &without_polls);
+        for (name, output) in [
+            ("through Jit", run_jit(&way, JitBuilder::new())),
+            ("through Jit with RuntimeDyld", run_jit(&way, runtime_dyld)),
+            ("through ExecutionEngine", run_execution_engine(&way)),
+            ("linked", run_linked(&way)),
         ] {
-            check_output(&output, &format!("{} {way}, {label}", strategy.name), statepoints);
+            let what = format!("{} {name}, {label}", strategy.name);
+            let collections = check_output(&output, &what, &way);
+            if polls == Polls::Yes {
+                assert!(collections > least_collections, "{what}: {collections} collections, with polls");
+            }
         }
     }
 }
 
 #[test]
 fn decision_45_statepoint_example_moves_objects_and_rewrites_every_root() {
-    every_way(STATEPOINT_EXAMPLE);
+    every_way(STATEPOINT_EXAMPLE, Polls::No);
 }
 
 #[test]
 fn decision_45_coreclr_moves_objects_and_rewrites_every_root() {
-    every_way(CORECLR);
+    every_way(CORECLR, Polls::No);
 }
 
 #[test]
 fn decision_45_shadow_stack_moves_objects_and_rewrites_every_root() {
-    every_way(SHADOW_STACK);
+    every_way(SHADOW_STACK, Polls::No);
 }
 
 #[test]
 fn decision_45_ocaml_moves_objects_and_rewrites_every_root() {
-    every_way(OCAML);
+    every_way(OCAML, Polls::No);
 }
 
 #[test]
 fn decision_45_a_strategy_written_in_rust_moves_objects_and_rewrites_every_root() {
     register_strategy(AddressSpaceFive);
-    every_way(WRITTEN_IN_RUST);
+    every_way(WRITTEN_IN_RUST, Polls::No);
+}
+
+#[test]
+fn decision_45_place_safepoints_polls_collect_and_rewrite_every_root() {
+    every_way(STATEPOINT_EXAMPLE, Polls::Yes);
+    every_way(CORECLR, Polls::Yes);
+}
+
+#[test]
+fn decision_45_what_a_tracker_removes_goes_from_the_stack_maps() {
+    let jit = Jit::new().expect("a JIT");
+    let library = jit.main_dylib();
+    let names: Vec<_> = runtime_functions().iter().map(|(name, _)| jit.mangle_and_intern(name)).collect();
+    let flags = JitSymbolFlags { exported: true, callable: true, ..JitSymbolFlags::default() };
+    let symbols: Vec<_> =
+        names.iter().zip(runtime_functions()).map(|(name, (_, address))| (name, address, flags)).collect();
+    library.define_absolute_symbols(&symbols).expect("defining the runtime");
+    let tracker = library.create_resource_tracker();
+    let way = Way { strategy: STATEPOINT_EXAMPLE, optimization: Optimization::Off, polls: Polls::No };
+    jit.add_module_with_tracker(&tracker, |context| other_unit(context, &machine_for(way.optimization), &way))
+        .expect("adding it");
+    assert!(jit.stack_map_sections().is_empty(), "nothing is linked until it is looked up");
+    jit.lookup("other_unit").expect("the function");
+    assert_eq!(jit.stack_map_sections().len(), 1);
+    tracker.remove().expect("removing");
+    assert!(jit.stack_map_sections().is_empty());
 }

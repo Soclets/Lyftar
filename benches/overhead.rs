@@ -3,17 +3,42 @@
 //! `cargo bench --bench overhead` prints the table beside the saved one in `benches/overhead_saved.txt`, so a change that
 //! slows a build call shows up. `cargo bench --bench overhead -- --save` saves this run.
 
+use std::alloc::{GlobalAlloc, Layout, System};
 use std::fmt::Write;
 use std::hint::black_box;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 use lyftar::enums::IntegerPredicate;
 use lyftar::passes::{Analyses, FunctionInPass, FunctionPass, PassOptions, PreservedAnalyses};
 use lyftar::raw;
 use lyftar::{BasicBlock, Bits, Builder, Context, Dynamic, Function, Integer, Pointer, Type, Value, with_context};
+use lyftar_stack_maps::StackMaps;
 
 type I64 = Integer<Bits<64>>;
+
+/// How many allocations this program has made, for the rows that promise none.
+static ALLOCATIONS: AtomicU64 = AtomicU64::new(0);
+
+struct Counting;
+
+// SAFETY: this only counts, and passes everything on to the system allocator.
+unsafe impl GlobalAlloc for Counting {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
+        // SAFETY: the caller's promises are passed on.
+        unsafe { System.alloc(layout) }
+    }
+
+    unsafe fn dealloc(&self, pointer: *mut u8, layout: Layout) {
+        // SAFETY: the caller's promises are passed on.
+        unsafe { System.dealloc(pointer, layout) };
+    }
+}
+
+#[global_allocator]
+static COUNTING: Counting = Counting;
 
 /// How many calls one batch builds. A batch's function is thrown away after it, so LLVM's cost stays flat.
 const CALLS_IN_A_BATCH: u32 = 2000;
@@ -222,6 +247,74 @@ impl FunctionPass for DoesNothing {
     }
 }
 
+/// A stack map with `functions` functions of 8 records each, each record a statepoint's with 8 pairs of roots.
+fn stack_map(functions: u64) -> Vec<u8> {
+    const RECORDS: u64 = 8;
+    let mut bytes = vec![3, 0, 0, 0];
+    bytes.extend(u32::try_from(functions).expect("a small count").to_le_bytes());
+    bytes.extend(0u32.to_le_bytes());
+    bytes.extend(u32::try_from(functions * RECORDS).expect("a small count").to_le_bytes());
+    for function in 0..functions {
+        bytes.extend((0x10000 + function * 0x1000).to_le_bytes());
+        bytes.extend(64u64.to_le_bytes());
+        bytes.extend(RECORDS.to_le_bytes());
+    }
+    for _ in 0..functions {
+        for record in 0..RECORDS {
+            bytes.extend(record.to_le_bytes());
+            bytes.extend(u32::try_from(record * 16 + 4).expect("a small offset").to_le_bytes());
+            bytes.extend(0u16.to_le_bytes());
+            bytes.extend(19u16.to_le_bytes());
+            for location in 0i32..19 {
+                let (kind, value) = if location < 3 { (4u8, 0) } else { (3u8, location * 8) };
+                bytes.push(kind);
+                bytes.push(0);
+                bytes.extend(8u16.to_le_bytes());
+                bytes.extend(31u16.to_le_bytes());
+                bytes.extend(0u16.to_le_bytes());
+                bytes.extend(value.to_le_bytes());
+            }
+            while bytes.len() % 8 != 0 {
+                bytes.push(0);
+            }
+            bytes.extend(0u32.to_le_bytes());
+            while bytes.len() % 8 != 0 {
+                bytes.push(0);
+            }
+        }
+    }
+    bytes
+}
+
+// trace: D45, D24
+/// What a collector pays per frame: finding a return address and reading its roots, in nanoseconds, and how many allocations it
+/// made. This runs during a collection, so that has to stay 0.
+fn stack_map_lookup() -> (f64, u64) {
+    const FUNCTIONS_IN_THE_MAP: u64 = 2000;
+    const LOOKUPS: u64 = 16000;
+    let section = stack_map(FUNCTIONS_IN_THE_MAP);
+    let mut stack_maps = StackMaps::new();
+    stack_maps.add_section(&section).expect("a good stack map");
+    let mut best = f64::MAX;
+    let allocations_before = ALLOCATIONS.load(Ordering::Relaxed);
+    for _ in 0..BATCHES {
+        let start = Instant::now();
+        for lookup in 0..LOOKUPS {
+            let function = lookup % FUNCTIONS_IN_THE_MAP;
+            let return_address = 0x10000 + function * 0x1000 + (lookup % 8) * 16 + 4;
+            let call = stack_maps.find(black_box(return_address)).expect("a call in the map");
+            let statepoint = call.record.statepoint().expect("a statepoint");
+            for root in statepoint.roots() {
+                black_box(root);
+            }
+        }
+        #[allow(clippy::cast_precision_loss)]
+        let time = start.elapsed().as_secs_f64() * 1e9 / LOOKUPS as f64;
+        best = best.min(time);
+    }
+    (best, ALLOCATIONS.load(Ordering::Relaxed) - allocations_before)
+}
+
 const FUNCTIONS: u32 = 200;
 const ADDS_IN_A_FUNCTION: u32 = 200;
 
@@ -293,6 +386,16 @@ fn main() {
     );
     println!("{name:<30}{raw_time:>12.1}{lyftar_time:>12.1}{added:>12.1}{before:>16}");
     let _ = writeln!(table, "{name}\t{added:.1}");
+    let name = "stack map lookup, 8 pairs";
+    let (lookup_time, allocations) = stack_map_lookup();
+    let before = saved
+        .lines()
+        .find_map(|line| line.strip_prefix(name)?.strip_prefix('\t'))
+        .map_or("none".to_string(), str::to_string);
+    println!("{:<30}{:>12}{:>12}{:>16}", "nanoseconds per lookup", "time", "allocations", "time, saved");
+    println!("{name:<30}{lookup_time:>12.1}{allocations:>12}{before:>16}");
+    assert_eq!(allocations, 0, "a stack map lookup runs during a collection, and must not allocate (D24)");
+    let _ = writeln!(table, "{name}\t{lookup_time:.1}");
     if std::env::args().any(|argument| argument == "--save") {
         std::fs::write(&saved_path, table).expect("saving the table");
     }

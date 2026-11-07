@@ -75,3 +75,53 @@ fn decision_24_build_calls_allocate_nothing() {
         assert_eq!(module.verify(), Ok(()));
     });
 }
+
+/// A stack map with one statepoint's record, returning to 0x1010, with a deoptimization value and two pairs of roots.
+fn stack_map() -> Vec<u8> {
+    let mut bytes = vec![3, 0, 0, 0];
+    bytes.extend(1u32.to_le_bytes());
+    bytes.extend(1u32.to_le_bytes());
+    bytes.extend(1u32.to_le_bytes());
+    bytes.extend(0x1000u64.to_le_bytes());
+    bytes.extend(32u64.to_le_bytes());
+    bytes.extend(1u64.to_le_bytes());
+    bytes.extend(99u64.to_le_bytes());
+    bytes.extend(1u64.to_le_bytes());
+    bytes.extend(0x10u32.to_le_bytes());
+    bytes.extend(0u16.to_le_bytes());
+    bytes.extend(8u16.to_le_bytes());
+    for (kind, value) in [(4u8, 0i32), (4, 0), (4, 1), (5, 0), (3, 8), (3, 16), (3, 24), (3, 32)] {
+        bytes.push(kind);
+        bytes.push(0);
+        bytes.extend(8u16.to_le_bytes());
+        bytes.extend(31u16.to_le_bytes());
+        bytes.extend(0u16.to_le_bytes());
+        bytes.extend(value.to_le_bytes());
+    }
+    while bytes.len() % 8 != 0 {
+        bytes.push(0);
+    }
+    bytes.extend(0u32.to_le_bytes());
+    while bytes.len() % 8 != 0 {
+        bytes.push(0);
+    }
+    bytes
+}
+
+// trace: D24, D45
+#[test]
+fn decision_24_a_stack_map_lookup_allocates_nothing() {
+    let section = stack_map();
+    let mut stack_maps = lyftar_stack_maps::StackMaps::new();
+    stack_maps.add_section(&section).expect("a good stack map");
+    let before = ALLOCATIONS.with(Cell::get);
+    let call = stack_maps.find(0x1010).expect("the call");
+    let statepoint = call.record.statepoint().expect("a statepoint");
+    let roots = statepoint.roots().count();
+    let deoptimization = statepoint.deoptimization().count();
+    let locations = call.record.locations().count();
+    let missing = stack_maps.find(0x1011).is_none();
+    let after = ALLOCATIONS.with(Cell::get);
+    assert_eq!(after - before, 0, "{} allocations in a lookup", after - before);
+    assert_eq!((roots, deoptimization, locations, missing), (2, 1, 8, true));
+}

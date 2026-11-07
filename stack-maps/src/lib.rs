@@ -717,9 +717,9 @@ fn elf_section_header(reader: Reader<'_>, wanted: &[u8]) -> Result<Option<(Range
     let Some(names_header) = header(names_index) else {
         return error("this ELF file's section headers run past the end", 40);
     };
-    let names_at = as_size(reader.u64(names_header.saturating_add(24))?, names_header)?;
-    let names_size = as_size(reader.u64(names_header.saturating_add(32))?, names_header)?;
-    let name_table = reader.slice(names_at, names_size)?;
+    let table_at = as_size(reader.u64(names_header.saturating_add(24))?, names_header)?;
+    let table_size = as_size(reader.u64(names_header.saturating_add(32))?, names_header)?;
+    let name_table = reader.slice(table_at, table_size)?;
     for index in 0..header_count {
         let Some(at) = header(index) else {
             return error("this ELF file's section headers run past the end", 40);

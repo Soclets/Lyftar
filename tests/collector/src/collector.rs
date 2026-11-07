@@ -1,15 +1,16 @@
 //! A small two-space copying collector for what Lyftar compiles (D45). The test's program runs one at a time, on one thread.
 //!
 //! An object is a header word holding its pointer and data field counts, a forwarding word, then its fields. A collection copies
-//! every object it can reach to a new space, rewrites each root, poisons the old space and frees it, so a root it missed reads
-//! garbage. It then finds each root again to prove they are all in the new space, and allocating always collects.
+//! every object it can reach to a new space, rewrites each root and poisons the old space, which it keeps, so a root it missed
+//! reads poison and can't land in a later space. It then finds each root again to prove they are all in the new space, and
+//! allocating always collects.
 
 use std::cell::UnsafeCell;
 use std::fmt::Write;
 
 use lyftar_stack_maps::{Location, Root, StackMaps, loaded_sections};
 
-const SPACE_SIZE_IN_WORDS: usize = 1 << 17;
+const SPACE_SIZE_IN_WORDS: usize = 1 << 13;
 const HEADER_SIZE_IN_WORDS: usize = 2;
 const POISON: u64 = 0xDEAD_DEAD_DEAD_DEAD;
 
@@ -59,6 +60,8 @@ struct FrameDescriptor {
 struct State {
     space: Vec<u64>,
     free_in_words: usize,
+    /// Every space collected from, poisoned.
+    old_spaces: Vec<Vec<u64>>,
     /// Where a collection is copying to.
     next_space: Vec<u64>,
     next_free_in_words: usize,
@@ -83,6 +86,7 @@ fn state() -> &'static mut State {
     slot.get_or_insert_with(|| State {
         space: vec![0; SPACE_SIZE_IN_WORDS],
         free_in_words: 0,
+        old_spaces: Vec::new(),
         next_space: Vec::new(),
         next_free_in_words: 0,
         finder: RootFinder::Unset,
@@ -154,6 +158,14 @@ fn slot_of(location: Location, stack_pointer: u64, frame_pointer: u64) -> Option
     Some(base.wrapping_add_signed(i64::from(offset_in_bytes)) as *mut u64)
 }
 
+fn allocation_slot(location: Location, stack_pointer: u64, frame_pointer: u64) -> Option<*mut u64> {
+    let Location::Direct { register, offset_in_bytes, size_in_bytes } = location else {
+        return None;
+    };
+    assert_eq!(size_in_bytes, 8, "the test's stack allocations hold one pointer");
+    slot_of(Location::Indirect { register, offset_in_bytes, size_in_bytes }, stack_pointer, frame_pointer)
+}
+
 /// What to do with each pair of a frame's roots: rewrite them, or check they have been.
 #[derive(Clone, Copy, PartialEq)]
 enum Visit {
@@ -185,7 +197,11 @@ fn visit_statepoint_frame(
         Root::Pair { base, derived } => {
             (slot_of(base, stack_pointer, frame_pointer), slot_of(derived, stack_pointer, frame_pointer))
         }
-        Root::Allocation(_) => (None, None),
+        // An allocation holding one pointer is a slot that is its own base.
+        Root::Allocation(location) => {
+            let slot = allocation_slot(location, stack_pointer, frame_pointer);
+            (slot, slot)
+        }
     };
     if visit == Visit::Check {
         let current = &state().space;
@@ -351,7 +367,8 @@ fn collect(return_address: u64, stack_pointer: u64, frame_pointer: u64) {
     }
     let current = state();
     current.space.fill(POISON);
-    current.space = std::mem::take(&mut current.next_space);
+    let old = std::mem::replace(&mut current.space, std::mem::take(&mut current.next_space));
+    current.old_spaces.push(old);
     current.free_in_words = current.next_free_in_words;
     walk_frames(return_address, stack_pointer, frame_pointer, Visit::Check);
 }
@@ -500,6 +517,10 @@ pub unsafe extern "C" fn gc_use_frame_table(table: *const u8) {
             at = at.add((size + 7) & !7);
         }
     }
+    // One table per translation unit, and each calls this.
+    if let RootFinder::FrameTable(existing) = &mut state().finder {
+        descriptors.append(existing);
+    }
     descriptors.sort_unstable_by_key(|descriptor| descriptor.return_address);
     state().finder = RootFinder::FrameTable(descriptors);
 }
@@ -522,13 +543,18 @@ pub extern "C" fn gc_report_pointer(address: u64) {
 #[unsafe(no_mangle)]
 pub extern "C" fn gc_report_statistics() {
     let current = state();
+    let tables = match &current.finder {
+        RootFinder::StackMaps(stack_maps) => stack_maps.tables().len(),
+        _ => 0,
+    };
     let _ = writeln!(
         current.output,
-        "collections {}, objects moved {}, roots rewritten {}, derived pointers rewritten {}, frames walked {}",
+        "collections {}, objects moved {}, roots rewritten {}, derived pointers rewritten {}, frames walked {}, stack map tables {}",
         current.collections,
         current.objects_moved,
         current.roots_rewritten,
         current.derived_pointers_rewritten,
-        current.frames_walked
+        current.frames_walked,
+        tables
     );
 }

@@ -39,9 +39,22 @@ bitcode whose intrinsics aren't upgraded yet.
 Probing all of LLVM's named passes with a `WeakVH` on each constant found these deleters and no others. A hidden module holding
 a real use of the constant stopped the deletion in the two cases tried, with the same printed IR. The fix is waiting on the owner.
 
+## Garbage collection (D45, D46)
+
+Built: all five strategies, statepoints by hand and by pass, `place-safepoints`, `lyftar-stack-maps` (`stack-maps/`), stack maps from
+both JITs, and strategies in Rust. `tests/decision_45_moving_collection.rs` runs a moving collector (`tests/collector/`) over
+`statepoint-example`, `coreclr`, `shadow-stack`, `ocaml` and a Rust strategy, linked and through both JITs, optimized and not.
+`erlang` only emits: its table goes in `.note.gc`, which isn't loaded, and its 4-byte addresses don't suit a position-independent
+program, so a runtime would have to read the file. The test doesn't run it.
+
+Found by real runs, each now an error or a panic rather than the process ending: a strategy name nothing registered, `gc.relocate`
+in a function with no collector, the transition flag anywhere but x86 (`Cannot select`), `erlang` on Mach-O (memory corruption, seen
+as an abort about one run in five), and `place-safepoints` with no poll. A static LLVM drops the `ocaml` and `erlang` table printers
+without a call into each, which Windows' CI found. `remarks::version` had the same shape of problem earlier.
+
 ## Waiting on design claude
 
-Nothing. D30 to D43 are built.
+Nothing. D30 to D46 are built.
 
 ## CI
 

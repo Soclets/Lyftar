@@ -33,6 +33,13 @@ jobs:
           echo "CXX=clang++-23" >> "$GITHUB_ENV"
       - run: cargo build --all-targets
       - run: cargo test --no-fail-fast
+      # A crash in the collector test says nothing by itself: this is where it was.
+      - name: Where the collector test crashed
+        if: failure()
+        run: |
+          sudo apt-get install -y gdb
+          binary="$(ls -t target/debug/deps/decision_45_moving_collection-* | grep -v '\.d$' | head -1)"
+          gdb -batch -ex run -ex bt -ex 'info registers rip rsp rbp' -ex 'x/12i $rip-24' --args "$binary" --test-threads=1 --nocapture 2>&1 | tail -60
 
   windows:
     runs-on: windows-2022

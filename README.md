@@ -132,6 +132,56 @@ As a plugin, a `cdylib` uses `lyftar::pass_plugin!` and loads with `opt -load-pa
 `examples/kayo_passes_plugin.rs`. On Windows that's a compile error, because the official LLVM there is built with plugins off;
 passes linked into a compiler work there.
 
+## Garbage collection
+
+A language on Lyftar can have a precise, moving collector. `function.set_garbage_collector` names a strategy, and a strategy built on
+statepoints, such as `statepoint-example`, wants its pointers in address space 1. Run `rewrite-statepoints-for-gc` after anything
+that inlines, which `statepoint_pipeline` writes for you:
+
+```rust
+use lyftar::garbage_collection::{SafepointPlacement, statepoint_pipeline};
+use lyftar::passes::PassOptions;
+use lyftar::{AddressSpace, Builder, Function, Pointer, Void, with_context};
+
+type Managed = Pointer<AddressSpace<1>>;
+
+with_context(|context| {
+    let mut program = context.create_module("example");
+    let module = context.module(&program);
+    let allocate = module.add_specific_function::<Function<Managed, ()>>("allocate");
+    let consume = module.add_specific_function::<Function<Void, (Managed,)>>("consume");
+    let run = module.add_specific_function::<Function<Void, ()>>("run");
+    run.set_garbage_collector("statepoint-example");
+    let builder = Builder::at_end_of(run.append_basic_block("entry"));
+    let first = builder.call(allocate, (), "first");
+    let second = builder.call(allocate, (), "second");
+    builder.call(consume, (first,), "");
+    builder.call(consume, (second,), "");
+    builder.return_void();
+    drop(builder);
+    let pipeline = statepoint_pipeline("default<O2>", SafepointPlacement::CallsOnly);
+    context
+        .exclusive_module(&mut program)
+        .run_passes(&pipeline, None, &PassOptions::default())
+        .expect("the pipeline");
+    assert!(context.module(&program).print_to_string().contains("gc.statepoint"));
+});
+```
+
+The code generator then writes a stack map saying where each pointer is at each call. A compiled program reads it with the
+`lyftar-stack-maps` crate, which has no LLVM, so the program needn't link it. Looking a return address up allocates nothing, so it can
+run during a collection. `Jit::stack_map_sections` and `ExecutionEngine::stack_map_sections` give the same bytes for code made in
+memory. Keep the section when linking: no `-dead_strip`, `--gc-sections`, or for rustc, `-C link-dead-code`.
+
+Rewrite each root at a call in three steps, since one slot can be in several pairs: turn each derived pointer into its offset while
+every base is still old, move each base, then add the offset back. A stack map only covers the compiled program's stack, so a
+runtime's own temporaries need roots of their own, and an integer never reaches a stack map, so nothing rewrites one.
+
+`Builder::garbage_collection_statepoint` writes statepoints by hand, with `garbage_collection_relocate` and
+`garbage_collection_result`. `shadow-stack`, `ocaml` and `erlang` work from `garbage_collection_root` instead, and `erlang` only for
+ELF. A strategy of your own is a `GarbageCollectionStrategy` in Rust, given to `register_strategy`, linked in or in a plugin.
+`tests/collector/` is a small moving collector that runs against all of these.
+
 ## Commands
 
 Regenerate the committed macOS bindings when LLVM moves:
@@ -149,7 +199,7 @@ cargo run --manifest-path tools/coverage/Cargo.toml
 Run the AddressSanitizer and UBSan tests, which need nightly Rust:
 
 ```bash
-LYFTAR_SANITIZE=1 RUSTFLAGS="-Zsanitizer=address" cargo +nightly test --target aarch64-apple-darwin --target-dir target/sanitize --test decision_2_end_to_end --test decision_3_panics --test decision_3_pass_aborts --test decision_4_build_calls --test decision_10_jit --test decision_11_deletion --test decision_1_passes --test decision_16_modules --test decision_16_threads --test decision_30_bytes --test decision_31_pointers --test decision_32_aggregates --test decision_33_functions --test decision_43_modules --test kayo_passes --no-fail-fast -- --skip plugin
+LYFTAR_SANITIZE=1 RUSTFLAGS="-Zsanitizer=address" cargo +nightly test --target aarch64-apple-darwin --target-dir target/sanitize --test decision_2_end_to_end --test decision_3_panics --test decision_3_pass_aborts --test decision_4_build_calls --test decision_10_jit --test decision_11_deletion --test decision_1_passes --test decision_16_modules --test decision_16_threads --test decision_30_bytes --test decision_31_pointers --test decision_32_aggregates --test decision_33_functions --test decision_43_modules --test decision_45_moving_collection --test decision_45_statepoints --test decision_45_strategies --test decision_45_stack_maps --test decision_45_custom_strategies --test kayo_passes --no-fail-fast -- --skip plugin
 ```
 
 Measure what Lyftar adds over raw LLVM calls, beside the saved table, and save a new one with `-- --save`:
@@ -158,7 +208,7 @@ Measure what Lyftar adds over raw LLVM calls, beside the saved table, and save a
 cargo bench --bench overhead
 ```
 
-`cargo test` also runs Verus on the proven checks in `src/checks.rs`, so working on Lyftar on a Mac needs
+`cargo test` also runs Verus on the proven checks in `src/checks.rs` and `stack-maps/src/checks.rs`, so working on Lyftar on a Mac needs
 [Verus](https://github.com/verus-lang/verus) at `~/.local/verus/verus-arm64-macos/verus` or named by `LYFTAR_VERUS`. Using
 Lyftar as a dependency needs none of it.
 

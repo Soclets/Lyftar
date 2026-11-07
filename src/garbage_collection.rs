@@ -149,6 +149,9 @@ impl BitOr for StatepointFlags {
 }
 
 /// What a `gc.statepoint` is made of, for [`Builder::garbage_collection_statepoint`].
+///
+/// `rewrite-statepoints-for-gc` adds nothing to a statepoint it finds. So a function with these in it mustn't be inlined into one
+/// the pass rewrites, since what that one holds wouldn't be in the live list: mark it `noinline`, or run the pass before writing them.
 #[derive(Clone, Copy, Debug)]
 pub struct StatepointCall<'call, 'context, 'module> {
     /// The number the stack map record carries.
@@ -169,6 +172,9 @@ pub struct StatepointCall<'call, 'context, 'module> {
     pub deoptimization: &'call [Value<'context, 'module>],
     /// The `gc-live` bundle: the pointers that are live across the call, each one a pointer the strategy manages, or a stack
     /// allocation holding them.
+    ///
+    /// LLVM's optimizer drops a live value nothing relocates, and with a stack allocation that deletes the allocation too, so run
+    /// any optimization before writing a statepoint with one.
     pub live: &'call [Value<'context, 'module>],
 }
 

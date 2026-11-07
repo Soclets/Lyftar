@@ -8,3 +8,4 @@ call, two arguments	8.8
 call, two arguments, specific	6.6
 branch into a new block	0.8
 Rust function pass, 200 adds	12944.8
+stack map lookup, 8 pairs	129.1

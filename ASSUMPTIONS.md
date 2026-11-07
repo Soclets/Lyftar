@@ -1,6 +1,6 @@
 # What Lyftar assumes
 
-Verus proves Lyftar's own checks (`src/checks.rs`, D22). What an LLVM call does can only be assumed, so those assumptions
+Verus proves Lyftar's own checks (`src/checks.rs` and `stack-maps/src/checks.rs`, D22). What an LLVM call does can only be assumed, so those assumptions
 are here, in one place. Each comes from LLVM 23.1.2's headers, or was seen against the real library where a test says so.
 If one turns out false, the safety promise named beside it falls with it.
 
@@ -83,6 +83,50 @@ If one turns out false, the safety promise named beside it falls with it.
   process on some types, which isn't caught, and neither would anything else a backend refuses that way.
 - **Bitcode with debug information that fails the verifier still ends the process.** LLVM's reader upgrades debug information
   as it reads, and has no switch for that. Text is checked first.
+
+- **LLVM ends the process over a garbage collection strategy it can't find** (`getGCStrategy`), and its verifier looks one up for
+  any `gc.relocate`, even in a function with no collector. So `set_garbage_collector` panics, and `verify`, every pass run, emission,
+  both JITs and reading text are errors first (D3, D45). Bitcode isn't checked until one of those.
+- **A statepoint with the transition flag only makes code on x86.** AArch64, RISC-V and PowerPC were seen ending the process with
+  `Cannot select`, and no target's source mentions the node, so anything but x86 is an error (D45).
+- **`erlang`'s table printer writes an ELF section whatever the format.** On Mach-O that corrupted memory, in a run seen to fail one
+  time in a few, so anything but ELF is an error (D45).
+- **`ocaml`'s table printer ends the process over a frame of 64 KiB or more, or 65536 call sites.** Those can't be seen ahead of
+  time without doing the code generator's work, so they aren't caught.
+
+## Garbage collection
+
+- **`place-safepoints` reads a null function without a `gc.safepoint_poll`,** since its check is an `assert`, and Homebrew's LLVM has
+  those off. It only rewrites `statepoint-example` and `coreclr`, by name, so `run_passes` makes that an error for those (D45).
+- **LLVM's strategy registry has no lock.** `Registry::add_node` writes a plain pointer that a compile on another thread can be
+  walking. Registering takes a Rust lock against other registrations, and a release fence before the write. A reader only follows
+  that pointer to the node, so this leans on pointer-sized writes being whole and on address dependencies keeping their order, which
+  both hold on AArch64 and x86-64. It isn't what C++ promises.
+- **A registered strategy lasts for good.** The registry has no way to take one out, so what is registered is leaked on purpose, and
+  a plugin registering one must stay loaded, as `opt` keeps them (`PassPlugin::Load` uses a permanent library).
+- **A statepoint's stack map record is three constants, deoptimization locations, base and derived pairs, then allocations.** Only
+  the allocations are `Direct` (`StackMaps::parseStatepointOpers`, and `lowerStatepointMetaArgs` puts every frame index among them),
+  which is how `lyftar-stack-maps` tells them apart, since the record gives no count of pairs. `Statepoints.rst` says the same of
+  the rest, and `tests/decision_45_stack_maps.rs` sees it hold.
+- **LLVM's optimizer drops a `gc-live` value nothing relocates** (`InstCombine`), and a stack allocation in that list then goes
+  too, so a program that reads it afterwards reads a stale pointer. `Statepoints.rst` warns this form is little exercised. So
+  `StatepointCall` says to write these after optimizing, and the test runs one only when it doesn't optimize.
+- **`rewrite-statepoints-for-gc` adds nothing to a statepoint it finds** (`needsStatepointRewriting`), so inlining a hand-written one
+  into a function the pass rewrites leaves what that function holds out of its live list. Seen in the test: a poisoned space
+  caught the stale pointer. `StatepointCall` says so.
+- **A JIT can't find the `llvm_gc_root_chain` that shadow stack lowering makes up** when it makes each translation unit's code, since
+  it isn't in the IR ORC reads. A program defining it itself works: the test's does.
+- **LLVM can fold a derived pointer away.** `CodeGenPrepare` rewrites a relocate of a constant offset from its base into arithmetic on
+  the relocated base, so such a pointer never reaches the stack map, and that is correct: the object still moves right.
+- **A function's stack size in its stack map record is what its return moves the stack pointer by**, past the return address on
+  x86-64. The test collector asserts this against the frame pointer on every frame it walks.
+- **JITLink names the section `__LLVM_STACKMAPS,__llvm_stackmaps` on Mach-O and `.llvm_stackmaps` on ELF, and strips it** with nothing
+  referring to it, so a plugin marks it live. **RuntimeDyld loads it,** since Mach-O and ELF treat it as needed to run. Neither is
+  in the headers, and `tests/decision_45_moving_collection.rs` sees both hold.
+- **A module with an `ocaml` function fails in `Jit` with `Unexpected definitions`,** since its frame table is a symbol the IR doesn't
+  have. That is an error at lookup, not a crash. An object made first and given to `add_object_file` works.
+- **Linkers that strip what nothing refers to drop a stack map section.** rustc does by default, which `-C link-dead-code` turns off.
+  Neither `cc` nor `ld` does without `-dead_strip` or `--gc-sections`.
 
 ## Pass runs
 

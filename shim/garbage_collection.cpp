@@ -39,6 +39,7 @@
 #include "llvm/TargetParser/Triple.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
@@ -57,7 +58,12 @@ namespace {
 // `getGCStrategy` ends the process on a name nothing registered, so everything
 // asks this first.
 bool isRegistered(StringRef name) {
+  // A linker drops what registers these from a static LLVM unless something
+  // calls into each. The tables' printers are separate, and needed when making
+  // code.
   linkAllBuiltinGCs();
+  linkOcamlGCPrinter();
+  linkErlangGCPrinter();
   return any_of(GCRegistry::entries(), [name](const GCRegistry::entry &entry) {
     return entry.getName() == name;
   });
@@ -476,6 +482,10 @@ public:
       : name(name), description(description), rewrite(rewrite),
         manages(manages), state(state), factory(this),
         entry(this->name, this->description, factory), node(entry) {
+    // Another thread may be walking the registry, which has no lock. It reads
+    // this node through the pointer `add_node` writes, so everything in it has
+    // to be visible first (ASSUMPTIONS.md).
+    std::atomic_thread_fence(std::memory_order_release);
     GCRegistry::add_node(&node);
   }
 
