@@ -847,8 +847,9 @@ fn run_execution_engine(way: &Way) -> String {
         let level = if way.optimization == Optimization::On { 2 } else { 0 };
         let mut engine = ExecutionEngine::jit_compiler(context, program, level).expect("an engine");
         engine.add_module(other);
+        // Only declared in the program, since they're in this process. Without this a call to one goes to address 0 on Linux.
         for (name, address) in runtime_functions() {
-            if let Some(function) = engine.find_function(name) {
+            if let Some(function) = engine.find_declared_function(name) {
                 engine.add_global_mapping(function, address as *mut std::ffi::c_void);
             }
         }
@@ -873,12 +874,19 @@ fn every_way(strategy: Strategy, polls: Polls) {
         let way = Way { strategy, optimization, polls };
         let mut runtime_dyld = JitBuilder::new();
         runtime_dyld.use_runtime_dyld();
+        let mut ocaml_runtime_dyld = JitBuilder::new();
+        ocaml_runtime_dyld.use_runtime_dyld();
         // A poll collects as well, so a program with them has to collect more than one without.
         let without_polls = Way { polls: Polls::No, ..way };
-        let least_collections =
-            check_output(&run_jit(&without_polls, JitBuilder::new()), "without polls", &without_polls);
+        let mut baseline = JitBuilder::new();
+        baseline.use_runtime_dyld();
+        let least_collections = check_output(&run_jit(&without_polls, baseline), "without polls", &without_polls);
         for (name, output) in [
-            ("through Jit", run_jit(&way, JitBuilder::new())),
+            // JITLink refuses an `ocaml` object on some layouts, as an error (ASSUMPTIONS.md).
+            (
+                "through Jit",
+                run_jit(&way, if strategy.name == "ocaml" { ocaml_runtime_dyld } else { JitBuilder::new() }),
+            ),
             ("through Jit with RuntimeDyld", run_jit(&way, runtime_dyld)),
             ("through ExecutionEngine", run_execution_engine(&way)),
             ("linked", run_linked(&way)),

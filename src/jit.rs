@@ -336,6 +336,25 @@ impl<'context, 'borrow> ExecutionEngine<'context, 'borrow> {
         (missing == 0).then(|| unsafe { Value::from_raw(found) })
     }
 
+    // trace: D45
+    /// The function of this name in this engine's modules, with a body or only declared, unlike
+    /// [`find_function`](Self::find_function). A function a program calls from its runtime is only declared, and needs
+    /// [`add_global_mapping`](Self::add_global_mapping).
+    ///
+    /// # Panics
+    /// If `name` has a NUL byte inside it (D3).
+    #[must_use]
+    #[track_caller]
+    pub fn find_declared_function(&self, name: &str) -> Option<Value<'context, '_, Function>> {
+        let name = c_string(name, "find_declared_function");
+        self.modules.iter().find_map(|module| {
+            // SAFETY: the engine owns these modules, and the name is a valid C string for the call.
+            let found = unsafe { raw::LLVMGetNamedFunction(*module, name.as_ptr()) };
+            // SAFETY: just found, in a module this engine owns, so it lasts as long as this borrow.
+            (!found.is_null()).then(|| unsafe { Value::from_raw(found) })
+        })
+    }
+
     /// Runs the modules' static constructors.
     ///
     /// # Safety

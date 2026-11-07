@@ -124,7 +124,12 @@ If one turns out false, the safety promise named beside it falls with it.
   referring to it, so a plugin marks it live. **RuntimeDyld loads it,** since Mach-O and ELF treat it as needed to run. Neither is
   in the headers, and `tests/decision_45_moving_collection.rs` sees both hold.
 - **A module with an `ocaml` function fails in `Jit` with `Unexpected definitions`,** since its frame table is a symbol the IR doesn't
-  have. That is an error at lookup, not a crash. An object made first and given to `add_object_file` works.
+  have. That is an error at lookup, not a crash. An object made first and given to `add_object_file` works, with RuntimeDyld: JITLink
+  also refused such an object on GitHub's Mac, with `Block ... overlaps`, because its labels at section ends make empty blocks, while
+  the same code passed on this Mac. That is an error too.
+- **`ExecutionEngine` leaves a call to a function it can't find going to address 0 on ELF,** with no error, and macOS finds this
+  process's functions through `dlsym` where Linux can't unless they are exported. A program's runtime functions need
+  `add_global_mapping`, through `find_declared_function`, since `find_function` only finds bodies.
 - **Linkers that strip what nothing refers to drop a stack map section.** rustc does by default, which `-C link-dead-code` turns off.
   Neither `cc` nor `ld` does without `-dead_strip` or `--gc-sections`.
 

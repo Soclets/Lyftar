@@ -1742,8 +1742,7 @@
       "status": "wrapped"
     },
     "LLVMGetNamedFunction": {
-      "status": "not_wrapped",
-      "reason": "It takes a C string; the WithLength form Lyftar wraps takes a length, with no allocation."
+      "status": "wrapped"
     },
     "LLVMGetNamedFunctionWithLength": {
       "status": "wrapped"
