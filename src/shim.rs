@@ -29,6 +29,15 @@ unsafe extern "C" {
     pub fn lyftar_strategy_is_registered(name: *const c_char, length: usize) -> bool;
     pub fn lyftar_strategy_manages_pointer(function: LLVMValueRef, pointer_type: LLVMTypeRef) -> c_int;
     pub fn lyftar_module_strategy_problem(module: LLVMModuleRef) -> *mut c_char;
+    pub fn lyftar_strategy_register(
+        name: *const c_char,
+        name_length: usize,
+        description: *const c_char,
+        description_length: usize,
+        rewrite: bool,
+        manages: unsafe extern "C" fn(*const c_void, LLVMTypeRef) -> c_int,
+        state: *const c_void,
+    );
     pub fn lyftar_module_needs_safepoint_poll(module: LLVMModuleRef) -> bool;
     pub fn lyftar_module_has_transition_statepoint(module: LLVMModuleRef) -> bool;
     pub fn lyftar_jit_capture_stack_maps(jit: crate::raw::LLVMOrcLLJITRef) -> *mut c_void;

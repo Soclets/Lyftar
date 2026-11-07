@@ -16,9 +16,13 @@ use crate::builder::{Builder, OperandBundle, PointerOperand, set_name};
 use crate::enums::TypeKind;
 use crate::raw;
 use crate::shim;
+use crate::text::c_string;
 use crate::types::{Dynamic, Type, length_as_u32};
 use crate::values::{GarbageCollectionStatepoint, LandingPadInstruction, Value, ValueMarker};
+use std::any::TypeId;
+use std::ffi::{c_int, c_void};
 use std::ops::BitOr;
+use std::sync::Mutex;
 
 /// `llvm.experimental.gc.statepoint`, which every statepoint call is.
 const STATEPOINT: &str = "llvm.experimental.gc.statepoint";
@@ -44,6 +48,78 @@ const ARGUMENTS_BEFORE_THE_CALL: u32 = 5;
 pub fn strategy_is_registered(name: &str) -> bool {
     // SAFETY: the shim reads `name.len()` bytes.
     unsafe { shim::lyftar_strategy_is_registered(name.as_ptr().cast(), name.len()) }
+}
+
+/// A garbage collection strategy written in Rust, built on statepoints. Give it to [`register_strategy`], then name it with
+/// [`set_garbage_collector`](crate::values::Value::set_garbage_collector).
+///
+/// LLVM's `place-safepoints` only knows `statepoint-example` and `coreclr` by name, so with one of these the program has to make
+/// its own polls. Strategies built on roots need an emitter of their tables, which is C++, so they aren't offered here.
+pub trait GarbageCollectionStrategy: Send + Sync + 'static {
+    /// What a function names it by.
+    const NAME: &'static str;
+    /// What LLVM shows when it lists strategies.
+    const DESCRIPTION: &'static str;
+    /// Whether `rewrite-statepoints-for-gc` works on functions using this. Without it, the program writes its own statepoints.
+    const REWRITES_STATEPOINTS: bool = true;
+
+    /// Whether a pointer of this type is one the collector manages, or `None` if this strategy can't tell, in which case LLVM
+    /// treats every pointer as managed. A panic here aborts, since it is running inside LLVM (D3).
+    fn manages_pointer(&self, pointer_type: Type<'_>) -> Option<bool>;
+}
+
+/// Which strategies this crate registered, by the type that did it.
+static REGISTERED: Mutex<Vec<(&str, TypeId)>> = Mutex::new(Vec::new());
+
+// trace: D45
+/// Registers a strategy for the rest of this process. In a plugin, call this from what `pass_plugin!` registers. Calling it again
+/// with the same type does nothing.
+///
+/// # Panics
+/// If its name has a NUL byte in it, or another strategy has that name (D3).
+#[track_caller]
+pub fn register_strategy<S: GarbageCollectionStrategy>(strategy: S) {
+    unsafe extern "C" fn manages<S: GarbageCollectionStrategy>(
+        state: *const c_void,
+        pointer_type: raw::LLVMTypeRef,
+    ) -> c_int {
+        let answer = std::panic::catch_unwind(|| {
+            // SAFETY: `state` is the leaked strategy below, for good, and LLVM gives a live type.
+            let (strategy, pointer_type) = unsafe { (&*state.cast::<S>(), Type::from_raw(pointer_type)) };
+            strategy.manages_pointer(pointer_type)
+        });
+        match answer {
+            Ok(None) => -1,
+            Ok(Some(answer)) => c_int::from(answer),
+            Err(_) => std::process::abort(),
+        }
+    }
+    let operation = "register_strategy";
+    drop(c_string(S::NAME, operation));
+    crate::target::set_up_targets();
+    // A poisoned list only means another registration panicked, which left the list as it was.
+    let mut registered = REGISTERED.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let type_id = TypeId::of::<S>();
+    if registered.iter().any(|(name, found)| *name == S::NAME && *found == type_id) {
+        return;
+    }
+    if strategy_is_registered(S::NAME) {
+        bad_call(format_args!("{operation}: another strategy is called \"{}\"", S::NAME));
+    }
+    let state: *const S = Box::leak(Box::new(strategy));
+    // SAFETY: the lock is held and the name is free, the strategy is leaked so it lasts for good, and `manages` doesn't panic across.
+    unsafe {
+        shim::lyftar_strategy_register(
+            S::NAME.as_ptr().cast(),
+            S::NAME.len(),
+            S::DESCRIPTION.as_ptr().cast(),
+            S::DESCRIPTION.len(),
+            S::REWRITES_STATEPOINTS,
+            manages::<S>,
+            state.cast(),
+        );
+    }
+    registered.push((S::NAME, type_id));
 }
 
 /// The flags a statepoint takes, which can be combined with `|`.

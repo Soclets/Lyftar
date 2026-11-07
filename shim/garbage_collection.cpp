@@ -460,3 +460,95 @@ extern "C" void lyftar_stack_maps_dispose(void *captured) {
   const std::unique_ptr<CapturedStackMaps> owned(
       static_cast<CapturedStackMaps *>(captured));
 }
+
+// Strategies written in Rust.
+
+namespace {
+
+using ManagesPointer = int (*)(const void *state, LLVMTypeRef type);
+
+// What a strategy from Rust says about itself, kept for good: LLVM's registry
+// has no way to take an entry out, and it holds on to these.
+class RustStrategyEntry {
+public:
+  RustStrategyEntry(StringRef name, StringRef description, bool rewrite,
+                    ManagesPointer manages, const void *state)
+      : name(name), description(description), rewrite(rewrite),
+        manages(manages), state(state), factory(this),
+        entry(this->name, this->description, factory), node(entry) {
+    GCRegistry::add_node(&node);
+  }
+
+  std::unique_ptr<GCStrategy> make() const;
+
+  std::optional<bool> managesPointer(const Type *type) const {
+    const int answer = manages(state, wrap(type));
+    if (answer < 0) {
+      return std::nullopt;
+    }
+    return answer != 0;
+  }
+
+  bool rewrites() const { return rewrite; }
+
+private:
+  class Factory {
+  public:
+    explicit Factory(const RustStrategyEntry *owner) : owner(owner) {}
+    std::unique_ptr<GCStrategy> operator()() const { return owner->make(); }
+
+  private:
+    const RustStrategyEntry *owner;
+  };
+
+  std::string name;
+  std::string description;
+  bool rewrite;
+  ManagesPointer manages;
+  const void *state;
+  Factory factory;
+  GCRegistry::entry entry;
+  GCRegistry::node node;
+};
+
+class RustStrategy final : public GCStrategy {
+public:
+  explicit RustStrategy(const RustStrategyEntry &found) : found(found) {
+    UseStatepoints = true;
+    UseRS4GC = found.rewrites();
+  }
+
+  std::optional<bool> isGCManagedPointer(const Type *type) const override {
+    return found.managesPointer(type);
+  }
+
+private:
+  const RustStrategyEntry &found;
+};
+
+std::unique_ptr<GCStrategy> RustStrategyEntry::make() const {
+  return std::make_unique<RustStrategy>(*this);
+}
+
+} // namespace
+
+// Contract: `name` and `description` are readable for their lengths, and are
+// copied. No strategy of this name is registered, and Rust holds a lock across
+// this, since LLVM's registry has none. `manages` and `state` stay valid for
+// good; a Rust panic doesn't cross `manages`. The entry is never freed, as LLVM
+// keeps it.
+extern "C" void lyftar_strategy_register(const char *name, size_t name_length,
+                                         const char *description,
+                                         size_t description_length,
+                                         bool rewrite, ManagesPointer manages,
+                                         const void *state) {
+  require(name != nullptr && description != nullptr && manages != nullptr,
+          "lyftar_strategy_register: null");
+  require(!isRegistered(StringRef(name, name_length)),
+          "lyftar_strategy_register: already registered");
+  auto entry = std::make_unique<RustStrategyEntry>(
+      StringRef(name, name_length), StringRef(description, description_length),
+      rewrite, manages, state);
+  // LLVM's registry holds this from here on, so nothing owns it.
+  [[maybe_unused]] const RustStrategyEntry *kept = entry.release();
+}

@@ -13,7 +13,9 @@ use std::process::Command;
 use std::sync::Mutex;
 
 use lyftar::enums::IntegerPredicate;
-use lyftar::garbage_collection::{SafepointPlacement, statepoint_pipeline};
+use lyftar::garbage_collection::{
+    GarbageCollectionStrategy, SafepointPlacement, register_strategy, statepoint_pipeline,
+};
 use lyftar::jit::{ExecutionEngine, Jit, JitSymbolFlags};
 use lyftar::memory_buffer::MemoryBuffer;
 use lyftar::passes::PassOptions;
@@ -45,12 +47,29 @@ enum Roots {
 struct Strategy {
     name: &'static str,
     roots: Roots,
+    address_space: u32,
 }
 
-const STATEPOINT_EXAMPLE: Strategy = Strategy { name: "statepoint-example", roots: Roots::Statepoints };
-const CORECLR: Strategy = Strategy { name: "coreclr", roots: Roots::Statepoints };
-const SHADOW_STACK: Strategy = Strategy { name: "shadow-stack", roots: Roots::Slots };
-const OCAML: Strategy = Strategy { name: "ocaml", roots: Roots::Slots };
+const STATEPOINT_EXAMPLE: Strategy =
+    Strategy { name: "statepoint-example", roots: Roots::Statepoints, address_space: 1 };
+const CORECLR: Strategy = Strategy { name: "coreclr", roots: Roots::Statepoints, address_space: 1 };
+const SHADOW_STACK: Strategy = Strategy { name: "shadow-stack", roots: Roots::Slots, address_space: 0 };
+const OCAML: Strategy = Strategy { name: "ocaml", roots: Roots::Slots, address_space: 0 };
+
+/// A strategy written in Rust, in the test, with no C++.
+struct AddressSpaceFive;
+
+impl GarbageCollectionStrategy for AddressSpaceFive {
+    const NAME: &'static str = "moving-address-space-five";
+    const DESCRIPTION: &'static str = "manages the pointers in address space 5";
+
+    fn manages_pointer(&self, pointer_type: Type<'_>) -> Option<bool> {
+        Some(pointer_type.address_space() == 5)
+    }
+}
+
+const WRITTEN_IN_RUST: Strategy =
+    Strategy { name: AddressSpaceFive::NAME, roots: Roots::Statepoints, address_space: 5 };
 
 #[derive(Clone, Copy, PartialEq)]
 enum Optimization {
@@ -80,8 +99,7 @@ enum Variable<'context, 'module> {
 
 impl<'context, 'module> Program<'context, 'module> {
     fn new(context: &'module Context<'context>, module: &'module lyftar::Module<'context>, strategy: Strategy) -> Self {
-        let address_space = if strategy.roots == Roots::Statepoints { 1 } else { 0 };
-        let pointer = context.pointer_type(address_space).to_dynamic();
+        let pointer = context.pointer_type(strategy.address_space).to_dynamic();
         let i64_type = context.get_type::<I64>();
         let i64_dynamic = i64_type.to_dynamic();
         let void = context.void_type();
@@ -673,4 +691,10 @@ fn decision_45_shadow_stack_moves_objects_and_rewrites_every_root() {
 #[test]
 fn decision_45_ocaml_moves_objects_and_rewrites_every_root() {
     every_way(OCAML);
+}
+
+#[test]
+fn decision_45_a_strategy_written_in_rust_moves_objects_and_rewrites_every_root() {
+    register_strategy(AddressSpaceFive);
+    every_way(WRITTEN_IN_RUST);
 }

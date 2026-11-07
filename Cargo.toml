@@ -37,6 +37,11 @@ exclude = ["tools/bindings"]
 name = "kayo_passes_plugin"
 crate-type = ["cdylib"]
 
+# A garbage collection strategy in Rust, as a plugin for `opt`.
+[[example]]
+name = "strategy_plugin"
+crate-type = ["cdylib"]
+
 # D24: what Lyftar adds over raw LLVM calls.
 [[bench]]
 name = "overhead"
