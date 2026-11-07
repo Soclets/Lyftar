@@ -33,13 +33,7 @@ jobs:
           echo "CXX=clang++-23" >> "$GITHUB_ENV"
       - run: cargo build --all-targets
       - run: cargo test --no-fail-fast
-      # A crash in the collector test says nothing by itself: this is where it was.
-      - name: Where the collector test crashed
-        if: failure()
-        run: |
-          sudo apt-get install -y gdb
-          binary="$(ls -t target/debug/deps/decision_45_moving_collection-* | grep -v '\.d$' | head -1)"
-          gdb -batch -ex run -ex 'bt 3' -ex 'info registers' -ex 'set $return = *(long *)$rsp' -ex 'x/12i $return-40' -ex 'x/6gx $rsp' --args "$binary" --test-threads=1 --nocapture 2>&1 | tail -60
+      - run: cargo test --package lyftar-stack-maps
 
   windows:
     runs-on: windows-2022
@@ -90,3 +84,4 @@ jobs:
           LIBCLANG_PATH="$prefix/lib" cargo run --manifest-path tools/bindings/Cargo.toml -- "$prefix/include" src/raw/macos.rs
           git diff --exit-code src/raw/macos.rs
       - run: cargo test --no-fail-fast -- --skip decision_22_verus_proves_the_checks
+      - run: cargo test --package lyftar-stack-maps

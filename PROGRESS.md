@@ -52,6 +52,12 @@ in a function with no collector, the transition flag anywhere but x86 (`Cannot s
 as an abort about one run in five), and `place-safepoints` with no poll. A static LLVM drops the `ocaml` and `erlang` table printers
 without a call into each, which Windows' CI found. `remarks::version` had the same shape of problem earlier.
 
+Found by the collector itself, since it keeps poisoned spaces rather than freeing them: `rewrite-statepoints-for-gc` adds nothing to a
+statepoint it finds, so hand-written ones mustn't be inlined into a function it rewrites, and the optimizer drops a stack allocation in a
+`gc-live` list, so those go after optimizing. Both are in `StatepointCall`'s docs. Linux's linker needs `-z notext` for a position-
+independent program, since ELF's stack map section is read-only and holds addresses. Through `Jit`, `ocaml` needs an object file and
+RuntimeDyld, and `shadow-stack` needs the program to define `llvm_gc_root_chain` when there are several translation units.
+
 ## Waiting on design claude
 
 Nothing. D30 to D46 are built.
@@ -59,11 +65,14 @@ Nothing. D30 to D46 are built.
 ## CI
 
 `.github/workflows/ci.yml` runs on every push. Read it with `gh run list`: don't call Linux or Windows untested without looking.
-Every run up to 6db7931 failed. Now:
+All three jobs pass at 58ffba3.
 
-- Linux and the macOS check pass on GitHub. The Verus proofs and the shim's `clang-format` and `clang-tidy` checks run on the Mac only.
-- Windows builds and passes, with `pass_plugin!` a compile error and the two plugin tests off there (D44). `decision_2_end_to_end`,
-  `decision_3_pass_aborts` and the program-linking test in `decision_33_functions` are `cfg(unix)`, so they don't run there either.
+- The Verus proofs, the shim's `clang-format` and `clang-tidy` checks and the sanitizer run are on the Mac only.
+- Linux runs everything else, including the moving collector linked and through both JITs, and the transition flag, which only x86
+  can make code for.
+- Windows builds and passes, with `pass_plugin!` a compile error and the two plugin tests off there (D44). These are `cfg(unix)`, so
+  they don't run there: `decision_2_end_to_end`, `decision_3_pass_aborts`, the program-linking test in `decision_33_functions`, and
+  `decision_45_moving_collection` and `decision_45_stack_maps`. `lyftar-stack-maps` has no `loaded_sections` for Windows (D44's scope).
 
 ## kayo's passes
 
