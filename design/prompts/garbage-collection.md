@@ -1,7 +1,7 @@
-This is my own prompt, and it is my go: build real garbage collection support into Lyftar. Stack map packaging is the one exception, explained below.
+This is my own prompt, and it is my go: build real garbage collection support into Lyftar.
 
 <context>
-You are implementation claude, in "/Users/ts/Lyftar implementation", on main. Pull first, and read DECISIONS.md and IMPLEMENTATION.md in full. D45 is this work. Rules 3, 4, 11, 13 and 17 matter most here. Recording D45 made the tracing test fail until something traces it, so trace it as you start.
+You are implementation claude, in "/Users/ts/Lyftar implementation", on main. Pull first, and read DECISIONS.md and IMPLEMENTATION.md in full. D45 and D46 are this work. Rules 3, 4, 11, 13 and 17 matter most here. Recording D45 and D46 made the tracing test fail until something traces them, so trace them as you start.
 
 I want my languages to be able to have a precise, moving collector on Lyftar. Today Lyftar only has `set_garbage_collector` and the raw pieces, and nothing has tested them. A precise collector has to know exactly which stack slots hold pointers, so it can move objects and rewrite those slots.
 
@@ -20,13 +20,13 @@ Build these, in this order, each one working through real LLVM before the next:
 </task>
 
 <stack_map_packaging>
-A compiled program needs the reader while it runs, but it must not have to link libLLVM. D16 makes Lyftar one crate, which always compiles the shim and links LLVM, so the reader can't simply live in it as things stand. This packaging is my decision. design claude is taking it to me, so check DECISIONS.md for the answer before step 3. Until it's there, build everything else, keep the parser free of any LLVM dependency, and leave its public home unbuilt.
+A compiled program needs the reader while it runs, and it must not have to link libLLVM. So the reader is its own crate, `lyftar-stack-maps`, with no LLVM and no shim (D46), and its proofs live with it. Lyftar itself can depend on it to read stack maps at compile time.
 </stack_map_packaging>
 
 <done_when>
 1. A test compiles a program with Lyftar that allocates through a small moving collector written for the test, forces collections while live objects are held across calls, and prints results that prove the objects really moved and every root was rewritten. It runs linked on macOS and Linux, and through the JIT, cleanly under the AddressSanitizer run. Run it with optimization on as well as off, and for each strategy that can move objects.
 2. The parser agrees with `llvm-readobj --stackmap` on real objects, including several translation units and derived pointers that differ from their bases.
-3. A test finds the stack map in a linked program that doesn't link LLVM, once packaging is decided.
+3. A test finds the stack map in a linked program that uses `lyftar-stack-maps` and doesn't link LLVM.
 4. A Rust-defined custom strategy compiles and runs through the same collector test.
 5. The benchmark tracks stack map lookups and shows no allocation. CI passes, and coverage.json and ASSUMPTIONS.md are current.
 Windows is out of scope beyond keeping CI green (D44).
@@ -48,4 +48,4 @@ Keep notes in PROGRESS.md, and commit and push at each working step. A message w
 I get lost in dense text, so say things plainly. Give a brief update when you find something important or change direction. When you finish, lead with what now works, then what is untested and which questions are still open, and keep it short.
 </communication>
 
-Build real garbage collection support until done_when is met, apart from what waits on the packaging decision.
+Build real garbage collection support until done_when is met.

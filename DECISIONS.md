@@ -244,3 +244,8 @@ collector, with statepoints, LLVM's built-in strategies, custom strategies in Ru
 runs. `design/prompts/garbage-collection.md` holds the scope. How the stack map reader is packaged, so that a compiled program need
 not link LLVM, is not settled here. A throwaway test language asked whether Lyftar supports GC; Claude suggested waiting for its
 choice of memory model; the owner chose otherwise: "Make real GC support". (Owner, 2026-11-07)
+
+**D46. `lyftar-stack-maps`.** The stack map reader is a second crate, `lyftar-stack-maps`, with no LLVM and no shim, because it runs
+inside a language's finished program, and that program must not have to link LLVM. This is an exception to D16, which is about not
+splitting Lyftar's LLVM API: the reader wraps no LLVM, and only reads bytes. Claude proposed it; the owner chose it: "yea". (Owner,
+2026-11-07)
