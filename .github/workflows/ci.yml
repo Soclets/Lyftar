@@ -39,7 +39,7 @@ jobs:
         run: |
           sudo apt-get install -y gdb
           binary="$(ls -t target/debug/deps/decision_45_moving_collection-* | grep -v '\.d$' | head -1)"
-          gdb -batch -ex run -ex bt -ex 'info registers rip rsp rbp' -ex 'x/12i $rip-24' --args "$binary" --test-threads=1 --nocapture 2>&1 | tail -60
+          gdb -batch -ex run -ex 'bt 3' -ex 'info registers' -ex 'set $return = *(long *)$rsp' -ex 'x/12i $return-40' -ex 'x/6gx $rsp' --args "$binary" --test-threads=1 --nocapture 2>&1 | tail -60
 
   windows:
     runs-on: windows-2022

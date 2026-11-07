@@ -101,6 +101,7 @@ fn state() -> &'static mut State {
 }
 
 /// Starts again, with these stack map sections from a JIT if it has them.
+#[allow(dead_code)]
 pub fn reset(sections: Vec<Vec<u8>>) {
     // SAFETY: as for `Global`.
     unsafe { *STATE.0.get() = None };
