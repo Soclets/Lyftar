@@ -1201,6 +1201,20 @@ fn check_pipeline_text(pipeline: &str) -> Result<(), Error> {
     Ok(())
 }
 
+impl Module<'_> {
+    // trace: D45
+    /// `place-safepoints` inlines a `gc.safepoint_poll` the module has to define, and without one LLVM reads a null function.
+    fn check_safepoint_poll(&self, pipeline: &str) -> Result<(), Error> {
+        // SAFETY: the module is live, and the shim only reads it.
+        if pipeline.contains("place-safepoints") && unsafe { shim::lyftar_module_needs_safepoint_poll(self.raw) } {
+            return Err(Error::new(
+                "the place-safepoints pass needs this module to define a function `void gc.safepoint_poll()`, which it inlines",
+            ));
+        }
+        Ok(())
+    }
+}
+
 fn raw_machine(machine: Option<&TargetMachine>) -> raw::LLVMTargetMachineRef {
     machine.map_or(std::ptr::null_mut(), |found| found.raw)
 }
@@ -1225,6 +1239,7 @@ impl Module<'_> {
     ) -> Result<(), Error> {
         check_pipeline_text(pipeline)?;
         self.verify_before("run_passes")?;
+        self.check_safepoint_poll(pipeline)?;
         let pipeline = c_string(pipeline, "run_passes");
         let raw_options = options.to_raw()?;
         self.bump_generation();
@@ -1255,6 +1270,7 @@ impl Module<'_> {
     ) -> Result<(), Error> {
         check_pipeline_text(pipeline)?;
         self.verify_before("run_passes_on_function")?;
+        self.check_safepoint_poll(pipeline)?;
         let pipeline = c_string(pipeline, "run_passes_on_function");
         let raw_options = options.to_raw()?;
         let Some(function) = self.get_function(function_name) else {

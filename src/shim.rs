@@ -26,6 +26,17 @@ unsafe extern "C" {
     ) -> crate::raw::LLVMBool;
     pub fn lyftar_summary_file_was_given() -> bool;
     pub fn lyftar_verify_function(function: LLVMValueRef) -> *mut c_char;
+    pub fn lyftar_strategy_is_registered(name: *const c_char, length: usize) -> bool;
+    pub fn lyftar_strategy_manages_pointer(function: LLVMValueRef, pointer_type: LLVMTypeRef) -> c_int;
+    pub fn lyftar_module_strategy_problem(module: LLVMModuleRef) -> *mut c_char;
+    pub fn lyftar_module_needs_safepoint_poll(module: LLVMModuleRef) -> bool;
+    pub fn lyftar_module_has_transition_statepoint(module: LLVMModuleRef) -> bool;
+    pub fn lyftar_module_needs_elf_for_its_tables(module: LLVMModuleRef, triple: *const c_char) -> bool;
+    pub fn lyftar_value_is_static_stack_allocation(value: LLVMValueRef) -> bool;
+    pub fn lyftar_value_is_stack_allocation(value: LLVMValueRef) -> bool;
+    pub fn lyftar_stack_allocation_holds_a_pointer(value: LLVMValueRef) -> bool;
+    pub fn lyftar_value_is_statepoint(value: LLVMValueRef) -> bool;
+    pub fn lyftar_block_unique_predecessor(block: LLVMBasicBlockRef) -> LLVMBasicBlockRef;
     pub fn lyftar_module_has_pointer_authentication(module: LLVMModuleRef) -> bool;
     pub fn lyftar_link_modules(destination: LLVMModuleRef, source: LLVMModuleRef, message: *mut *mut c_char) -> bool;
     pub fn lyftar_value_belongs_to_module(value: LLVMValueRef, module: LLVMModuleRef) -> bool;

@@ -309,6 +309,22 @@ impl<'context> Module<'context> {
                 "{operation}: this module has a ptrauth constant, and only AArch64 can make code for one, not {triple}"
             )));
         }
+        // trace: D45
+        let is_x86 =
+            ["x86_64", "i386", "i486", "i586", "i686"].iter().any(|architecture| triple.starts_with(architecture));
+        // SAFETY: the module is live, and the shim only reads it.
+        if !is_x86 && unsafe { shim::lyftar_module_has_transition_statepoint(self.raw) } {
+            return Err(Error::new(format!(
+                "{operation}: this module has a statepoint with the transition flag, and only x86 can make code for one, not {triple}"
+            )));
+        }
+        let c_triple = crate::text::c_string(triple, operation);
+        // SAFETY: the module is live, the triple is a C string for the call, and the shim only reads them.
+        if unsafe { shim::lyftar_module_needs_elf_for_its_tables(self.raw, c_triple.as_ptr()) } {
+            return Err(Error::new(format!(
+                "{operation}: this module uses the erlang strategy, whose tables only fit an ELF object, not one for {triple}"
+            )));
+        }
         Ok(())
     }
 
@@ -317,6 +333,12 @@ impl<'context> Module<'context> {
     /// # Errors
     /// The verifier's report.
     pub fn verify(&self) -> Result<(), Error> {
+        // trace: D45
+        // SAFETY: the module is live, and the shim allocates any report for the caller to free.
+        let problem = unsafe { shim::lyftar_module_strategy_problem(self.raw) };
+        if !problem.is_null() {
+            return Err(Error::from_owned_message(problem));
+        }
         let mut message = std::ptr::null_mut();
         // SAFETY: the module is live, and the verifier allocates the message for the caller to free.
         let failed = unsafe {

@@ -31,9 +31,9 @@ use crate::values::{
 
 /// Builds instructions. It only exists placed in a block, so an unset position can't happen (D3).
 pub struct Builder<'context, 'module> {
-    raw: raw::LLVMBuilderRef,
-    module: raw::LLVMModuleRef,
-    function: Cell<raw::LLVMValueRef>,
+    pub(crate) raw: raw::LLVMBuilderRef,
+    pub(crate) module: raw::LLVMModuleRef,
+    pub(crate) function: Cell<raw::LLVMValueRef>,
     marker: PhantomData<(Invariant<'context>, &'module ())>,
 }
 
@@ -559,7 +559,7 @@ const EMPTY: &CStr = c"";
 /// Names a built value without allocating: `LLVMSetValueName2` takes a length, where the build calls want a C string.
 /// A build call can give back a constant or its operand, which must not be renamed.
 #[inline]
-fn set_name(value: raw::LLVMValueRef, name: &str) {
+pub(crate) fn set_name(value: raw::LLVMValueRef, name: &str) {
     if !name.is_empty() {
         // SAFETY: the value is live, and LLVM reads `name.len()` bytes of `name`.
         unsafe {
@@ -899,7 +899,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     // trace: D3
     #[inline]
     #[track_caller]
-    fn check_module<T>(&self, operation: &str, value: Value<'context, 'module, T>) {
+    pub(crate) fn check_module<T>(&self, operation: &str, value: Value<'context, 'module, T>) {
         // SAFETY: both are live.
         if !unsafe { shim::lyftar_value_belongs_to_module(value.raw, self.module) } {
             bad_call(format_args!("{operation}: {} belongs to another module than this builder's", value.describe()));
@@ -908,7 +908,7 @@ impl<'context, 'module> Builder<'context, 'module> {
 
     #[inline]
     #[track_caller]
-    fn check_values_module<T>(&self, operation: &str, values: &[Value<'context, 'module, T>]) {
+    pub(crate) fn check_values_module<T>(&self, operation: &str, values: &[Value<'context, 'module, T>]) {
         for value in values {
             self.check_module(operation, *value);
         }
@@ -929,7 +929,7 @@ impl<'context, 'module> Builder<'context, 'module> {
 
     #[inline]
     #[track_caller]
-    fn check_destination(&self, operation: &str, block: BasicBlock<'context, 'module>) {
+    pub(crate) fn check_destination(&self, operation: &str, block: BasicBlock<'context, 'module>) {
         // SAFETY: the block is live and in a function.
         let function = unsafe { raw::LLVMGetBasicBlockParent(block.raw) };
         if !checks::same_identity(function as usize, self.function.get() as usize) {
@@ -941,7 +941,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     // trace: D3
     #[inline]
     #[track_caller]
-    fn check_open(&self, operation: &str) {
+    pub(crate) fn check_open(&self, operation: &str) {
         // SAFETY: the builder is live and placed.
         if !unsafe { shim::lyftar_builder_is_open(self.raw) } {
             bad_call(format_args!(
@@ -953,7 +953,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     /// A terminator goes last, so it also needs the builder at the block's end.
     #[inline]
     #[track_caller]
-    fn check_terminator_position(&self, operation: &str) {
+    pub(crate) fn check_terminator_position(&self, operation: &str) {
         // SAFETY: the builder is live and placed.
         if !unsafe { shim::lyftar_builder_is_at_open_end(self.raw) } {
             bad_call(format_args!("{operation}: a terminator goes at the end of a block that doesn't have one yet"));
@@ -2169,7 +2169,7 @@ impl<'context, 'module> Builder<'context, 'module> {
     }
 
     #[track_caller]
-    fn check_call<A>(
+    pub(crate) fn check_call<A>(
         &self,
         operation: &str,
         function_type: Type<'context>,

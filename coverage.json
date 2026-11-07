@@ -2256,16 +2256,14 @@
       "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
     },
     "LLVMInt32TypeInContext": {
-      "status": "not_wrapped",
-      "reason": "LLVMIntTypeInContext makes every width, through Context::get_type and Context::integer_type."
+      "status": "wrapped"
     },
     "LLVMInt64Type": {
       "status": "not_wrapped",
       "reason": "It uses LLVM's global context, which D10 rules out: all work happens in a context from with_context."
     },
     "LLVMInt64TypeInContext": {
-      "status": "not_wrapped",
-      "reason": "LLVMIntTypeInContext makes every width, through Context::get_type and Context::integer_type."
+      "status": "wrapped"
     },
     "LLVMInt8Type": {
       "status": "not_wrapped",
@@ -3706,7 +3704,8 @@
       "status": "wrapped"
     },
     "LLVMVerifyFunction": {
-      "status": "wrapped"
+      "status": "not_wrapped",
+      "reason": "Function::verify goes through lyftar_verify_function, since this one lets LLVM end the process over a garbage collector it can't find."
     },
     "LLVMVerifyModule": {
       "status": "wrapped"

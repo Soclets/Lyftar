@@ -1022,12 +1022,19 @@ impl<'context, 'module, R, P> Value<'context, 'module, Function<R, P>> {
         (!name.is_null()).then(|| from_borrowed(name))
     }
 
-    /// Sets the name of this function's garbage collector.
+    // trace: D45
+    /// Sets the name of this function's garbage collector, such as `statepoint-example`, `coreclr`, `shadow-stack`, `ocaml` or
+    /// `erlang`, or one registered in Rust. See [`crate::garbage_collection`].
     ///
     /// # Panics
-    /// If `name` has a NUL byte inside it (D3).
+    /// If `name` has a NUL byte inside it, or names no strategy, since LLVM ends the process over one it can't find (D3).
     #[track_caller]
     pub fn set_garbage_collector(self, name: &str) {
+        if !crate::garbage_collection::strategy_is_registered(name) {
+            crate::bad_call::bad_call(format_args!(
+                "set_garbage_collector: no garbage collection strategy is called \"{name}\""
+            ));
+        }
         let name = c_string(name, "set_garbage_collector");
         // SAFETY: the marker guarantees a function, and `name` is a valid C string for the call.
         unsafe { raw::LLVMSetGC(self.raw, name.as_ptr()) };
@@ -1236,8 +1243,13 @@ impl<'context, 'module, R, P> Value<'context, 'module, Function<R, P>> {
     /// Runs LLVM's verifier on this function alone, and says whether it is valid.
     #[must_use]
     pub fn verify(self) -> bool {
-        // SAFETY: the marker guarantees a function; this action only returns a status.
-        unsafe { raw::LLVMVerifyFunction(self.raw, raw::LLVMVerifierFailureAction::LLVMReturnStatusAction) == 0 }
+        // SAFETY: the marker guarantees a function, and the shim allocates any report for the caller to free.
+        let report = unsafe { crate::shim::lyftar_verify_function(self.raw) };
+        if report.is_null() {
+            return true;
+        }
+        drop(crate::error::Error::from_owned_message(report));
+        false
     }
 }
 

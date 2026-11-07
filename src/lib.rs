@@ -33,6 +33,7 @@ pub mod disassembler;
 pub mod enums;
 pub mod error;
 pub mod functions;
+pub mod garbage_collection;
 pub mod instructions;
 pub mod intrinsics;
 pub mod ir_reader;

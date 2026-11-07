@@ -421,6 +421,22 @@ impl UserMarker for CallBase {}
 impl InstructionMarker for CallBase {}
 impl CallBaseMarker for CallBase {}
 
+// trace: D45
+/// A call or invoke of `gc.statepoint` (LLVM's `GCStatepointInst`).
+#[derive(Clone, Copy, Debug)]
+pub struct GarbageCollectionStatepoint;
+impl Sealed for GarbageCollectionStatepoint {}
+impl ValueMarker for GarbageCollectionStatepoint {
+    type LlvmType = Dynamic;
+    unsafe fn accepts_value(raw: raw::LLVMValueRef) -> bool {
+        // SAFETY: the caller promises a live value.
+        unsafe { crate::shim::lyftar_value_is_statepoint(raw) }
+    }
+}
+impl UserMarker for GarbageCollectionStatepoint {}
+impl InstructionMarker for GarbageCollectionStatepoint {}
+impl CallBaseMarker for GarbageCollectionStatepoint {}
+
 /// Any block terminator.
 #[derive(Clone, Copy, Debug)]
 pub struct Terminator;

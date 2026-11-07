@@ -2421,7 +2421,12 @@ fn literal_pieces(message: &str) -> Vec<String> {
 #[test]
 fn decision_3_every_message_in_the_crate_has_a_test() {
     // What aborts a pass runs in a child process, in the other file.
-    let tests = concat!(include_str!("decision_3_panics.rs"), include_str!("decision_3_pass_aborts.rs"));
+    let tests = concat!(
+        include_str!("decision_3_panics.rs"),
+        include_str!("decision_3_pass_aborts.rs"),
+        include_str!("decision_45_statepoints.rs"),
+        include_str!("decision_45_strategies.rs"),
+    );
     let source_directory = concat!(env!("CARGO_MANIFEST_DIR"), "/src");
     let mut missing = Vec::new();
     for entry in std::fs::read_dir(source_directory).expect("the source") {

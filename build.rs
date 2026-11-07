@@ -74,6 +74,7 @@ fn compile_shim(llvm_config: &Path) -> Result<(), String> {
     shim.cpp(true)
         .file("shim/shim.cpp")
         .file("shim/passes.cpp")
+        .file("shim/garbage_collection.cpp")
         .warnings(true)
         .extra_warnings(true)
         .warnings_into_errors(!is_msvc);

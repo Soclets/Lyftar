@@ -124,6 +124,13 @@ extern "C" LLVMBool lyftar_parse_ir(LLVMContextRef context,
     *message = LLVMCreateMessage(failure.c_str());
     return 1;
   }
+  for (const Function &function : *parsed) {
+    const std::string problem = lyftar::strategyProblem(function);
+    if (!problem.empty()) {
+      *message = LLVMCreateMessage(problem.c_str());
+      return 1;
+    }
+  }
   if (getDebugMetadataVersionFromModule(*parsed) == DEBUG_METADATA_VERSION) {
     bool broken_debug_information = false;
     if (verifyModule(*parsed, &failure_stream, &broken_debug_information)) {
@@ -141,7 +148,11 @@ extern "C" LLVMBool lyftar_parse_ir(LLVMContextRef context,
 extern "C" char *lyftar_verify_function(LLVMValueRef function) {
   require(function != nullptr && isa<Function>(unwrap(function)),
           "lyftar_verify_function: not a function");
-  std::string report;
+  std::string report =
+      lyftar::strategyProblem(*cast<Function>(unwrap(function)));
+  if (!report.empty()) {
+    return LLVMCreateMessage(report.c_str());
+  }
   raw_string_ostream report_stream(report);
   if (verifyFunction(*cast<Function>(unwrap(function)), &report_stream)) {
     return LLVMCreateMessage(report.c_str());

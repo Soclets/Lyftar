@@ -33,6 +33,23 @@ pub(crate) fn index_in_bounds(index: u32, count: u32) -> bool {
     index < count
 }
 
+#[cfg(verus_keep_ghost)]
+verus! {
+
+/// `gc.statepoint` keeps its patch size in an `i32`, and the verifier wants it positive or zero.
+pub open spec fn valid_statepoint_patch_size(size_in_bytes: u32) -> bool {
+    size_in_bytes <= 2147483647
+}
+
+}
+
+// trace: D22, D45
+/// Whether a statepoint can leave this many bytes of patch space.
+#[cfg_attr(verus_keep_ghost, verus_spec(result => ensures result == valid_statepoint_patch_size(size_in_bytes)))]
+pub(crate) fn statepoint_patch_size_is_valid(size_in_bytes: u32) -> bool {
+    size_in_bytes <= 2_147_483_647
+}
+
 // trace: D22
 /// Whether two LLVM objects are the same one. LLVM uniques types in a context, so two values have the same type
 /// exactly when their type pointers are equal (assumption in `ASSUMPTIONS.md`).
