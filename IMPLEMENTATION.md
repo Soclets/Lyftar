@@ -24,7 +24,8 @@ changes, `DECISIONS.md` gets a new entry and this file is updated to match. Noth
    fail at run time returns an error. No `unwrap`, `expect` or panic anywhere else.
 6. **Style.** `rustfmt`, `clippy`, and comments that say why. `#![warn(clippy::pedantic)]` and
    `#![deny(clippy::unwrap_used, clippy::expect_used)]`. `clippy::panic` is denied too, and allowed at each D3 check.
-7. **`unsafe`.** Only where Rust calls LLVM or the shim, each block saying why it is sound. Everything else is safe code.
+7. **`unsafe`.** Only where Rust calls LLVM or the shim, or where `lyftar-stack-maps` asks the operating system for a program's
+   loaded sections (D47), each block saying why it is sound. Everything else is safe code.
 8. **Verus.** Lyftar's own checks before an `unsafe` LLVM call are proven. What LLVM does is assumed, and those assumptions
    are written down in one place. `extern` declarations stay outside `verus!` blocks. (D21, D22)
 9. **C++.** C++23 with libc++ hardening on, built with Clang on macOS (D25). Small, and only behind `extern "C"` functions, each

@@ -249,3 +249,12 @@ choice of memory model; the owner chose otherwise: "Make real GC support". (Owne
 inside a language's finished program, and that program must not have to link LLVM. This is an exception to D16, which is about not
 splitting Lyftar's LLVM API: the reader wraps no LLVM, and only reads bytes. Claude proposed it; the owner chose it: "yea". (Owner,
 2026-11-07)
+
+**D47. GC names, and `unsafe` for the operating system.** The garbage collection API keeps the names Lyftar impl took from LLVM's
+words, spelled out: `lyftar::garbage_collection` with `register_strategy`, `GarbageCollectionStrategy`, `StatepointCall`,
+`StatepointFlags`, `statepoint_pipeline` and `SafepointPlacement`; `Builder` methods such as `garbage_collection_statepoint`,
+`garbage_collection_relocate`, `garbage_collection_result` and `garbage_collection_root`; `Value<GarbageCollectionStatepoint>`; and
+in `lyftar-stack-maps`, `StackMaps`, `Table`, `Record`, `Statepoint`, `Root`, `Location`, `Roots`, `CallSite`, `parse_section`,
+`section_in_file` and `loaded_sections`. `set_garbage_collector` panics on a name nothing registered (D3). Rule 7 now also allows
+`unsafe` where `lyftar-stack-maps` asks the operating system for a program's loaded sections, which it can't find otherwise. Claude
+proposed the exception and agreed with the names; the owner chose: "okay". (Owner, 2026-11-07)
