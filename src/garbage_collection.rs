@@ -42,7 +42,7 @@ const CALLEE_ATTRIBUTE_INDEX: u32 = 3;
 /// How many of a `gc.statepoint`'s arguments come before the ones for the call it wraps.
 const ARGUMENTS_BEFORE_THE_CALL: u32 = 5;
 
-// trace: D45
+// trace: D45, D47
 /// Whether LLVM has a strategy of this name, built in or registered.
 #[must_use]
 pub fn strategy_is_registered(name: &str) -> bool {

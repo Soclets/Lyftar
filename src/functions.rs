@@ -1022,7 +1022,7 @@ impl<'context, 'module, R, P> Value<'context, 'module, Function<R, P>> {
         (!name.is_null()).then(|| from_borrowed(name))
     }
 
-    // trace: D45
+    // trace: D45, D47
     /// Sets the name of this function's garbage collector, such as `statepoint-example`, `coreclr`, `shadow-stack`, `ocaml` or
     /// `erlang`, or one registered in Rust. See [`crate::garbage_collection`].
     ///
