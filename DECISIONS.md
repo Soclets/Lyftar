@@ -238,3 +238,9 @@ it after trying it against kayo's passes; Claude agreed; the owner chose it: "ye
 official Windows LLVM is built with plugins turned off and a plugin test hung against it. Passes linked into a compiler still work
 on Windows. This gets fixed when the owner needs Windows. Lyftar impl proposed it; Claude agreed; the owner chose: "I mean, it's for
 me, and I'm on Mac. So, like, we could fix it when I need Windows". Reading that as this option is Claude's. (Owner, 2026-11-06)
+
+**D45. Real garbage collection support.** Lyftar goes beyond naming a strategy: a language built on it can have a precise, moving
+collector, with statepoints, LLVM's built-in strategies, custom strategies in Rust, and stack maps it can read while the program
+runs. `design/prompts/garbage-collection.md` holds the scope. How the stack map reader is packaged, so that a compiled program need
+not link LLVM, is not settled here. A throwaway test language asked whether Lyftar supports GC; Claude suggested waiting for its
+choice of memory model; the owner chose otherwise: "Make real GC support". (Owner, 2026-11-07)
