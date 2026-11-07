@@ -1,0 +1,10 @@
+# A small moving collector for `tests/decision_45_moving_collection.rs`, linked with what Lyftar compiles into a program of its own
+# that doesn't link LLVM (D45, D46).
+[package]
+name = "lyftar-test-collector"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+lyftar-stack-maps = { path = "../../stack-maps" }

@@ -6,9 +6,21 @@
 #include "shim.h"
 
 #include "llvm-c/Core.h"
+#include "llvm-c/ExecutionEngine.h"
+#include "llvm-c/LLJIT.h"
 #include "llvm-c/Types.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/ExecutionEngine/JITEventListener.h"
+#include "llvm/ExecutionEngine/JITLink/JITLink.h"
+#include "llvm/ExecutionEngine/JITSymbol.h"
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
+#include "llvm/ExecutionEngine/Orc/LinkGraphLinkingLayer.h"
+#include "llvm/ExecutionEngine/Orc/ObjectLinkingLayer.h"
+#include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
+#include "llvm/ExecutionEngine/RuntimeDyld.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/BuiltinGCs.h"
 #include "llvm/IR/Constants.h"
@@ -20,12 +32,22 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Statepoint.h"
 #include "llvm/IR/Type.h"
+#include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/CBindingWrapping.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/Triple.h"
 
+#include <algorithm>
 #include <cstddef>
+#include <cstdint>
+#include <iterator>
+#include <map>
+#include <memory>
+#include <mutex>
 #include <string>
+#include <utility>
+#include <vector>
 
 using namespace llvm;
 using lyftar::require;
@@ -203,4 +225,238 @@ extern "C" bool lyftar_module_needs_elf_for_its_tables(LLVMModuleRef module,
          any_of(*unwrap(module), [](const Function &function) {
            return function.hasGC() && function.getGC() == "erlang";
          });
+}
+
+// Stack maps from a JIT. A JIT makes its code in its own memory, and nothing
+// there keeps a stack map section unless something asks to, so these ask.
+
+namespace {
+
+// JITLink names a Mach-O section with its segment.
+constexpr StringLiteral MachOStackMaps("__LLVM_STACKMAPS,__llvm_stackmaps");
+constexpr StringLiteral ElfStackMaps(".llvm_stackmaps");
+
+bool isStackMapSectionName(StringRef name) {
+  return name == "__llvm_stackmaps" || name == ElfStackMaps;
+}
+
+// The sections of what a JIT has linked. JITLink's are copied when they are
+// relocated, by what removes them, and RuntimeDyld's are read when asked for,
+// from memory that lasts until it says it goes.
+class CapturedStackMaps final : public JITEventListener {
+public:
+  void addCopied(orc::ResourceKey key, std::vector<std::string> sections) {
+    const std::scoped_lock lock(mutex);
+    auto &found = copied[key];
+    std::ranges::move(sections, std::back_inserter(found));
+  }
+
+  void removeCopied(orc::ResourceKey key) {
+    const std::scoped_lock lock(mutex);
+    copied.erase(key);
+  }
+
+  void transferCopied(orc::ResourceKey destination, orc::ResourceKey source) {
+    const std::scoped_lock lock(mutex);
+    const auto found = copied.find(source);
+    if (found == copied.end()) {
+      return;
+    }
+    auto &into = copied[destination];
+    std::ranges::move(found->second, std::back_inserter(into));
+    copied.erase(source);
+  }
+
+  void notifyObjectLoaded(ObjectKey key, const object::ObjectFile &object,
+                          const RuntimeDyld::LoadedObjectInfo &info) override {
+    const std::scoped_lock lock(mutex);
+    for (const object::SectionRef &section : object.sections()) {
+      Expected<StringRef> name = section.getName();
+      if (!name) {
+        consumeError(name.takeError());
+        continue;
+      }
+      if (!isStackMapSectionName(*name)) {
+        continue;
+      }
+      const uint64_t address = info.getSectionLoadAddress(section);
+      if (address != 0) {
+        loaded[key].emplace_back(address, section.getSize());
+      }
+    }
+  }
+
+  void notifyFreeingObject(ObjectKey key) override {
+    const std::scoped_lock lock(mutex);
+    loaded.erase(key);
+  }
+
+  void visit(void (*visitor)(void *, const uint8_t *, size_t), void *state) {
+    const std::scoped_lock lock(mutex);
+    for (const auto &[key, sections] : copied) {
+      for (const std::string &section : sections) {
+        const StringRef bytes(section);
+        visitor(state, bytes.bytes_begin(), bytes.size());
+      }
+    }
+    for (const auto &[key, sections] : loaded) {
+      for (const auto &[address, size] : sections) {
+        // The address RuntimeDyld gave is this process's, as a number.
+        visitor(state, jitTargetAddressToPointer<const uint8_t *>(address),
+                size);
+      }
+    }
+  }
+
+private:
+  std::mutex mutex;
+  std::map<orc::ResourceKey, std::vector<std::string>> copied;
+  std::map<ObjectKey, std::vector<std::pair<uint64_t, uint64_t>>> loaded;
+};
+
+// Keeps a stack map section through JITLink's dead stripping, and copies it
+// once it is relocated.
+class StackMapPlugin final : public orc::LinkGraphLinkingLayer::Plugin {
+public:
+  explicit StackMapPlugin(CapturedStackMaps &captured) : captured(captured) {}
+
+  void modifyPassConfig(orc::MaterializationResponsibility &responsibility,
+                        jitlink::LinkGraph & /*graph*/,
+                        jitlink::PassConfiguration &config) override {
+    config.PrePrunePasses.emplace_back([](jitlink::LinkGraph &graph) {
+      for (const StringRef name :
+           {StringRef(MachOStackMaps), StringRef(ElfStackMaps)}) {
+        jitlink::Section *section = graph.findSectionByName(name);
+        if (section == nullptr) {
+          continue;
+        }
+        for (jitlink::Block *block : section->blocks()) {
+          graph.addAnonymousSymbol(*block, 0, block->getSize(), false, true);
+        }
+      }
+      return Error::success();
+    });
+    config.PostFixupPasses.emplace_back(
+        [this, &responsibility](jitlink::LinkGraph &graph) {
+          for (const StringRef name :
+               {StringRef(MachOStackMaps), StringRef(ElfStackMaps)}) {
+            const jitlink::Section *section = graph.findSectionByName(name);
+            if (section == nullptr) {
+              continue;
+            }
+            std::string bytes;
+            for (const jitlink::Block *block : section->blocks()) {
+              const ArrayRef<char> content = block->getContent();
+              bytes.append(content.begin(), content.end());
+            }
+            const std::scoped_lock lock(mutex);
+            pending[&responsibility].push_back(std::move(bytes));
+          }
+          return Error::success();
+        });
+  }
+
+  Error
+  notifyEmitted(orc::MaterializationResponsibility &responsibility) override {
+    std::vector<std::string> sections;
+    {
+      const std::scoped_lock lock(mutex);
+      const auto found = pending.find(&responsibility);
+      if (found == pending.end()) {
+        return Error::success();
+      }
+      sections = std::move(found->second);
+      pending.erase(found);
+    }
+    return responsibility.withResourceKeyDo(
+        [this, &sections](orc::ResourceKey key) {
+          captured.addCopied(key, std::move(sections));
+        });
+  }
+
+  Error
+  notifyFailed(orc::MaterializationResponsibility &responsibility) override {
+    const std::scoped_lock lock(mutex);
+    pending.erase(&responsibility);
+    return Error::success();
+  }
+
+  Error notifyRemovingResources(orc::JITDylib & /*library*/,
+                                orc::ResourceKey key) override {
+    captured.removeCopied(key);
+    return Error::success();
+  }
+
+  void notifyTransferringResources(orc::JITDylib & /*library*/,
+                                   orc::ResourceKey destination,
+                                   orc::ResourceKey source) override {
+    captured.transferCopied(destination, source);
+  }
+
+private:
+  CapturedStackMaps &captured;
+  std::mutex mutex;
+  std::map<orc::MaterializationResponsibility *, std::vector<std::string>>
+      pending;
+};
+
+} // namespace
+
+// LLVM's C API has no other way to the JIT behind its handle. Rule 9's
+// exception: this is LLVM's own conversion macro.
+// NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+DEFINE_SIMPLE_CONVERSION_FUNCTIONS(orc::LLJIT, LLVMOrcLLJITRef)
+
+// Contract: `jit` is live, and outlives what this gives back, which the caller
+// owns and frees with `lyftar_stack_maps_dispose` after disposing of the JIT.
+extern "C" void *lyftar_jit_capture_stack_maps(LLVMOrcLLJITRef jit) {
+  require(jit != nullptr, "lyftar_jit_capture_stack_maps: null");
+  auto captured = std::make_unique<CapturedStackMaps>();
+  orc::ObjectLayer &layer = unwrap(jit)->getObjLinkingLayer();
+  if (auto *linking = dyn_cast<orc::ObjectLinkingLayer>(&layer)) {
+    linking->addPlugin(std::make_shared<StackMapPlugin>(*captured));
+  } else if (auto *dyld = dyn_cast<orc::RTDyldObjectLinkingLayer>(&layer)) {
+    dyld->registerJITEventListener(*captured);
+  }
+  return captured.release();
+}
+
+// Contract: `engine` is live, and outlives what this gives back, which the
+// caller owns and frees with `lyftar_stack_maps_dispose` after disposing of the
+// engine.
+extern "C" void *
+lyftar_execution_engine_capture_stack_maps(LLVMExecutionEngineRef engine) {
+  require(engine != nullptr,
+          "lyftar_execution_engine_capture_stack_maps: null");
+  auto captured = std::make_unique<CapturedStackMaps>();
+  unwrap(engine)->RegisterJITEventListener(captured.get());
+  return captured.release();
+}
+
+// Contract: `engine` is live. Makes and relocates all the code it has been
+// given.
+extern "C" void
+lyftar_execution_engine_finish_code(LLVMExecutionEngineRef engine) {
+  require(engine != nullptr, "lyftar_execution_engine_finish_code: null");
+  unwrap(engine)->finalizeObject();
+}
+
+// Contract: `captured` came from one of the capture functions, and its JIT or
+// engine is still live. Calls `visitor` with `state` and each section's bytes,
+// which last for the call. `visitor` must not call back into this capture.
+extern "C" void lyftar_stack_maps_visit(void *captured,
+                                        void (*visitor)(void *, const uint8_t *,
+                                                        size_t),
+                                        void *state) {
+  require(captured != nullptr && visitor != nullptr,
+          "lyftar_stack_maps_visit: null");
+  static_cast<CapturedStackMaps *>(captured)->visit(visitor, state);
+}
+
+// Contract: `captured` came from one of the capture functions, its JIT or
+// engine is gone, and it isn't used afterwards.
+extern "C" void lyftar_stack_maps_dispose(void *captured) {
+  require(captured != nullptr, "lyftar_stack_maps_dispose: null");
+  const std::unique_ptr<CapturedStackMaps> owned(
+      static_cast<CapturedStackMaps *>(captured));
 }

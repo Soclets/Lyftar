@@ -12,6 +12,7 @@ use crate::error::Error;
 use crate::memory_buffer::MemoryBuffer;
 use crate::module::{Module, OwnedModule};
 use crate::raw;
+use crate::shim;
 use crate::target::{CodeModel, TargetData, TargetMachine};
 use crate::text::{c_string, from_borrowed, from_owned_message};
 use crate::types::{Float, Integer, Type};
@@ -102,6 +103,7 @@ impl GenericValue {
 pub struct ExecutionEngine<'context, 'borrow> {
     raw: raw::LLVMExecutionEngineRef,
     modules: Vec<raw::LLVMModuleRef>,
+    stack_maps: *mut c_void,
     // trace: D42
     // What it gives back reads a module, so it borrows the context as `Context::module` does, and no pass can run meanwhile.
     marker: PhantomData<&'borrow Context<'context>>,
@@ -109,9 +111,31 @@ pub struct ExecutionEngine<'context, 'borrow> {
 
 impl Drop for ExecutionEngine<'_, '_> {
     fn drop(&mut self) {
-        // SAFETY: this wrapper owns the engine, which owns its modules.
-        unsafe { raw::LLVMDisposeExecutionEngine(self.raw) };
+        // SAFETY: this wrapper owns the engine, which owns its modules, and owns the capture, which goes once the engine has.
+        unsafe {
+            raw::LLVMDisposeExecutionEngine(self.raw);
+            shim::lyftar_stack_maps_dispose(self.stack_maps);
+        }
     }
+}
+
+/// Copies each section out of a capture.
+///
+/// # Safety
+/// `captured` has to be a live capture, whose JIT or engine is live.
+unsafe fn copy_stack_map_sections(captured: *mut c_void) -> Vec<Vec<u8>> {
+    unsafe extern "C" fn push(state: *mut c_void, bytes: *const u8, size_in_bytes: usize) {
+        // SAFETY: `state` is the vector below, for this call, and the shim gives this many readable bytes. Nothing here panics
+        // across C++: a push that can't allocate aborts.
+        unsafe {
+            let sections = &mut *state.cast::<Vec<Vec<u8>>>();
+            sections.push(std::slice::from_raw_parts(bytes, size_in_bytes).to_vec());
+        }
+    }
+    let mut sections: Vec<Vec<u8>> = Vec::new();
+    // SAFETY: the caller promises a live capture, and `push` only uses the vector, which outlives the call.
+    unsafe { shim::lyftar_stack_maps_visit(captured, push, (&raw mut sections).cast()) };
+    sections
 }
 
 /// How to set up an engine from [`ExecutionEngine::with_mcjit_options`].
@@ -165,7 +189,9 @@ impl<'context, 'borrow> ExecutionEngine<'context, 'borrow> {
             unsafe { raw::LLVMDisposeModule(raw_module) };
             return Err(Error::from_owned_message(message));
         }
-        Ok(ExecutionEngine { raw: engine, modules: vec![raw_module], marker: PhantomData })
+        // SAFETY: LLVM just made the engine, and this wrapper owns the capture from here on.
+        let stack_maps = unsafe { shim::lyftar_execution_engine_capture_stack_maps(engine) };
+        Ok(ExecutionEngine { raw: engine, modules: vec![raw_module], stack_maps, marker: PhantomData })
     }
 
     /// An engine for this module: a JIT if this machine has one, and otherwise an interpreter.
@@ -235,6 +261,18 @@ impl<'context, 'borrow> ExecutionEngine<'context, 'borrow> {
                 raw::LLVMCreateMCJITCompilerForModule(engine, raw_module, &raw mut raw_options, size, message)
             }
         })
+    }
+
+    // trace: D45
+    /// The stack map section of each object this engine has made, with its addresses relocated, for `lyftar-stack-maps` to read.
+    /// This makes and relocates any code it hasn't yet. The interpreter makes none.
+    #[must_use]
+    pub fn stack_map_sections(&self) -> Vec<Vec<u8>> {
+        // SAFETY: the engine is live, and its capture lasts as long as it does.
+        unsafe {
+            shim::lyftar_execution_engine_finish_code(self.raw);
+            copy_stack_map_sections(self.stack_maps)
+        }
     }
 
     /// Gives this engine another module.
@@ -671,7 +709,9 @@ impl JitBuilder {
         let raw_builder = std::mem::replace(&mut self.raw, std::ptr::null_mut());
         // SAFETY: LLVM takes the builder in every case, and writes the JIT when there is no error.
         Error::from_raw_result(unsafe { raw::LLVMOrcCreateLLJIT(&raw mut jit, raw_builder) })?;
-        Ok(Jit { raw: jit, runtime_dyld: self.runtime_dyld })
+        // SAFETY: LLVM just made the JIT, and this wrapper owns the capture from here on.
+        let stack_maps = unsafe { shim::lyftar_jit_capture_stack_maps(jit) };
+        Ok(Jit { raw: jit, runtime_dyld: self.runtime_dyld, stack_maps })
     }
 }
 
@@ -682,12 +722,15 @@ impl JitBuilder {
 pub struct Jit {
     raw: raw::LLVMOrcLLJITRef,
     runtime_dyld: bool,
+    stack_maps: *mut c_void,
 }
 
 impl Drop for Jit {
     fn drop(&mut self) {
         // SAFETY: this wrapper owns the JIT. An error from tearing it down has nowhere to go, so it is dropped.
         drop(Error::from_raw_result(unsafe { raw::LLVMOrcDisposeLLJIT(self.raw) }));
+        // SAFETY: this wrapper owns the capture, whose JIT has just gone.
+        unsafe { shim::lyftar_stack_maps_dispose(self.stack_maps) };
     }
 }
 
@@ -728,6 +771,16 @@ impl Jit {
     /// What stopped it being made.
     pub fn new() -> Result<Jit, Error> {
         JitBuilder::new().build()
+    }
+
+    // trace: D45
+    /// The stack map section of each object this JIT has linked so far, with its addresses relocated, for `lyftar-stack-maps` to
+    /// read. Code is linked when a symbol is first looked up, so this has what has been looked up, and what a
+    /// [`ResourceTracker`] removes goes from it.
+    #[must_use]
+    pub fn stack_map_sections(&self) -> Vec<Vec<u8>> {
+        // SAFETY: the JIT is live, and its capture lasts as long as it does.
+        unsafe { copy_stack_map_sections(self.stack_maps) }
     }
 
     /// The raw JIT.

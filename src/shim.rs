@@ -1,7 +1,7 @@
 //! The C++ shim, for what LLVM's C API can't reach (D16). Each function here is wrapped once, by a safe function
 //! elsewhere in the crate that checks its contract too (rule 9). The contracts are written in `shim/shim.cpp`.
 
-use std::ffi::{c_char, c_int};
+use std::ffi::{c_char, c_int, c_void};
 
 use crate::raw::{
     LLVMAtomicRMWBinOp, LLVMBasicBlockRef, LLVMBuilderRef, LLVMContextRef, LLVMModuleRef, LLVMOpcode, LLVMTypeRef,
@@ -31,6 +31,15 @@ unsafe extern "C" {
     pub fn lyftar_module_strategy_problem(module: LLVMModuleRef) -> *mut c_char;
     pub fn lyftar_module_needs_safepoint_poll(module: LLVMModuleRef) -> bool;
     pub fn lyftar_module_has_transition_statepoint(module: LLVMModuleRef) -> bool;
+    pub fn lyftar_jit_capture_stack_maps(jit: crate::raw::LLVMOrcLLJITRef) -> *mut c_void;
+    pub fn lyftar_execution_engine_capture_stack_maps(engine: crate::raw::LLVMExecutionEngineRef) -> *mut c_void;
+    pub fn lyftar_execution_engine_finish_code(engine: crate::raw::LLVMExecutionEngineRef);
+    pub fn lyftar_stack_maps_visit(
+        captured: *mut c_void,
+        visitor: unsafe extern "C" fn(*mut c_void, *const u8, usize),
+        state: *mut c_void,
+    );
+    pub fn lyftar_stack_maps_dispose(captured: *mut c_void);
     pub fn lyftar_module_needs_elf_for_its_tables(module: LLVMModuleRef, triple: *const c_char) -> bool;
     pub fn lyftar_value_is_static_stack_allocation(value: LLVMValueRef) -> bool;
     pub fn lyftar_value_is_stack_allocation(value: LLVMValueRef) -> bool;

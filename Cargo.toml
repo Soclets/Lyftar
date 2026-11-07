@@ -29,7 +29,7 @@ bindgen = { version = "0.72", default-features = false, features = ["runtime"] }
 
 [workspace]
 # trace: D46
-members = ["stack-maps"]
+members = ["stack-maps", "tests/collector"]
 exclude = ["tools/bindings"]
 
 # kayo's two passes in Rust, as one plugin for `opt` and `clang`.
