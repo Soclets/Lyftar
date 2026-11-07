@@ -826,7 +826,8 @@ pub fn loaded_sections() -> Result<Vec<&'static [u8]>, StackMapError> {
 }
 
 /// Each stack map section of what is loaded in this process: the program and any library it has loaded, relocated. A linker that
-/// strips what nothing refers to drops these, so a program using stack maps can't be linked with `-dead_strip` or `--gc-sections`.
+/// strips what nothing refers to drops these, so a program using stack maps can't be linked with `--gc-sections`. The section is
+/// read-only and holds addresses, so a position-independent program has to be linked with `-z notext`, or not be one.
 ///
 /// # Errors
 /// If a file can't be read, or its headers are bad.

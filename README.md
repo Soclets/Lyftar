@@ -171,7 +171,8 @@ with_context(|context| {
 The code generator then writes a stack map saying where each pointer is at each call. A compiled program reads it with the
 `lyftar-stack-maps` crate, which has no LLVM, so the program needn't link it. Looking a return address up allocates nothing, so it can
 run during a collection. `Jit::stack_map_sections` and `ExecutionEngine::stack_map_sections` give the same bytes for code made in
-memory. Keep the section when linking: no `-dead_strip`, `--gc-sections`, or for rustc, `-C link-dead-code`.
+memory. Keep the section when linking: no `-dead_strip` or `--gc-sections`, and with rustc, `-C link-dead-code`. On Linux the section is
+read-only and holds addresses, so a position-independent program also needs `-Wl,-z,notext`, or to be linked with `-no-pie`.
 
 Rewrite each root at a call in three steps, since one slot can be in several pairs: turn each derived pointer into its offset while
 every base is still old, move each base, then add the offset back. A stack map only covers the compiled program's stack, so a

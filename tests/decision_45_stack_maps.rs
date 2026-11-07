@@ -193,6 +193,42 @@ fn decision_45_the_reader_agrees_with_llvm_readobj() {
 }
 
 #[test]
+fn decision_45_the_reader_agrees_with_llvm_readobj_on_stack_map_and_patchpoint_records() {
+    let object = with_context(|context| {
+        let machine = TargetMachine::for_host().expect("a machine");
+        let mut owned = context
+            .parse_ir_text(
+                "declare void @llvm.experimental.stackmap(i64, i32, ...)\n\
+                 declare void @llvm.experimental.patchpoint.void(i64, i32, ptr, i32, ...)\n\
+                 define i64 @records(i64 %value, i64 %other) {\n\
+                 \x20 call void (i64, i32, ...) @llvm.experimental.stackmap(i64 7, i32 0, i64 %value, i64 5000000000, i32 9)\n\
+                 \x20 call anyregcc void (i64, i32, ptr, i32, ...) @llvm.experimental.patchpoint.void(i64 8, i32 16, ptr null, i32 0, i64 %value)\n\
+                 \x20 %sum = add i64 %value, %other\n\
+                 \x20 ret i64 %sum\n\
+                 }\n",
+            )
+            .expect("good text");
+        context.module(&owned).set_target_machine(&machine);
+        let object = machine
+            .emit_to_memory_buffer(context.exclusive_module(&mut owned), CodeGenerationFileType::Object)
+            .expect("code generation");
+        object.as_bytes().to_vec()
+    });
+    let directory = temporary_directory("records");
+    let path = directory.join("records.o");
+    std::fs::write(&path, &object).expect("writing it");
+    let section = section_in_file(&object).expect("good headers").expect("a stack map");
+    let tables = parse_section(section).expect("a good stack map");
+    assert_eq!(reader_says(&tables[0]).expect("a good stack map"), llvm_says(&path));
+    let mut records = tables[0].records();
+    let stack_map = records.next().expect("the stack map's record");
+    assert_eq!(stack_map.id(), 7);
+    assert!(stack_map.statepoint().is_err(), "this isn't a statepoint's record");
+    assert_eq!(records.next().expect("the patchpoint's record").id(), 8);
+    let _ = std::fs::remove_dir_all(directory);
+}
+
+#[test]
 fn decision_45_derived_pointers_differ_from_their_bases_and_allocations_stand_alone() {
     let object = object_file("derived", "");
     let section = section_in_file(&object).expect("good headers").expect("a stack map");

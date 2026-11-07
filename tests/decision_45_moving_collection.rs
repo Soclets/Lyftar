@@ -761,6 +761,10 @@ fn run_linked(way: &Way) -> String {
         .arg(format!("link-arg={}", program_object.display()))
         .arg("-C")
         .arg(format!("link-arg={}", other_object.display()));
+    // ELF's stack map section is read-only and holds addresses, which a position-independent program has to relocate when it loads.
+    if cfg!(target_os = "linux") {
+        build.args(["-C", "link-arg=-Wl,-z,notext"]);
+    }
     let built = build.output().expect("running cargo");
     assert!(built.status.success(), "{}", String::from_utf8_lossy(&built.stderr));
     let program = root.join("target/collector/debug/lyftar-test-collector");

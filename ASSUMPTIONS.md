@@ -130,6 +130,9 @@ If one turns out false, the safety promise named beside it falls with it.
 - **`ExecutionEngine` leaves a call to a function it can't find going to address 0 on ELF,** with no error, and macOS finds this
   process's functions through `dlsym` where Linux can't unless they are exported. A program's runtime functions need
   `add_global_mapping`, through `find_declared_function`, since `find_function` only finds bodies.
+- **ELF's stack map section is read-only and holds absolute addresses.** So `rust-lld` refuses it in a position-independent program
+  without `-z notext`, and the program loads with text relocations. `lyftar-stack-maps` reads it after that, relocated. Seen on
+  GitHub's Linux.
 - **Linkers that strip what nothing refers to drop a stack map section.** rustc does by default, which `-C link-dead-code` turns off.
   Neither `cc` nor `ld` does without `-dead_strip` or `--gc-sections`.
 

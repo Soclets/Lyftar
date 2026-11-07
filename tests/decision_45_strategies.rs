@@ -7,6 +7,7 @@ use lyftar::passes::PassOptions;
 use lyftar::target::{
     CodeGenerationFileType, CodeGenerationOptimizationLevel, CodeModel, RelocationMode, Target, TargetMachine,
 };
+use lyftar::values::GarbageCollectionStatepoint;
 use lyftar::{AddressSpace, Builder, Context, Function, OwnedModule, Pointer, Void, with_context};
 
 type ManagedPointer = Pointer<AddressSpace<1>>;
@@ -62,6 +63,24 @@ fn statepoint_object(strategy: &str, optimizations: &str) -> (String, Vec<u8>) {
             )
             .expect("the pipeline");
         let printed = context.module(&owned).print_to_string();
+        let program = context.module(&owned).get_function("program").expect("the function");
+        let mut statepoints = 0;
+        for block in program.basic_blocks() {
+            for instruction in block.instructions() {
+                if let Some(statepoint) = instruction.as_kind::<GarbageCollectionStatepoint>() {
+                    statepoints += 1;
+                    // What LLVM's pass gives a statepoint unless told otherwise.
+                    assert_eq!(statepoint.id(), 0xABCD_EF00);
+                    assert_eq!(statepoint.patch_size_in_bytes(), 0);
+                    assert_eq!(statepoint.flag_bits(), 0);
+                    assert!(statepoint.deoptimization().is_empty());
+                    assert!(statepoint.transition().is_empty());
+                    assert!(statepoint.function_type().return_type().kind() != lyftar::enums::TypeKind::Integer);
+                    let _ = statepoint.call_arguments();
+                }
+            }
+        }
+        assert!(statepoints > 0, "{printed}");
         let object = machine
             .emit_to_memory_buffer(context.exclusive_module(&mut owned), CodeGenerationFileType::Object)
             .expect("code generation");
