@@ -87,6 +87,9 @@ fetched on D50's hosts); RuntimeDyld on x86-64 couldn't find `DW.ref.__gcc_perso
 keeps LLJIT's own there); and the test collector read `ocaml` roots from the wrong place on Linux on AArch64, whose frame record sits
 below the callee-saved registers (it now finds each caller's stack by the frame's size). Linux on ARM then showed that an `ocaml`
 frame table can't say which register an offset is from there; Tankun chose to read it on Darwin on ARM and x86-64 only (D54).
+Then RuntimeDyld couldn't find `DW.ref.__gcc_personality_v0` on Linux on ARM: Lyftar's RuntimeDyld layer now claims the weak
+symbols code generation adds (3c0e2c7). CI passes on all six jobs at 3c0e2c7, and the self-contained test runs and passes on
+GitHub's macOS, Linux on ARM and Linux on x86-64. D49 is done.
 
 ## Waiting on design claude
 
