@@ -293,3 +293,9 @@ rules. Lyftar impl proposed it; Claude agreed; the owner chose it: "yea". (Owner
 `LYFTAR_LLVM_CONFIG` at a shared LLVM, such as Homebrew's, because a plugin would carry its own copy of LLVM into a program that has
 one. This is D44's rule, applied to the downloaded LLVM. Passes linked into a compiler are unaffected. Lyftar impl proposed it; Claude
 agreed; the owner chose it: "yea". (Owner, 2026-11-10)
+
+**D54. `ocaml`'s frame table is read on Darwin ARM and x86-64 only.** LLVM's `ocaml` frame table gives each root's offset from the
+frame pointer or the stack pointer without saying which. On Linux ARM a root can sit above the frame pointer, so the two look the same
+and the table can't be read reliably there. Its moving-collector test runs only where it can be, and the limit is written down for
+anyone choosing `ocaml` on Linux ARM. Statepoints and `shadow-stack` are unaffected. Lyftar impl found it and proposed this; Claude
+agreed; the owner chose: "(a)". (Owner, 2026-11-10)
