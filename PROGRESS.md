@@ -85,7 +85,8 @@ runs, and the Linux one runs in Docker when colima is up (`colima start --arch a
 CI's first runs with the downloaded LLVM found three things, fixed in 0d24036: Windows hung untarring the system files (now only
 fetched on D50's hosts); RuntimeDyld on x86-64 couldn't find `DW.ref.__gcc_personality_v0` with a position-independent machine (it
 keeps LLJIT's own there); and the test collector read `ocaml` roots from the wrong place on Linux on AArch64, whose frame record sits
-below the callee-saved registers (it now finds each caller's stack by the frame's size).
+below the callee-saved registers (it now finds each caller's stack by the frame's size). Linux on ARM then showed that an `ocaml`
+frame table can't say which register an offset is from there; Tankun chose to read it on Darwin on ARM and x86-64 only (D54).
 
 ## Waiting on design claude
 

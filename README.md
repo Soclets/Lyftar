@@ -185,6 +185,10 @@ runtime's own temporaries need roots of their own, and an integer never reaches 
 ELF. A strategy of your own is a `GarbageCollectionStrategy` in Rust, given to `register_strategy`, linked in or in a plugin.
 `tests/collector/` is a small moving collector that runs against all of these.
 
+`ocaml`'s frame table can only be read on Darwin on ARM and on x86-64. LLVM gives each root's offset from the frame pointer or the
+stack pointer without saying which. On Linux on ARM a root can sit above the frame pointer, where the two look the same. Statepoints
+and `shadow-stack` name their registers, so they work there (D54).
+
 ## A self-contained compiler
 
 A compiler built on Lyftar can build and link for macOS on Apple Silicon, Linux on ARM and x86-64, and a Cortex-M4 with nothing

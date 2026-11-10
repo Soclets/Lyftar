@@ -57,6 +57,7 @@ const STATEPOINT_EXAMPLE: Strategy =
     Strategy { name: "statepoint-example", roots: Roots::Statepoints, address_space: 1 };
 const CORECLR: Strategy = Strategy { name: "coreclr", roots: Roots::Statepoints, address_space: 1 };
 const SHADOW_STACK: Strategy = Strategy { name: "shadow-stack", roots: Roots::Slots, address_space: 0 };
+#[cfg(any(target_vendor = "apple", target_arch = "x86_64"))]
 const OCAML: Strategy = Strategy { name: "ocaml", roots: Roots::Slots, address_space: 0 };
 
 /// A strategy written in Rust, in the test, with no C++.
@@ -930,6 +931,9 @@ fn decision_45_shadow_stack_moves_objects_and_rewrites_every_root() {
     every_way(SHADOW_STACK, Polls::No);
 }
 
+// trace: D54
+// Its frame table can't say which register an offset is from on Linux on ARM, so it runs only where the sign of the offset does.
+#[cfg(any(target_vendor = "apple", target_arch = "x86_64"))]
 #[test]
 fn decision_45_ocaml_moves_objects_and_rewrites_every_root() {
     every_way(OCAML, Polls::No);
