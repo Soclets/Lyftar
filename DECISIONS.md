@@ -283,3 +283,8 @@ a program uses. For Linux, static musl plus compiler-rt's builtins, so programs 
 glibc are not supported. For bare metal such as the Cortex-M4, compiler-rt's builtins only. Programs linked with musl carry its MIT
 notice, and a compiler with LLVM inside ships LLVM's licence text. Lyftar impl proposed it; Claude agreed; the owner chose it: "yea".
 (Owner, 2026-11-10)
+
+**D52. The linking API.** `lyftar::link` takes a target, object files, an output path and, for bare metal, an optional linker script,
+and adds the system files from D51 itself. Beside it, `lyftar::lld` takes an lld flavour and lld's own arguments, for anything `link`
+doesn't cover. Links in one process run one at a time, because two at once crash lld. Exact names and argument types follow the naming
+rules. Lyftar impl proposed it; Claude agreed; the owner chose it: "yea". (Owner, 2026-11-10)
