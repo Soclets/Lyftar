@@ -164,7 +164,11 @@ fn generate(_include_directory: &Path) -> Result<(), String> {
 // trace: D50
 /// The LLVM version Lyftar's published static LLVM and lld are, and each host's file's SHA-256, from the release `llvm.yml` made.
 const PUBLISHED_VERSION: &str = "23.1.2";
-const PUBLISHED: &[(&str, &str)] = &[];
+const PUBLISHED: &[(&str, &str)] = &[
+    ("aarch64-apple-darwin", "fdd0b1238955ec34dcb5a19f9c4bca5e9783e4c3ec5fe7ea36e4d923ffc7793e"),
+    ("aarch64-unknown-linux-gnu", "6c5f331f3d60f5272f3024d5e7e254d9519ec2a0520e6807e8812d35a31026a0"),
+    ("x86_64-unknown-linux-gnu", "0d1aaf0ff83fe655df6f693e0d04c68d030b58660532237aa6c0eb530da850fe"),
+];
 /// The SHA-256 of the system files' file, the same for every host.
 const PUBLISHED_SYSTEM_FILES: &str = "";
 

@@ -87,3 +87,31 @@ jobs:
           git diff --exit-code src/raw/macos.rs
       - run: cargo test --no-fail-fast -- --skip decision_22_verus_proves_the_checks
       - run: cargo test --package lyftar-stack-maps
+
+  # trace: D50
+  # The default path: no LYFTAR_LLVM_CONFIG, so build.rs downloads Lyftar's static LLVM and lld and checks them. Linux still
+  # generates its bindings with libclang (D14), and Homebrew's LLVM on macOS is only for the shim's format and tidy checks.
+  downloaded:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.96.1
+        with:
+          components: rustfmt, rust-src
+      - name: Tools for building
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            brew install llvm
+          else
+            curl -fsSL https://apt.llvm.org/llvm.sh -o llvm.sh
+            sudo bash llvm.sh 23
+            sudo apt-get install -y libclang-23-dev
+            echo "LIBCLANG_PATH=/usr/lib/llvm-23/lib" >> "$GITHUB_ENV"
+            echo "CXX=clang++-23" >> "$GITHUB_ENV"
+          fi
+      - run: cargo test --no-fail-fast -- --skip decision_22_verus_proves_the_checks
+
