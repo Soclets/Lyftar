@@ -73,7 +73,14 @@ a static build of it with lld in `install/`, musl and compiler-rt builtins, and 
   Cortex-M4: builtins only (160 KB).
 - lld runs again in one process, even after a failed link (`canRunAgain` stayed true). Two links at once crashed it (SIGTRAP).
 - libLTO and libRemarks only come shared, so a self-contained build has to compile them as static libraries itself.
-- The proposal went to design claude on 2026-11-10. Nothing is built until Tankun answers.
+- The proposal went to design claude on 2026-11-10, and Tankun decided D50 to D53.
+
+Built: `llvm.yml` publishes static LLVM and lld 23.1.2 for three hosts and the system files (release `llvm-23.1.2`); `build.rs`
+downloads and checks them by default; `lyftar::lld` and `lyftar::link`; `pass_plugin!` refused with the static LLVM (D53).
+`tests/decision_49_self_contained.rs` runs `examples/self_contained.rs` in `sandbox-exec`, denying the LLVM it was built with,
+Homebrew, the download cache, Xcode and the command line tools: it links all four targets, twice for the Cortex-M4, the macOS program
+runs, and the Linux one runs in Docker when colima is up (`colima start --arch aarch64`). Local runs use the static build in
+`/Users/ts/llvm-self-contained/distribution`, the same recipe as the release, through `LYFTAR_LLVM_CONFIG`.
 
 ## Waiting on design claude
 

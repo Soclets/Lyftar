@@ -139,6 +139,20 @@ If one turns out false, the safety promise named beside it falls with it.
 - **Linkers that strip what nothing refers to drop a stack map section.** rustc does by default, which `-C link-dead-code` turns off.
   Neither `cc` nor `ld` does without `-dead_strip` or `--gc-sections`.
 
+## Self-contained linking
+
+- **lld's library runs again in one process after a link**, even one that failed: `lldMain` said `canRunAgain` every time it was
+  tried, and if it ever doesn't, `lld` refuses every later link. **Two links at once crash it** (seen: SIGTRAP), so a lock keeps them
+  one at a time.
+- **A `libSystem.tbd` listing only the symbols a program uses is enough for `ld64.lld`,** with `dyld_stub_binder` for the lazy
+  binding a program for macOS 11 has. What it names has to be in the real `libSystem`, which only shows when the program loads.
+- **Linux programs are static and not position-independent,** since a stack map is a read-only section of addresses (D45), which a
+  static position-independent program can't relocate.
+- **LLVM builds the C APIs of `lto.h` and `Remarks.h` only as shared libraries,** and a static LLVM still installs those, which macOS's
+  linker prefers, so `llvm.yml` compiles them as static libraries and leaves the shared ones out.
+- **Homebrew's LLVM can't be made static:** its static libraries want a shared `libz3` with no static copy, and its lld is shared only.
+- **compiler-rt's builtins have C++ in them on AArch64,** which CMake builds with the runner's own compiler unless told otherwise.
+
 ## Pass runs
 
 - **`StructuralHash` plus counts of a module's contents catch a pass that lied about `PreservedAnalyses::All`.** A collision

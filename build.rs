@@ -170,7 +170,7 @@ const PUBLISHED: &[(&str, &str)] = &[
     ("x86_64-unknown-linux-gnu", "0d1aaf0ff83fe655df6f693e0d04c68d030b58660532237aa6c0eb530da850fe"),
 ];
 /// The SHA-256 of the system files' file, the same for every host.
-const PUBLISHED_SYSTEM_FILES: &str = "";
+const PUBLISHED_SYSTEM_FILES: &str = "8ba052aa9672ce031c9c211b2ad0a2d7e83056efc51e81968f8e097322d08f87";
 
 /// `LYFTAR_LLVM_CONFIG` if it is set, and otherwise the published static LLVM and lld for this host, downloaded once into a cache
 /// and checked against the hash above (D50).

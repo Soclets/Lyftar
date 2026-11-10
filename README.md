@@ -185,6 +185,41 @@ runtime's own temporaries need roots of their own, and an integer never reaches 
 ELF. A strategy of your own is a `GarbageCollectionStrategy` in Rust, given to `register_strategy`, linked in or in a plugin.
 `tests/collector/` is a small moving collector that runs against all of these.
 
+## A self-contained compiler
+
+A compiler built on Lyftar can build and link for macOS on Apple Silicon, Linux on ARM and x86-64, and a Cortex-M4 with nothing
+else installed: no LLVM, no linker and no SDK (D49). With the default, downloaded LLVM, lld and the system files each target needs
+are built into Lyftar, so the compiler is one file of about 60 to 90 MB that needs only the system's own libraries. Link with
+`lyftar::link`:
+
+```rust,no_run
+use std::path::Path;
+use lyftar::link;
+use lyftar::linking::LinkTarget;
+
+# fn run() -> Result<(), lyftar::error::Error> {
+link(LinkTarget::LinuxAarch64, &[Path::new("program.o")], Path::new("program"), None)?;
+link(LinkTarget::CortexM4, &[Path::new("firmware.o")], Path::new("firmware.elf"), Some(Path::new("memory.ld")))?;
+# Ok(())
+# }
+```
+
+- macOS programs link against `libSystem`, through a stub Lyftar writes from the symbols the objects need, so no file from Apple is
+  involved. They run on macOS 11 and later.
+- Linux programs are linked statically with musl and compiler-rt's builtins into one file that runs on any Linux of that processor.
+  Programs that need glibc aren't supported.
+- Bare metal gets compiler-rt's builtins. Its startup code and linker script are the front end's own.
+- `lyftar::lld` runs lld with its own arguments, for anything else. Links in one process run one at a time, since two at once crash
+  lld.
+- Licences: a compiler with LLVM inside ships LLVM's licence text, and a Linux program carries musl's MIT notice. Both are in the
+  downloaded files, as `LICENSE-LLVM.txt`, `LICENSE-lld.txt`, `LICENSE-musl.txt` and `LICENSE-compiler-rt.txt`.
+- Plugins need a shared LLVM, so `pass_plugin!` is a compile error with the downloaded one (D53).
+- With an LLVM of your own through `LYFTAR_LLVM_CONFIG`, `link` and `lld` work only if its library folder has lld's libraries.
+  Homebrew's LLVM doesn't.
+
+`tests/decision_49_self_contained.rs` builds `examples/self_contained.rs` and runs it where it can't read any LLVM, lld, SDK or
+developer tools.
+
 ## Commands
 
 Regenerate the committed macOS bindings when LLVM moves:

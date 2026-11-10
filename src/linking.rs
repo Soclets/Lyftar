@@ -193,6 +193,8 @@ fn write_system_stub(folder: &Path, objects: &[String]) -> Result<(), Error> {
         "--- !tapi-tbd\ntbd-version: 4\ntargets: [ arm64-macos ]\ninstall-name: '/usr/lib/libSystem.B.dylib'\n\
          current-version: 1351\nexports:\n  - targets: [ arm64-macos ]\n    symbols: [ ",
     );
+    // What lld's lazy binding calls, for macOS before 12, which libSystem has.
+    undefined.insert("dyld_stub_binder".to_string());
     let needed: Vec<String> =
         undefined.difference(&defined).map(|symbol| format!("'{}'", symbol.replace('\'', "''"))).collect();
     stub.push_str(&needed.join(", "));

@@ -60,7 +60,7 @@ fn decision_49_a_compiler_on_lyftar_links_for_every_target_with_nothing_installe
             "(version 1)(allow default)(deny file-read*{rules})\
              (deny process-exec (literal \"/usr/bin/ld\") (literal \"/usr/bin/clang\") (literal \"/usr/bin/xcrun\"))"
         );
-        let mut command = Command::new("sandbox-exec");
+        let mut command = Command::new("/usr/bin/sandbox-exec");
         command.arg("-p").arg(profile).arg(&compiler);
         command
     } else {
@@ -96,7 +96,8 @@ fn decision_49_a_compiler_on_lyftar_links_for_every_target_with_nothing_installe
     }
     // And where Docker has a Linux on ARM, it runs there too: on this Mac, under colima.
     let docker = Command::new("docker").args(["info", "--format", "{{.Architecture}}"]).output();
-    if let Ok(docker) = docker.filter(|output| output.status.success())
+    if let Ok(docker) = docker
+        && docker.status.success()
         && String::from_utf8_lossy(&docker.stdout).trim() == "aarch64"
     {
         let hello = Command::new("docker")
