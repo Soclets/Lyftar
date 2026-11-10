@@ -413,6 +413,25 @@ private:
 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
 DEFINE_SIMPLE_CONVERSION_FUNCTIONS(orc::LLJIT, LLVMOrcLLJITRef)
 
+// Rule 9's exception, as above, for the object layer behind its handle.
+// NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+DEFINE_SIMPLE_CONVERSION_FUNCTIONS(orc::ObjectLayer, LLVMOrcObjectLayerRef)
+
+// trace: D45
+// Code generation can add weak symbols the module never had, such as the
+// `DW.ref` that ELF on AArch64 reaches the personality function through.
+// RuntimeDyld skips a weak definition nobody told it it was responsible for,
+// and then looks for it elsewhere and fails, where JITLink claims it.
+// Contract: `layer` is live, and is a RuntimeDyld layer.
+extern "C" void
+lyftar_runtime_dyld_claim_object_symbols(LLVMOrcObjectLayerRef layer) {
+  require(layer != nullptr, "lyftar_runtime_dyld_claim_object_symbols: null");
+  auto *dyld = dyn_cast<orc::RTDyldObjectLinkingLayer>(unwrap(layer));
+  require(dyld != nullptr,
+          "lyftar_runtime_dyld_claim_object_symbols: not RuntimeDyld's layer");
+  dyld->setAutoClaimResponsibilityForObjectSymbols(true);
+}
+
 // Contract: `jit` is live, and outlives what this gives back, which the caller
 // owns and frees with `lyftar_stack_maps_dispose` after disposing of the JIT.
 extern "C" void *lyftar_jit_capture_stack_maps(LLVMOrcLLJITRef jit) {

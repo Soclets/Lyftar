@@ -144,6 +144,10 @@ If one turns out false, the safety promise named beside it falls with it.
 - **RuntimeDyld on AArch64 can't reach a call between objects more than 128 MiB apart.** Seen in the collector test as a jump to an
   unmapped address in about 1 run in 13, for `ocaml`'s two objects. `ExecutionEngine` makes code in the large code model by default,
   which has no such limit, and never failed; `use_runtime_dyld` says to do the same.
+- **RuntimeDyld skips a weak definition it wasn't told it is responsible for,** and then looks for it elsewhere. Code generation adds
+  one the module never had: the `DW.ref` symbol ELF reaches the personality function through, in all code on AArch64 and in
+  position-independent code on x86-64. Lyftar's RuntimeDyld layer claims what each object defines, as JITLink does. Seen on GitHub's
+  Linux, as `Symbols not found: [ DW.ref.__gcc_personality_v0 ]`.
 - **Linkers that strip what nothing refers to drop a stack map section.** rustc does by default, which `-C link-dead-code` turns off.
   Neither `cc` nor `ld` does without `-dead_strip` or `--gc-sections`.
 

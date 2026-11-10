@@ -57,6 +57,7 @@ unsafe extern "C" {
     );
     pub fn lyftar_module_needs_safepoint_poll(module: LLVMModuleRef) -> bool;
     pub fn lyftar_module_has_transition_statepoint(module: LLVMModuleRef) -> bool;
+    pub fn lyftar_runtime_dyld_claim_object_symbols(layer: crate::raw::LLVMOrcObjectLayerRef);
     pub fn lyftar_jit_capture_stack_maps(jit: crate::raw::LLVMOrcLLJITRef) -> *mut c_void;
     pub fn lyftar_execution_engine_capture_stack_maps(engine: crate::raw::LLVMExecutionEngineRef) -> *mut c_void;
     pub fn lyftar_execution_engine_finish_code(engine: crate::raw::LLVMExecutionEngineRef);

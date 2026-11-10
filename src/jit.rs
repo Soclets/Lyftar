@@ -660,8 +660,15 @@ unsafe extern "C" fn create_runtime_dyld_layer(
     session: raw::LLVMOrcExecutionSessionRef,
     _triple: *const c_char,
 ) -> raw::LLVMOrcObjectLayerRef {
-    // SAFETY: LLVM gives a live session, and the layer it makes goes to LLJIT.
-    unsafe { raw::LLVMOrcCreateRTDyldObjectLinkingLayerWithSectionMemoryManager(session) }
+    // SAFETY: LLVM gives a live session, and the layer it makes goes to LLJIT. The layer was just made, by RuntimeDyld, as the
+    // shim's contract needs.
+    unsafe {
+        let layer = raw::LLVMOrcCreateRTDyldObjectLinkingLayerWithSectionMemoryManager(session);
+        // trace: D45
+        // So a weak symbol that code generation added, such as ELF on AArch64's `DW.ref` for the personality function, is found.
+        crate::shim::lyftar_runtime_dyld_claim_object_symbols(layer);
+        layer
+    }
 }
 
 impl JitBuilder {

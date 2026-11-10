@@ -672,18 +672,19 @@ struct Way {
 }
 
 fn machine_for(optimization: Optimization) -> TargetMachine {
-    machine_with(optimization, CodeModel::Default)
+    machine_with(optimization, RelocationMode::PositionIndependentCode, CodeModel::Default)
 }
 
 /// RuntimeDyld can't reach between objects more than 128 MiB apart on AArch64, which a call in the small code model needs, so
-/// what goes through it uses the large one, as `ExecutionEngine` does by default. Elsewhere it keeps LLJIT's own target machine:
-/// the position-independent one `machine_with` makes refers to the personality function through a `DW.ref` symbol that
-/// RuntimeDyld doesn't make on x86-64 ELF.
-fn runtime_dyld_machine(optimization: Optimization) -> Option<TargetMachine> {
-    cfg!(target_arch = "aarch64").then(|| machine_with(optimization, CodeModel::Large))
+/// what goes through it uses the large one, as `ExecutionEngine` does by default. Position-independent code on x86-64 ELF, and all
+/// code on AArch64 ELF, reaches the personality function through a weak `DW.ref` symbol the module didn't have, which Lyftar's
+/// RuntimeDyld layer has to claim.
+fn runtime_dyld_machine(optimization: Optimization) -> TargetMachine {
+    let code_model = if cfg!(target_arch = "aarch64") { CodeModel::Large } else { CodeModel::Default };
+    machine_with(optimization, RelocationMode::PositionIndependentCode, code_model)
 }
 
-fn machine_with(optimization: Optimization, code_model: CodeModel) -> TargetMachine {
+fn machine_with(optimization: Optimization, relocation: RelocationMode, code_model: CodeModel) -> TargetMachine {
     let level = if optimization == Optimization::On {
         CodeGenerationOptimizationLevel::Default
     } else {
@@ -695,7 +696,7 @@ fn machine_with(optimization: Optimization, code_model: CodeModel) -> TargetMach
         &host_cpu_name(),
         &host_cpu_features(),
         level,
-        RelocationMode::PositionIndependentCode,
+        relocation,
         code_model,
     )
 }
@@ -829,7 +830,7 @@ fn run_jit(way: &Way, builder: JitBuilder) -> String {
     if way.strategy.name == "ocaml" {
         // Its frame table is a symbol the module doesn't declare, which ORC refuses in a module, and takes in an object.
         let (program, other) = with_context(|context| {
-            let machine = runtime_dyld_machine(way.optimization).unwrap_or_else(|| machine_for(way.optimization));
+            let machine = runtime_dyld_machine(way.optimization);
             let program = main_unit(context, &machine, way);
             let other = other_unit(context, &machine, way);
             (emit(context, &machine, program), emit(context, &machine, other))
@@ -892,9 +893,7 @@ fn every_way(strategy: Strategy, polls: Polls) {
         let runtime_dyld = || {
             let mut builder = JitBuilder::new();
             builder.use_runtime_dyld();
-            if let Some(machine) = runtime_dyld_machine(optimization) {
-                builder.set_target_machine(machine);
-            }
+            builder.set_target_machine(runtime_dyld_machine(optimization));
             builder
         };
         // A poll collects as well, so a program with them has to collect more than one without.
