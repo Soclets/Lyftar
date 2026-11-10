@@ -3,8 +3,12 @@
 
 use std::path::Path;
 use std::process::{Command, Output};
+use std::sync::Mutex;
 
 fn run_check(repository: &Path) -> Output {
+    // Both tests build the check into the same folder, and one could replace it while the other is starting it.
+    static ONE_AT_A_TIME: Mutex<()> = Mutex::new(());
+    let _turn = ONE_AT_A_TIME.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
     let root = env!("CARGO_MANIFEST_DIR");
     Command::new(env!("CARGO"))
         .args(["run", "--quiet", "--manifest-path"])

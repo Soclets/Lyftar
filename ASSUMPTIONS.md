@@ -122,6 +122,12 @@ If one turns out false, the safety promise named beside it falls with it.
   past the return address on x86-64. The test collector finds each caller's stack pointer this way. Where the frame record is at the
   top of the frame, on Darwin and x86-64, it also asserts this against the frame pointer. Linux on AArch64 saves the callee-saved
   registers above the frame record, so there the frame pointer doesn't say where the caller's stack starts.
+- **An `ocaml` frame table doesn't say which register each offset is from.** LLVM writes the offset `getFrameIndexReference` gives,
+  from the frame pointer or the stack pointer, whichever is closer, and drops the register. On Darwin on AArch64 and on x86-64 every
+  root is below the frame pointer, so a negative offset is from it and the rest are from the stack pointer. Linux on AArch64 can put
+  a root in the spare 8 bytes beside an odd number of callee-saved registers, above the frame pointer, and give it as a positive
+  offset from it, which reads the same as one from the stack pointer. Seen on GitHub's Linux on ARM, and with `llc` for
+  `aarch64-unknown-linux-gnu`.
 - **JITLink names the section `__LLVM_STACKMAPS,__llvm_stackmaps` on Mach-O and `.llvm_stackmaps` on ELF, and strips it** with nothing
   referring to it, so a plugin marks it live. **RuntimeDyld loads it,** since Mach-O and ELF treat it as needed to run. Neither is
   in the headers, and `tests/decision_45_moving_collection.rs` sees both hold.

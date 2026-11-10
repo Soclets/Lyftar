@@ -82,6 +82,11 @@ Homebrew, the download cache, Xcode and the command line tools: it links all fou
 runs, and the Linux one runs in Docker when colima is up (`colima start --arch aarch64`). Local runs use the static build in
 `/Users/ts/llvm-self-contained/distribution`, the same recipe as the release, through `LYFTAR_LLVM_CONFIG`.
 
+CI's first runs with the downloaded LLVM found three things, fixed in 0d24036: Windows hung untarring the system files (now only
+fetched on D50's hosts); RuntimeDyld on x86-64 couldn't find `DW.ref.__gcc_personality_v0` with a position-independent machine (it
+keeps LLJIT's own there); and the test collector read `ocaml` roots from the wrong place on Linux on AArch64, whose frame record sits
+below the callee-saved registers (it now finds each caller's stack by the frame's size).
+
 ## Waiting on design claude
 
 Nothing. D30 to D46 are built.
