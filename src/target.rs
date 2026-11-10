@@ -217,6 +217,7 @@ impl Target {
     #[must_use]
     #[track_caller]
     pub fn from_name(name: &str) -> Option<Target> {
+        set_up_targets();
         let name = c_string(name, "from_name");
         // SAFETY: a valid C string for the call.
         let raw_target = unsafe { raw::LLVMGetTargetFromName(name.as_ptr()) };
@@ -232,6 +233,9 @@ impl Target {
     /// If `triple` has a NUL byte inside it (D3).
     #[track_caller]
     pub fn from_triple(triple: &str) -> Result<Target, Error> {
+        // trace: D38
+        // Looked up before anything else, LLVM has no targets registered yet.
+        set_up_targets();
         let triple = c_string(triple, "from_triple");
         let mut found = std::ptr::null_mut();
         let mut message = std::ptr::null_mut();

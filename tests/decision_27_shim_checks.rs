@@ -27,7 +27,8 @@ fn llvm_flags() -> Vec<String> {
     flags
 }
 
-const SHIM: [&str; 4] = ["shim/shim.cpp", "shim/passes.cpp", "shim/garbage_collection.cpp", "shim/shim.h"];
+const SHIM: [&str; 5] =
+    ["shim/shim.cpp", "shim/passes.cpp", "shim/garbage_collection.cpp", "shim/link.cpp", "shim/shim.h"];
 
 #[test]
 fn decision_27_the_shim_is_formatted_in_llvms_style() {
@@ -44,7 +45,7 @@ fn decision_27_the_shim_is_formatted_in_llvms_style() {
 fn decision_27_clang_tidy_passes_on_the_shim_with_warnings_as_errors() {
     let output = Command::new(llvm_tool("clang-tidy"))
         .current_dir(env!("CARGO_MANIFEST_DIR"))
-        .args(["shim/shim.cpp", "shim/passes.cpp", "shim/garbage_collection.cpp", "--"])
+        .args(["shim/shim.cpp", "shim/passes.cpp", "shim/garbage_collection.cpp", "shim/link.cpp", "--"])
         .args(llvm_flags())
         .output()
         .expect("clang-tidy");

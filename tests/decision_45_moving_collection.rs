@@ -671,6 +671,16 @@ struct Way {
 }
 
 fn machine_for(optimization: Optimization) -> TargetMachine {
+    machine_with(optimization, CodeModel::Default)
+}
+
+/// RuntimeDyld can't reach between objects more than 128 MiB apart on AArch64, which a call in the small code model needs, so
+/// what goes through it uses the large one, as `ExecutionEngine` does by default.
+fn runtime_dyld_machine(optimization: Optimization) -> TargetMachine {
+    machine_with(optimization, CodeModel::Large)
+}
+
+fn machine_with(optimization: Optimization, code_model: CodeModel) -> TargetMachine {
     let level = if optimization == Optimization::On {
         CodeGenerationOptimizationLevel::Default
     } else {
@@ -683,7 +693,7 @@ fn machine_for(optimization: Optimization) -> TargetMachine {
         &host_cpu_features(),
         level,
         RelocationMode::PositionIndependentCode,
-        CodeModel::Default,
+        code_model,
     )
 }
 
@@ -816,7 +826,7 @@ fn run_jit(way: &Way, builder: JitBuilder) -> String {
     if way.strategy.name == "ocaml" {
         // Its frame table is a symbol the module doesn't declare, which ORC refuses in a module, and takes in an object.
         let (program, other) = with_context(|context| {
-            let machine = machine_for(way.optimization);
+            let machine = runtime_dyld_machine(way.optimization);
             let program = main_unit(context, &machine, way);
             let other = other_unit(context, &machine, way);
             (emit(context, &machine, program), emit(context, &machine, other))
@@ -876,22 +886,19 @@ fn every_way(strategy: Strategy, polls: Polls) {
     for optimization in [Optimization::Off, Optimization::On] {
         let label = if optimization == Optimization::On { "optimized" } else { "not optimized" };
         let way = Way { strategy, optimization, polls };
-        let mut runtime_dyld = JitBuilder::new();
-        runtime_dyld.use_runtime_dyld();
-        let mut ocaml_runtime_dyld = JitBuilder::new();
-        ocaml_runtime_dyld.use_runtime_dyld();
+        let runtime_dyld = || {
+            let mut builder = JitBuilder::new();
+            builder.use_runtime_dyld();
+            builder.set_target_machine(runtime_dyld_machine(optimization));
+            builder
+        };
         // A poll collects as well, so a program with them has to collect more than one without.
         let without_polls = Way { polls: Polls::No, ..way };
-        let mut baseline = JitBuilder::new();
-        baseline.use_runtime_dyld();
-        let least_collections = check_output(&run_jit(&without_polls, baseline), "without polls", &without_polls);
+        let least_collections = check_output(&run_jit(&without_polls, runtime_dyld()), "without polls", &without_polls);
         for (name, output) in [
             // JITLink refuses an `ocaml` object on some layouts, as an error (ASSUMPTIONS.md).
-            (
-                "through Jit",
-                run_jit(&way, if strategy.name == "ocaml" { ocaml_runtime_dyld } else { JitBuilder::new() }),
-            ),
-            ("through Jit with RuntimeDyld", run_jit(&way, runtime_dyld)),
+            ("through Jit", run_jit(&way, if strategy.name == "ocaml" { runtime_dyld() } else { JitBuilder::new() })),
+            ("through Jit with RuntimeDyld", run_jit(&way, runtime_dyld())),
             ("through ExecutionEngine", run_execution_engine(&way)),
             ("linked", run_linked(&way)),
         ] {

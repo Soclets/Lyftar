@@ -133,6 +133,9 @@ If one turns out false, the safety promise named beside it falls with it.
 - **ELF's stack map section is read-only and holds absolute addresses.** So `rust-lld` refuses it in a position-independent program
   without `-z notext`, and the program loads with text relocations. `lyftar-stack-maps` reads it after that, relocated. Seen on
   GitHub's Linux.
+- **RuntimeDyld on AArch64 can't reach a call between objects more than 128 MiB apart.** Seen in the collector test as a jump to an
+  unmapped address in about 1 run in 13, for `ocaml`'s two objects. `ExecutionEngine` makes code in the large code model by default,
+  which has no such limit, and never failed; `use_runtime_dyld` says to do the same.
 - **Linkers that strip what nothing refers to drop a stack map section.** rustc does by default, which `-C link-dead-code` turns off.
   Neither `cc` nor `ld` does without `-dead_strip` or `--gc-sections`.
 

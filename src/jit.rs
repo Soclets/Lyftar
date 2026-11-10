@@ -706,6 +706,10 @@ impl JitBuilder {
     }
 
     /// Links objects with `RuntimeDyld` rather than `JITLink`, which [`Jit::register_event_listener`] needs.
+    ///
+    /// On AArch64, RuntimeDyld can't reach a call between objects more than 128 MiB apart, and nothing keeps them closer, so a
+    /// program jumps somewhere wrong now and then. Make its code in the large code model, through
+    /// [`set_target_machine`](Self::set_target_machine).
     pub fn use_runtime_dyld(&mut self) {
         // SAFETY: the builder is live, the function matches LLVM's signature, and it needs no state.
         unsafe {

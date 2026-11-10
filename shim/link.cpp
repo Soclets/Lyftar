@@ -11,6 +11,7 @@
 
 #include "lld/Common/Driver.h"
 
+#include <array>
 #include <cstddef>
 #include <string>
 
@@ -32,10 +33,13 @@ extern "C" int lyftar_lld(const char *const *arguments, size_t count,
   std::string printed;
   llvm::raw_string_ostream standard_output(printed);
   llvm::raw_string_ostream standard_error(printed);
-  const lld::Result result = lld::lldMain(
-      llvm::ArrayRef<const char *>(arguments, count), standard_output,
-      standard_error,
-      {{lld::Gnu, &lld::elf::link}, {lld::Darwin, &lld::macho::link}});
+  const std::array<lld::DriverDef, 2> drivers = {
+      lld::DriverDef{.f = lld::Gnu, .d = &lld::elf::link},
+      lld::DriverDef{.f = lld::Darwin, .d = &lld::macho::link},
+  };
+  const lld::Result result =
+      lld::lldMain(llvm::ArrayRef<const char *>(arguments, count),
+                   standard_output, standard_error, drivers);
   standard_output.flush();
   standard_error.flush();
   *output = LLVMCreateMessage(printed.c_str());
