@@ -145,10 +145,11 @@ jobs:
           builtins() {
             directory="$1"; triple="$2"; system="$3"; flags="$4"; sysroot="$5"
             cmake -G Ninja -S source/compiler-rt/lib/builtins -B "builtins-$directory" -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_C_COMPILER="$CLANG" -DCMAKE_ASM_COMPILER="$CLANG" -DCMAKE_AR="$(command -v "$AR")" \
-              -DCMAKE_RANLIB="$(command -v "$RANLIB")" -DCMAKE_SYSTEM_NAME="$system" \
-              -DCMAKE_C_COMPILER_TARGET="$triple" -DCMAKE_ASM_COMPILER_TARGET="$triple" \
-              -DCMAKE_C_FLAGS="$flags $sysroot" -DCMAKE_ASM_FLAGS="$flags" -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+              -DCMAKE_C_COMPILER="$CLANG" -DCMAKE_CXX_COMPILER="${CLANG/clang/clang++}" -DCMAKE_ASM_COMPILER="$CLANG" \
+              -DCMAKE_AR="$(command -v "$AR")" -DCMAKE_RANLIB="$(command -v "$RANLIB")" -DCMAKE_SYSTEM_NAME="$system" \
+              -DCMAKE_C_COMPILER_TARGET="$triple" -DCMAKE_CXX_COMPILER_TARGET="$triple" -DCMAKE_ASM_COMPILER_TARGET="$triple" \
+              -DCMAKE_C_FLAGS="$flags $sysroot" -DCMAKE_CXX_FLAGS="$flags $sysroot" -DCMAKE_ASM_FLAGS="$flags" \
+              -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
               -DCOMPILER_RT_DEFAULT_TARGET_ONLY=ON -DCOMPILER_RT_BAREMETAL_BUILD=ON -DCOMPILER_RT_OS_DIR=lyftar \
               -DLLVM_CONFIG_PATH="$(command -v "llvm-config-${VERSION%%.*}")"
             ninja -C "builtins-$directory"
