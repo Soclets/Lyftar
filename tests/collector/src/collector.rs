@@ -26,6 +26,10 @@ const RETURN_ADDRESS_SIZE_IN_BYTES: u64 = 0;
 #[cfg(target_arch = "x86_64")]
 const RETURN_ADDRESS_SIZE_IN_BYTES: u64 = 8;
 
+/// Whether a frame's record, the caller's frame pointer and the return address, is the last thing in the frame, so the caller's
+/// stack starts right after it.
+const FRAME_RECORD_IS_AT_THE_TOP: bool = cfg!(any(target_vendor = "apple", target_arch = "x86_64"));
+
 /// How the shadow stack's lowering lays out a frame: its map says how many root slots follow.
 #[repr(C)]
 pub struct FrameMap {
@@ -182,14 +186,15 @@ fn visit_statepoint_frame(
     stack_pointer: u64,
     frame_pointer: u64,
     visit: Visit,
-) -> bool {
-    let Some(call) = stack_maps.find(return_address) else {
-        return false;
-    };
+) -> Option<u64> {
+    let call = stack_maps.find(return_address)?;
     let statepoint = call.record.statepoint().expect("a statepoint's record");
-    if call.function.stack_size_in_bytes != u64::MAX {
+    let frame_size_in_bytes = call.function.stack_size_in_bytes;
+    // Darwin on AArch64 and x86-64 put the frame record at the top of the frame. Linux on AArch64 puts the callee-saved registers
+    // above it.
+    if frame_size_in_bytes != u64::MAX && FRAME_RECORD_IS_AT_THE_TOP {
         assert_eq!(
-            stack_pointer + call.function.stack_size_in_bytes + RETURN_ADDRESS_SIZE_IN_BYTES,
+            stack_pointer + frame_size_in_bytes + RETURN_ADDRESS_SIZE_IN_BYTES,
             frame_pointer + 16,
             "the stack map's frame size"
         );
@@ -213,7 +218,7 @@ fn visit_statepoint_frame(
                 assert!(value == 0 || inside(current, value), "a root wasn't rewritten: {value:#x}");
             }
         }
-        return true;
+        return Some(frame_size_in_bytes);
     }
     // A pair listed twice, or a slot already in a derived step, must only be done once.
     let seen_before = |index: usize, wanted: (Option<*mut u64>, Option<*mut u64>)| {
@@ -253,7 +258,7 @@ fn visit_statepoint_frame(
             }
         }
     }
-    true
+    Some(frame_size_in_bytes)
 }
 
 fn visit_table_frame(
@@ -262,10 +267,8 @@ fn visit_table_frame(
     stack_pointer: u64,
     frame_pointer: u64,
     visit: Visit,
-) -> bool {
-    let Ok(found) = table.binary_search_by_key(&return_address, |descriptor| descriptor.return_address) else {
-        return false;
-    };
+) -> Option<u64> {
+    let found = table.binary_search_by_key(&return_address, |descriptor| descriptor.return_address).ok()?;
     let descriptor = &table[found];
     for index in 0..usize::from(descriptor.offset_count) {
         // SAFETY: the frame table says each of these is a stack offset in this frame, which is suspended in this call. AArch64
@@ -285,8 +288,8 @@ fn visit_table_frame(
             }
         }
     }
-    let _ = descriptor.frame_size_in_bytes;
-    true
+    // LLVM refuses to write a table for a frame whose size it doesn't know.
+    Some(u64::from(descriptor.frame_size_in_bytes))
 }
 
 fn visit_shadow_stack(head: *mut *mut StackEntry, visit: Visit) {
@@ -334,12 +337,21 @@ fn walk_frames(mut return_address: u64, mut stack_pointer: u64, mut frame_pointe
                 }
                 RootFinder::Unset | RootFinder::ShadowStack(_) => panic!("the program said nothing about its roots"),
             };
-            if !found {
+            let Some(frame_size_in_bytes) = found else {
                 return;
-            }
+            };
             state().frames_walked += 1;
             let record = frame_pointer as *const u64;
-            stack_pointer = frame_pointer + 16;
+            // The caller's stack starts where this frame ends, which only the frame's size says on Linux on AArch64.
+            assert!(
+                frame_size_in_bytes != u64::MAX || FRAME_RECORD_IS_AT_THE_TOP,
+                "a frame of a size LLVM doesn't know, below the callee-saved registers"
+            );
+            stack_pointer = if frame_size_in_bytes == u64::MAX {
+                frame_pointer + 16
+            } else {
+                stack_pointer + frame_size_in_bytes + RETURN_ADDRESS_SIZE_IN_BYTES
+            };
             return_address = *record.add(1);
             frame_pointer = *record;
         }

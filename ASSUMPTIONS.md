@@ -118,8 +118,10 @@ If one turns out false, the safety promise named beside it falls with it.
   it isn't in the IR ORC reads. A program defining it itself works: the test's does.
 - **LLVM can fold a derived pointer away.** `CodeGenPrepare` rewrites a relocate of a constant offset from its base into arithmetic on
   the relocated base, so such a pointer never reaches the stack map, and that is correct: the object still moves right.
-- **A function's stack size in its stack map record is what its return moves the stack pointer by**, past the return address on
-  x86-64. The test collector asserts this against the frame pointer on every frame it walks.
+- **A function's stack size in its stack map record, and in an `ocaml` frame table, is what its return moves the stack pointer by**,
+  past the return address on x86-64. The test collector finds each caller's stack pointer this way. Where the frame record is at the
+  top of the frame, on Darwin and x86-64, it also asserts this against the frame pointer. Linux on AArch64 saves the callee-saved
+  registers above the frame record, so there the frame pointer doesn't say where the caller's stack starts.
 - **JITLink names the section `__LLVM_STACKMAPS,__llvm_stackmaps` on Mach-O and `.llvm_stackmaps` on ELF, and strips it** with nothing
   referring to it, so a plugin marks it live. **RuntimeDyld loads it,** since Mach-O and ELF treat it as needed to run. Neither is
   in the headers, and `tests/decision_45_moving_collection.rs` sees both hold.

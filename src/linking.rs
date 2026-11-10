@@ -254,5 +254,7 @@ fn system_files() -> Result<PathBuf, Error> {
 
 #[cfg(not(lyftar_has_system_files))]
 fn system_files() -> Result<PathBuf, Error> {
-    Err(Error::new("this Lyftar was built before its system files were published, so it can only link through `lld`"))
+    Err(Error::new(
+        "this Lyftar has no built-in system files, which come with its own LLVM on macOS and Linux (D50, D51), so it can only link through `lld`",
+    ))
 }

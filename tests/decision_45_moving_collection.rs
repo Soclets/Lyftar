@@ -675,11 +675,11 @@ fn machine_for(optimization: Optimization) -> TargetMachine {
 }
 
 /// RuntimeDyld can't reach between objects more than 128 MiB apart on AArch64, which a call in the small code model needs, so
-/// what goes through it uses the large one, as `ExecutionEngine` does by default.
-fn runtime_dyld_machine(optimization: Optimization) -> TargetMachine {
-    // Only AArch64 needs it, and on x86-64 the large model refers to the personality function through a symbol RuntimeDyld
-    // doesn't make.
-    machine_with(optimization, if cfg!(target_arch = "aarch64") { CodeModel::Large } else { CodeModel::Default })
+/// what goes through it uses the large one, as `ExecutionEngine` does by default. Elsewhere it keeps LLJIT's own target machine:
+/// the position-independent one `machine_with` makes refers to the personality function through a `DW.ref` symbol that
+/// RuntimeDyld doesn't make on x86-64 ELF.
+fn runtime_dyld_machine(optimization: Optimization) -> Option<TargetMachine> {
+    cfg!(target_arch = "aarch64").then(|| machine_with(optimization, CodeModel::Large))
 }
 
 fn machine_with(optimization: Optimization, code_model: CodeModel) -> TargetMachine {
@@ -828,7 +828,7 @@ fn run_jit(way: &Way, builder: JitBuilder) -> String {
     if way.strategy.name == "ocaml" {
         // Its frame table is a symbol the module doesn't declare, which ORC refuses in a module, and takes in an object.
         let (program, other) = with_context(|context| {
-            let machine = runtime_dyld_machine(way.optimization);
+            let machine = runtime_dyld_machine(way.optimization).unwrap_or_else(|| machine_for(way.optimization));
             let program = main_unit(context, &machine, way);
             let other = other_unit(context, &machine, way);
             (emit(context, &machine, program), emit(context, &machine, other))
@@ -891,7 +891,9 @@ fn every_way(strategy: Strategy, polls: Polls) {
         let runtime_dyld = || {
             let mut builder = JitBuilder::new();
             builder.use_runtime_dyld();
-            builder.set_target_machine(runtime_dyld_machine(optimization));
+            if let Some(machine) = runtime_dyld_machine(optimization) {
+                builder.set_target_machine(machine);
+            }
             builder
         };
         // A poll collects as well, so a program with them has to collect more than one without.

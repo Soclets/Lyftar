@@ -245,8 +245,11 @@ fn download(name: &str, hash: &str) -> Result<PathBuf, String> {
 /// The system files each target needs to link: the published ones, built into Lyftar so a compiler carries them, or none if
 /// they aren't published yet, in which case `link` says so.
 fn embed_system_files(has_lld: bool) -> Result<(), String> {
-    // They are only for linking, which needs lld.
-    if PUBLISHED_SYSTEM_FILES.is_empty() || !has_lld {
+    // They are only for linking, which needs lld, and only on the hosts Lyftar's own LLVM is published for (D50). Windows builds
+    // against an LLVM of its own and has no `tar` that reads its paths.
+    let host_is_published =
+        std::env::var("TARGET").is_ok_and(|target| PUBLISHED.iter().any(|(name, _)| *name == target));
+    if PUBLISHED_SYSTEM_FILES.is_empty() || !has_lld || !host_is_published {
         return Ok(());
     }
     let folder = download(&format!("lyftar-system-{PUBLISHED_VERSION}"), PUBLISHED_SYSTEM_FILES)?;
