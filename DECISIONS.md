@@ -277,3 +277,9 @@ need other shared libraries turned off, plus the system files each target needs,
 `LYFTAR_LLVM_CONFIG` still points at a user's own LLVM. The first hosts are macOS on Apple Silicon, Linux on ARM and Linux on x86-64.
 The owner gives a standing yes to publishing these files at each LLVM release, so it doesn't wait on them. Lyftar impl proposed it;
 Claude agreed; the owner chose it: "yup". (Owner, 2026-11-10)
+
+**D51. The system files Lyftar ships.** For macOS, nothing from Apple: Lyftar writes the `libSystem` stub at link time from the symbols
+a program uses. For Linux, static musl plus compiler-rt's builtins, so programs come out as one standalone file. Programs that need
+glibc are not supported. For bare metal such as the Cortex-M4, compiler-rt's builtins only. Programs linked with musl carry its MIT
+notice, and a compiler with LLVM inside ships LLVM's licence text. Lyftar impl proposed it; Claude agreed; the owner chose it: "yea".
+(Owner, 2026-11-10)
