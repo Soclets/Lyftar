@@ -2427,6 +2427,7 @@ fn decision_3_every_message_in_the_crate_has_a_test() {
         include_str!("decision_45_statepoints.rs"),
         include_str!("decision_45_strategies.rs"),
         include_str!("decision_45_custom_strategies.rs"),
+        include_str!("decision_52_linking.rs"),
     );
     let source_directory = concat!(env!("CARGO_MANIFEST_DIR"), "/src");
     let mut missing = Vec::new();

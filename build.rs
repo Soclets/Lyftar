@@ -93,6 +93,7 @@ fn main() -> Result<(), String> {
     }
 
     compile_shim(&llvm_config, has_lld)?;
+    embed_system_files()?;
 
     let target = std::env::var("CARGO_CFG_TARGET_OS").map_err(|error| format!("no target from Cargo: {error}"))?;
     if target != "macos" {
@@ -164,6 +165,8 @@ fn generate(_include_directory: &Path) -> Result<(), String> {
 /// The LLVM version Lyftar's published static LLVM and lld are, and each host's file's SHA-256, from the release `llvm.yml` made.
 const PUBLISHED_VERSION: &str = "23.1.2";
 const PUBLISHED: &[(&str, &str)] = &[];
+/// The SHA-256 of the system files' file, the same for every host.
+const PUBLISHED_SYSTEM_FILES: &str = "";
 
 /// `LYFTAR_LLVM_CONFIG` if it is set, and otherwise the published static LLVM and lld for this host, downloaded once into a cache
 /// and checked against the hash above (D50).
@@ -177,12 +180,18 @@ fn find_llvm_config() -> Result<PathBuf, String> {
             "Lyftar has no static LLVM {PUBLISHED_VERSION} published for {target}; set LYFTAR_LLVM_CONFIG to an llvm-config for LLVM {LLVM_MAJOR}"
         ));
     };
-    let name = format!("lyftar-llvm-{PUBLISHED_VERSION}-{target}");
+    let unpacked = download(&format!("lyftar-llvm-{PUBLISHED_VERSION}-{target}"), hash)?;
+    Ok(unpacked.join("bin/llvm-config"))
+}
+
+/// A published file of this name, downloaded once into the cache, checked against its hash, and unpacked. Gives the folder it
+/// unpacked into, which has the same name.
+fn download(name: &str, hash: &str) -> Result<PathBuf, String> {
     let cache = cache_directory()?;
-    let unpacked = cache.join(&name);
+    let unpacked = cache.join(name);
     let marker = unpacked.join(".sha256");
-    if std::fs::read_to_string(&marker).is_ok_and(|found| found == *hash) {
-        return Ok(unpacked.join("bin/llvm-config"));
+    if std::fs::read_to_string(&marker).is_ok_and(|found| found == hash) {
+        return Ok(unpacked);
     }
     std::fs::create_dir_all(&cache).map_err(|error| format!("{}: {error}", cache.display()))?;
     // Each build works in a place of its own, so two at once don't meet, and only a checked copy is moved into place.
@@ -204,7 +213,7 @@ fn find_llvm_config() -> Result<PathBuf, String> {
     }
     let bytes = std::fs::read(&archive).map_err(|error| format!("{}: {error}", archive.display()))?;
     let found = sha256_hex(&bytes);
-    if found != *hash {
+    if found != hash {
         let _ = std::fs::remove_dir_all(&work);
         return Err(format!("{url} has SHA-256 {found}, and Lyftar expects {hash}, so it wasn't used"));
     }
@@ -218,15 +227,52 @@ fn find_llvm_config() -> Result<PathBuf, String> {
     if !unpacked_here.success() {
         return Err(format!("tar could not unpack {}", archive.display()));
     }
-    std::fs::write(work.join(&name).join(".sha256"), hash).map_err(|error| format!("{}: {error}", work.display()))?;
+    std::fs::write(work.join(name).join(".sha256"), hash).map_err(|error| format!("{}: {error}", work.display()))?;
     let _ = std::fs::remove_dir_all(&unpacked);
     // Another build may have put its own checked copy there first, which is as good.
-    if std::fs::rename(work.join(&name), &unpacked).is_err() && !marker.exists() {
+    if std::fs::rename(work.join(name), &unpacked).is_err() && !marker.exists() {
         return Err(format!("could not move {} into {}", work.display(), unpacked.display()));
     }
     let _ = std::fs::remove_dir_all(&work);
-    Ok(unpacked.join("bin/llvm-config"))
+    Ok(unpacked)
 }
+
+// trace: D51, D52
+/// The system files each target needs to link: the published ones, built into Lyftar so a compiler carries them, or none if
+/// they aren't published yet, in which case `link` says so.
+fn embed_system_files() -> Result<(), String> {
+    if PUBLISHED_SYSTEM_FILES.is_empty() {
+        return Ok(());
+    }
+    let folder = download(&format!("lyftar-system-{PUBLISHED_VERSION}"), PUBLISHED_SYSTEM_FILES)?;
+    let mut entries = String::from("pub(crate) static FILES: &[(&str, &[u8])] = &[\n");
+    for (directory, files) in SYSTEM_FILES {
+        for file in *files {
+            let path = folder.join(directory).join(file);
+            if !path.exists() {
+                return Err(format!("{} is missing from the system files", path.display()));
+            }
+            entries.push_str(&format!(
+                "    (\"{directory}/{file}\", include_bytes!({:?})),\n",
+                path.display().to_string()
+            ));
+        }
+    }
+    entries.push_str("];\n");
+    let out_directory =
+        PathBuf::from(std::env::var("OUT_DIR").map_err(|error| format!("no OUT_DIR from Cargo: {error}"))?);
+    std::fs::write(out_directory.join("system_files.rs"), entries)
+        .map_err(|error| format!("writing system_files.rs: {error}"))?;
+    println!("cargo:rustc-cfg=lyftar_has_system_files");
+    Ok(())
+}
+
+/// What `llvm.yml` puts in the system files, by folder.
+const SYSTEM_FILES: &[(&str, &[&str])] = &[
+    ("linux-aarch64", &["crt1.o", "crti.o", "crtn.o", "libc.a", "libclang_rt.builtins.a"]),
+    ("linux-x86_64", &["crt1.o", "crti.o", "crtn.o", "libc.a", "libclang_rt.builtins.a"]),
+    ("cortex-m4", &["libclang_rt.builtins.a"]),
+];
 
 /// Where downloads are kept between builds and projects: the user's cache directory.
 fn cache_directory() -> Result<PathBuf, String> {

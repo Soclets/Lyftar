@@ -23,6 +23,12 @@ unsafe extern "C" {
         output: *mut *mut c_char,
         can_run_again: *mut bool,
     ) -> c_int;
+    pub fn lyftar_object_symbols(
+        bytes: *const c_char,
+        size: usize,
+        defined: *mut *mut c_char,
+        undefined: *mut *mut c_char,
+    ) -> bool;
 }
 
 unsafe extern "C" {

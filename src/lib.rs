@@ -59,7 +59,7 @@ pub mod values;
 pub use basic_block::BasicBlock;
 pub use builder::Builder;
 pub use context::{Context, with_context};
-pub use linking::lld;
+pub use linking::{link, lld};
 pub use module::{Module, OwnedModule};
 pub use types::{
     AddressSpace, Array, Bits, BrainFloat, Byte, Dynamic, Elements, Float, Ieee754Binary, Integer, MinimumElements,
