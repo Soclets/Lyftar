@@ -270,3 +270,10 @@ scripts stay its job. How Lyftar gets its static LLVM and lld, and which system 
 session proposes them first. `design/prompts/self-contained.md` holds the scope. Cyborg asked for in-process lld; Claude suggested
 embedding lld first and leaving self-contained for later; the owner chose to go straight to it: "Why not straight away? Since Cyborg
 could wait", then "yea". (Owner, 2026-11-10)
+
+**D50. Lyftar publishes its static LLVM and lld.** Lyftar's CI builds static LLVM and lld for each host, with the optional parts that
+need other shared libraries turned off, plus the system files each target needs, and publishes them as release files on
+`Soclets/Lyftar` for each LLVM version, with their hashes. `build.rs` downloads the one for its host and checks its hash, and
+`LYFTAR_LLVM_CONFIG` still points at a user's own LLVM. The first hosts are macOS on Apple Silicon, Linux on ARM and Linux on x86-64.
+The owner gives a standing yes to publishing these files at each LLVM release, so it doesn't wait on them. Lyftar impl proposed it;
+Claude agreed; the owner chose it: "yup". (Owner, 2026-11-10)
