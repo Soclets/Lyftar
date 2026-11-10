@@ -258,3 +258,7 @@ in `lyftar-stack-maps`, `StackMaps`, `Table`, `Record`, `Statepoint`, `Root`, `L
 `section_in_file` and `loaded_sections`. `set_garbage_collector` panics on a name nothing registered (D3). Rule 7 now also allows
 `unsafe` where `lyftar-stack-maps` asks the operating system for a program's loaded sections, which it can't find otherwise. Claude
 proposed the exception and agreed with the names; the owner chose: "okay". (Owner, 2026-11-07)
+
+**D48. `call` takes inline assembly.** `builder.call` accepts inline assembly as it accepts a function, so calling it needs no
+`call_indirect` and `to_dynamic`. Claude found the gap while compiling a test for Cyborg's targets; the owner chose: "yea". (Owner,
+2026-11-10)
