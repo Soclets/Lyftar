@@ -18,6 +18,8 @@ fn main() -> Result<(), String> {
     println!("cargo:rerun-if-env-changed=LYFTAR_SANITIZE");
 
     let llvm_config = find_llvm_config()?;
+    // Lyftar's tests read objects with the tools beside the LLVM this build links.
+    println!("cargo:rustc-env=LYFTAR_LLVM_CONFIG_IN_USE={}", llvm_config.display());
     // trace: D2, D13
     let version = run(&llvm_config, &["--version"])?;
     if version.split('.').next() != Some(LLVM_MAJOR) {

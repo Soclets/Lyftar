@@ -12,8 +12,8 @@ fn llvm_tool(name: &str) -> PathBuf {
 }
 
 fn llvm_flags() -> Vec<String> {
-    let output =
-        Command::new("/opt/homebrew/opt/llvm/bin/llvm-config").arg("--cxxflags").output().expect("llvm-config");
+    // The headers of the LLVM this build links, which can be Lyftar's static one (D50), while the tools stay Homebrew's.
+    let output = Command::new(env!("LYFTAR_LLVM_CONFIG_IN_USE")).arg("--cxxflags").output().expect("llvm-config");
     let mut flags = vec!["-std=c++23".to_string(), "-DNDEBUG".to_string()];
     for flag in String::from_utf8_lossy(&output.stdout).split_whitespace() {
         if let Some(directory) = flag.strip_prefix("-I") {

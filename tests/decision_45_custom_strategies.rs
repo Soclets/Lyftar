@@ -164,8 +164,7 @@ fn decision_45_a_strategy_in_rust_works_as_a_plugin_where_plugins_work() {
          }\n",
     )
     .expect("writing the IR");
-    let llvm_config =
-        std::env::var_os("LYFTAR_LLVM_CONFIG").unwrap_or_else(|| "/opt/homebrew/opt/llvm/bin/llvm-config".into());
+    let llvm_config = env!("LYFTAR_LLVM_CONFIG_IN_USE");
     let binaries = Command::new(llvm_config).arg("--bindir").output().expect("llvm-config");
     let opt = std::path::Path::new(String::from_utf8_lossy(&binaries.stdout).trim()).join("opt");
     let output = Command::new(opt)

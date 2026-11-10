@@ -110,8 +110,7 @@ fn temporary_directory(name: &str) -> PathBuf {
 }
 
 fn llvm_tool(name: &str) -> PathBuf {
-    let llvm_config =
-        std::env::var_os("LYFTAR_LLVM_CONFIG").unwrap_or_else(|| "/opt/homebrew/opt/llvm/bin/llvm-config".into());
+    let llvm_config = env!("LYFTAR_LLVM_CONFIG_IN_USE");
     let binaries = Command::new(llvm_config).arg("--bindir").output().expect("llvm-config");
     Path::new(String::from_utf8_lossy(&binaries.stdout).trim()).join(name)
 }

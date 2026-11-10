@@ -301,8 +301,7 @@ fn opt_with_plugin(pipeline: &str, input: &str) -> String {
     let input_path = directory.join("in.ll");
     std::fs::write(&input_path, input).expect("writing the IR");
     // Beside the LLVM being tested, whatever the distribution calls its `llvm-config`.
-    let llvm_config =
-        std::env::var_os("LYFTAR_LLVM_CONFIG").unwrap_or_else(|| "/opt/homebrew/opt/llvm/bin/llvm-config".into());
+    let llvm_config = env!("LYFTAR_LLVM_CONFIG_IN_USE");
     let binaries = Command::new(llvm_config).arg("--bindir").output().expect("llvm-config");
     let opt = std::path::Path::new(String::from_utf8_lossy(&binaries.stdout).trim()).join("opt");
     let output = Command::new(opt)
