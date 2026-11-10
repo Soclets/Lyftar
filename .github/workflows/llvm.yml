@@ -1,0 +1,112 @@
+# trace: D49, D50
+# Builds static LLVM and lld for each host, with the optional parts that need other shared libraries turned off, and publishes
+# them on this repository's releases with their hashes. `build.rs` downloads the one for its host and checks it against the hash
+# committed in it. Run it by hand for each LLVM release (Actions, "static LLVM", Run workflow); the owner gave a standing yes.
+name: static LLVM
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: LLVM version, such as 23.1.2
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - host: aarch64-apple-darwin
+            runner: macos-15
+          - host: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+          - host: x86_64-unknown-linux-gnu
+            runner: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
+    env:
+      VERSION: ${{ inputs.version }}
+      NAME: lyftar-llvm-${{ inputs.version }}-${{ matrix.host }}
+    steps:
+      - name: Tools
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then brew install ninja; else sudo apt-get update && sudo apt-get install -y ninja-build; fi
+      - name: Source
+        run: |
+          curl -fsSL -o source.tar.xz "https://github.com/llvm/llvm-project/releases/download/llvmorg-${VERSION}/llvm-project-${VERSION}.src.tar.xz"
+          tar -xf source.tar.xz
+          mv "llvm-project-${VERSION}.src" source
+      # What Lyftar needs, and the tools its tests read objects with. Everything that would need another shared library is off.
+      - name: Configure
+        run: |
+          cmake -G Ninja -S source/llvm -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PWD/$NAME" \
+            -DLLVM_ENABLE_PROJECTS=lld \
+            -DLLVM_TARGETS_TO_BUILD="AArch64;ARM;X86" \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLLVM_BUILD_LLVM_DYLIB=OFF \
+            -DLLVM_ENABLE_ZLIB=OFF \
+            -DLLVM_ENABLE_ZSTD=OFF \
+            -DLLVM_ENABLE_LIBXML2=OFF \
+            -DLLVM_ENABLE_Z3_SOLVER=OFF \
+            -DLLVM_ENABLE_LIBEDIT=OFF \
+            -DLLVM_ENABLE_LIBPFM=OFF \
+            -DLLVM_ENABLE_CURL=OFF \
+            -DLLVM_ENABLE_HTTPLIB=OFF \
+            -DLLVM_ENABLE_ASSERTIONS=OFF \
+            -DLLVM_INCLUDE_TESTS=OFF \
+            -DLLVM_INCLUDE_BENCHMARKS=OFF \
+            -DLLVM_INCLUDE_EXAMPLES=OFF \
+            -DLLVM_INCLUDE_DOCS=OFF \
+            -DLLVM_INSTALL_UTILS=OFF \
+            -DLLVM_DISTRIBUTION_COMPONENTS="llvm-libraries;llvm-headers;llvm-config;cmake-exports;lld-headers;lldCommon;lldELF;lldMachO;lldCOFF;lldWasm;lldMinGW;lld;opt;llc;llvm-readobj;llvm-objdump;llvm-ar"
+      - name: Build
+        run: ninja -C build install-distribution
+      # LLVM only builds the C APIs of `lto.h` and `Remarks.h` as shared libraries, so these are compiled as static ones here.
+      - name: Static libLTO and libRemarks
+        run: |
+          flags="$("$NAME/bin/llvm-config" --cxxflags)"
+          mkdir objects
+          c++ $flags -c source/llvm/tools/lto/lto.cpp -o objects/lto.o
+          c++ $flags -c source/llvm/tools/lto/LTODisassembler.cpp -o objects/LTODisassembler.o
+          c++ $flags -c source/llvm/tools/remarks-shlib/libremarks.cpp -o objects/libremarks.o
+          "$NAME/bin/llvm-ar" rcs "$NAME/lib/libLTO.a" objects/lto.o objects/LTODisassembler.o
+          "$NAME/bin/llvm-ar" rcs "$NAME/lib/libRemarks.a" objects/libremarks.o
+      - name: Licences
+        run: |
+          cp source/llvm/LICENSE.TXT "$NAME/LICENSE-LLVM.txt"
+          cp source/lld/LICENSE.TXT "$NAME/LICENSE-lld.txt"
+      - name: Package
+        run: |
+          tar -cJf "$NAME.tar.xz" "$NAME"
+          if [ "$RUNNER_OS" = macOS ]; then shasum -a 256 "$NAME.tar.xz"; else sha256sum "$NAME.tar.xz"; fi > "$NAME.tar.xz.sha256"
+          cat "$NAME.tar.xz.sha256"
+          ls -la "$NAME.tar.xz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}
+          path: |
+            ${{ env.NAME }}.tar.xz
+            ${{ env.NAME }}.tar.xz.sha256
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: files
+          merge-multiple: true
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          cat files/*.sha256 > files/SHA256SUMS
+          gh release create "llvm-${VERSION}" files/*.tar.xz files/SHA256SUMS --repo "$GITHUB_REPOSITORY" \
+            --title "Static LLVM and lld ${VERSION}" \
+            --notes "Static LLVM and lld ${VERSION} for each host, for build.rs to download (D50). Built by .github/workflows/llvm.yml."

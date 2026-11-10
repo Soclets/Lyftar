@@ -58,6 +58,23 @@ statepoint it finds, so hand-written ones mustn't be inlined into a function it 
 independent program, since ELF's stack map section is read-only and holds addresses. Through `Jit`, `ocaml` needs an object file and
 RuntimeDyld, and `shadow-stack` needs the program to define `llvm_gc_root_chain` when there are several translation units.
 
+## Self-contained, as Zig is (D49): what the prototypes found
+
+Prototypes are in `/Users/ts/llvm-self-contained` (outside the repository, since the scratchpad gets cleared): LLVM 23.1.2's source,
+a static build of it with lld in `install/`, musl and compiler-rt builtins, and `prototype/` with the programs below.
+
+- A source build with zlib, zstd, libxml2 and z3 off took about 10 minutes on 2 cores here, and needs only `-lm`. Homebrew can't
+  give this: its static LLVM wants a shared `libz3` with no static copy, and its lld is shared only, at 23.1.0.
+- A Rust program with that LLVM and lld inside is 70 MB, 58 MB stripped, and links only `libSystem` and `libc++`. It linked a macOS
+  program, a Linux ARM `printf` program and a Cortex-M4 image in one process, inside `sandbox-exec` denying Homebrew, the build,
+  Xcode and the SDK (`prototype/deny.sb`). The macOS program ran there; the Linux one ran in Alpine and busybox under colima.
+- macOS needs no Apple file: a `libSystem.tbd` of 12 lines, naming the install name and the symbols called, is enough.
+- Linux on ARM: musl 1.2.5 static (2.3 MB `libc.a`) and compiler-rt builtins (364 KB), which `printf` needs for 128-bit floats.
+  Cortex-M4: builtins only (160 KB).
+- lld runs again in one process, even after a failed link (`canRunAgain` stayed true). Two links at once crashed it (SIGTRAP).
+- libLTO and libRemarks only come shared, so a self-contained build has to compile them as static libraries itself.
+- The proposal went to design claude on 2026-11-10. Nothing is built until Tankun answers.
+
 ## Waiting on design claude
 
 Nothing. D30 to D46 are built.

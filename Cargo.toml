@@ -16,6 +16,9 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_keep_ghost)'] }
 
 [build-dependencies]
 cc = "1"
+# trace: D50
+# Checks the static LLVM that `build.rs` downloads.
+sha2 = "0.10"
 
 [dev-dependencies]
 # trace: D46

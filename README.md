@@ -8,8 +8,10 @@ assumes about LLVM in [ASSUMPTIONS.md](ASSUMPTIONS.md).
 
 ## What it needs
 
-LLVM 23 with its `llvm-config`, found on `PATH`, at Homebrew's `llvm`, or through `LYFTAR_LLVM_CONFIG`. `build.rs` stops with
-a clear error on any other version. macOS uses the committed bindings. Linux and Windows generate theirs during the build and
+LLVM 23. By default `build.rs` downloads Lyftar's own static LLVM and lld for the host from this repository's releases, once, into
+the user's cache directory, and checks it against the hash it carries (D50). These exist for macOS on Apple Silicon and Linux on ARM
+and x86-64, and need nothing else installed. To use an LLVM of your own, such as Homebrew's, set `LYFTAR_LLVM_CONFIG` to its
+`llvm-config`. `build.rs` stops with a clear error on any other version. macOS uses the committed bindings. Linux and Windows generate theirs during the build and
 need `libclang` for it. On Linux, a program using Lyftar also needs LLVM's library directory on its library path, for `libLTO`
 and `libRemarks`, such as through `LD_LIBRARY_PATH`. Windows links LLVM statically, with the static C runtime: build with
 `RUSTFLAGS="-C target-feature=+crt-static"`, use `clang-cl` as the C++ compiler, and have LLVM's `bin` on `PATH`, for `LTO.dll`
