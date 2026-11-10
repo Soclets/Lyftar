@@ -1,0 +1,23 @@
+error[E0277]: the trait bound `lyftar::Integer<lyftar::Bits<64>>: CallTarget<'_, '_, _>` is not satisfied
+  --> tests/compile_fail/call_of_something_not_callable.rs:20:30
+   |
+20 |         let _ = builder.call(callee, (), "");
+   |                         ---- ^^^^^^ the trait `CallTarget<'_, '_, _>` is not implemented for `lyftar::Integer<lyftar::Bits<64>>`
+   |                         |
+   |                         required by a bound introduced by this call
+   |
+   = help: the following other types implement trait `CallTarget<'context, 'module, Arguments>`:
+             `VariadicFunction<R, ()>` implements `CallTarget<'context, 'module, ((), Rest)>`
+             `VariadicFunction<R, (A, B)>` implements `CallTarget<'context, 'module, ((lyftar::Value<'context, 'module, A>, lyftar::Value<'context, 'module, B>), Rest)>`
+             `VariadicFunction<R, (A, B, C)>` implements `CallTarget<'context, 'module, ((lyftar::Value<'context, 'module, A>, lyftar::Value<'context, 'module, B>, lyftar::Value<'context, 'module, C>), Rest)>`
+             `VariadicFunction<R, (A, B, C, D)>` implements `CallTarget<'context, 'module, ((lyftar::Value<'context, 'module, A>, lyftar::Value<'context, 'module, B>, lyftar::Value<'context, 'module, C>, lyftar::Value<'context, 'module, D>), Rest)>`
+             `VariadicFunction<R, (A, B, C, D, E)>` implements `CallTarget<'context, 'module, ((lyftar::Value<'context, 'module, A>, lyftar::Value<'context, 'module, B>, lyftar::Value<'context, 'module, C>, lyftar::Value<'context, 'module, D>, lyftar::Value<'context, 'module, E>), Rest)>`
+             `VariadicFunction<R, (A, B, C, D, E, F)>` implements `CallTarget<'context, 'module, ((lyftar::Value<'context, 'module, A>, lyftar::Value<'context, 'module, B>, lyftar::Value<'context, 'module, C>, lyftar::Value<'context, 'module, D>, lyftar::Value<'context, 'module, E>, lyftar::Value<'context, 'module, F>), Rest)>`
+             `VariadicFunction<R, (A, B, C, D, E, F, G)>` implements `CallTarget<'context, 'module, ((lyftar::Value<'context, 'module, A>, lyftar::Value<'context, 'module, B>, lyftar::Value<'context, 'module, C>, lyftar::Value<'context, 'module, D>, lyftar::Value<'context, 'module, E>, lyftar::Value<'context, 'module, F>, lyftar::Value<'context, 'module, G>), Rest)>`
+             `VariadicFunction<R, (A, B, C, D, E, F, G, H)>` implements `CallTarget<'context, 'module, ((lyftar::Value<'context, 'module, A>, lyftar::Value<'context, 'module, B>, lyftar::Value<'context, 'module, C>, lyftar::Value<'context, 'module, D>, lyftar::Value<'context, 'module, E>, lyftar::Value<'context, 'module, F>, lyftar::Value<'context, 'module, G>, lyftar::Value<'context, 'module, H>), Rest)>`
+           and $N others
+note: required by a bound in `lyftar::Builder::<'context, 'module>::call`
+  --> src/builder.rs
+   |
+   |     pub fn call<F: CallTarget<'context, 'module, Arguments>, Arguments>(
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ required by this bound in `Builder::<'context, 'module>::call`

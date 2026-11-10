@@ -24,9 +24,10 @@ use crate::values::{
     AtomicCompareExchangeInstruction, AtomicReadModifyWriteInstruction, CallBranchInstruction, CallInstruction,
     CatchPadInstruction, CatchReturnInstruction, CatchSwitchInstruction, CleanupPadInstruction,
     CleanupReturnInstruction, ConditionalBranchInstruction, FenceInstruction, Function, FunctionMarker, GlobalAlias,
-    GlobalObject, GlobalValue, GlobalVariable, IndirectBranchInstruction, InstructionMarker, InvokeInstruction,
-    LandingPadInstruction, PhiNode, ResumeInstruction, ReturnInstruction, StackAllocationInstruction, StoreInstruction,
-    SwitchInstruction, UnconditionalBranchInstruction, UnreachableInstruction, Value, ValueMarker, VariadicFunction,
+    GlobalObject, GlobalValue, GlobalVariable, IndirectBranchInstruction, InlineAssembly, InstructionMarker,
+    InvokeInstruction, LandingPadInstruction, PhiNode, ResumeInstruction, ReturnInstruction,
+    StackAllocationInstruction, StoreInstruction, SwitchInstruction, UnconditionalBranchInstruction,
+    UnreachableInstruction, Value, ValueMarker, VariadicFunction,
 };
 
 /// Builds instructions. It only exists placed in a block, so an unset position can't happen (D3).
@@ -280,12 +281,13 @@ impl<F: FunctionMarker> PointerOperand for F {
     fn check_pointer_or_vector(_operation: &str, _value: Value<'_, '_>) {}
 }
 
-// trace: D33
-/// A function [`Builder::call`] can call with `Arguments`. The dynamic [`Function`] takes a slice of values, checked when the
-/// line runs. A specific one takes a tuple of them, checked at `cargo build`, up to 12. A [`VariadicFunction`] takes that
-/// tuple and then a slice of the rest, as in `((format,), &[value])`, where only the tuple is checked.
-pub trait CallTarget<'context, 'module, Arguments>: FunctionMarker {
-    /// What the call gives: the result's marker for a specific function, and the call itself for the dynamic one.
+// trace: D33, D48
+/// What [`Builder::call`] can call with `Arguments`. The dynamic [`Function`] takes a slice of values, checked when the line
+/// runs. A specific one takes a tuple of them, checked at `cargo build`, up to 12. A [`VariadicFunction`] takes that tuple and
+/// then a slice of the rest, as in `((format,), &[value])`, where only the tuple is checked. [`InlineAssembly`] takes a slice or
+/// a tuple, checked when the line runs against the function type it carries.
+pub trait CallTarget<'context, 'module, Arguments>: ValueMarker {
+    /// What the call gives: the result's marker for a specific function, and the call itself otherwise.
     type Output: ValueMarker;
     #[doc(hidden)]
     type RawArguments: AsRef<[raw::LLVMValueRef]>;
@@ -294,6 +296,61 @@ pub trait CallTarget<'context, 'module, Arguments>: FunctionMarker {
     const TYPES_ARE_CHECKED: bool;
     #[doc(hidden)]
     fn raw_arguments(arguments: Arguments) -> Self::RawArguments;
+    /// The type of what is called: a function's own, or the one inline assembly carries.
+    ///
+    /// # Safety
+    /// `callee` has to be a live value this marker accepts.
+    #[doc(hidden)]
+    unsafe fn raw_function_type(callee: raw::LLVMValueRef) -> raw::LLVMTypeRef {
+        // SAFETY: the caller promises a live function of some kind.
+        unsafe { raw::LLVMGlobalGetValueType(callee) }
+    }
+}
+
+// trace: D48
+impl<'context, 'module, 'slice, A> CallTarget<'context, 'module, &'slice [Value<'context, 'module, A>]>
+    for InlineAssembly
+{
+    type Output = CallInstruction;
+    type RawArguments = &'slice [raw::LLVMValueRef];
+    const TYPES_ARE_CHECKED: bool = false;
+    fn raw_arguments(arguments: &'slice [Value<'context, 'module, A>]) -> Self::RawArguments {
+        raw_values(arguments)
+    }
+    unsafe fn raw_function_type(callee: raw::LLVMValueRef) -> raw::LLVMTypeRef {
+        // SAFETY: the caller promises live inline assembly.
+        unsafe { raw::LLVMGetInlineAsmFunctionType(callee) }
+    }
+}
+
+impl<'context, 'module, 'slice, A, const N: usize>
+    CallTarget<'context, 'module, &'slice [Value<'context, 'module, A>; N]> for InlineAssembly
+{
+    type Output = CallInstruction;
+    type RawArguments = &'slice [raw::LLVMValueRef];
+    const TYPES_ARE_CHECKED: bool = false;
+    fn raw_arguments(arguments: &'slice [Value<'context, 'module, A>; N]) -> Self::RawArguments {
+        raw_values(arguments)
+    }
+    unsafe fn raw_function_type(callee: raw::LLVMValueRef) -> raw::LLVMTypeRef {
+        // SAFETY: the caller promises live inline assembly.
+        unsafe { raw::LLVMGetInlineAsmFunctionType(callee) }
+    }
+}
+
+impl<'context, 'module, 'slice, A> CallTarget<'context, 'module, &'slice Vec<Value<'context, 'module, A>>>
+    for InlineAssembly
+{
+    type Output = CallInstruction;
+    type RawArguments = &'slice [raw::LLVMValueRef];
+    const TYPES_ARE_CHECKED: bool = false;
+    fn raw_arguments(arguments: &'slice Vec<Value<'context, 'module, A>>) -> Self::RawArguments {
+        raw_values(arguments)
+    }
+    unsafe fn raw_function_type(callee: raw::LLVMValueRef) -> raw::LLVMTypeRef {
+        // SAFETY: the caller promises live inline assembly.
+        unsafe { raw::LLVMGetInlineAsmFunctionType(callee) }
+    }
 }
 
 fn raw_values<'slice, A>(values: &'slice [Value<'_, '_, A>]) -> &'slice [raw::LLVMValueRef] {
@@ -374,6 +431,24 @@ macro_rules! call_targets {
                 fn raw_arguments(arguments: ($(Value<'context, 'module, $name>,)*)) -> Self::RawArguments {
                     let ($($name,)*) = arguments;
                     [$($name.raw),*]
+                }
+            }
+
+            // trace: D48
+            impl<'context, 'module, $($name: ValueMarker),*>
+                CallTarget<'context, 'module, ($(Value<'context, 'module, $name>,)*)> for InlineAssembly
+            {
+                type Output = CallInstruction;
+                type RawArguments = [raw::LLVMValueRef; $count];
+                const TYPES_ARE_CHECKED: bool = false;
+                #[allow(non_snake_case, clippy::unused_unit)]
+                fn raw_arguments(arguments: ($(Value<'context, 'module, $name>,)*)) -> Self::RawArguments {
+                    let ($($name,)*) = arguments;
+                    [$($name.raw),*]
+                }
+                unsafe fn raw_function_type(callee: raw::LLVMValueRef) -> raw::LLVMTypeRef {
+                    // SAFETY: the caller promises live inline assembly.
+                    unsafe { raw::LLVMGetInlineAsmFunctionType(callee) }
                 }
             }
 
@@ -2196,9 +2271,9 @@ impl<'context, 'module> Builder<'context, 'module> {
         count
     }
 
-    // trace: D33
-    /// Calls a function directly. See [`CallTarget`] for what `arguments` is: a tuple for a specific function, checked at
-    /// `cargo build`, and a slice for the dynamic one, checked here.
+    // trace: D33, D48
+    /// Calls a function directly, or inline assembly. See [`CallTarget`] for what `arguments` is: a tuple for a specific
+    /// function, checked at `cargo build`, and a slice for the dynamic one or for inline assembly, checked here.
     ///
     /// # Panics
     /// If the arguments don't fit its type, a value belongs to another module, or the block is already terminated (D3).
@@ -2211,8 +2286,8 @@ impl<'context, 'module> Builder<'context, 'module> {
     ) -> Value<'context, 'module, F::Output> {
         self.check_open("call");
         self.check_module("call", function);
-        // SAFETY: the marker guarantees a function.
-        let function_type: Type<'context> = unsafe { Type::from_raw(raw::LLVMGlobalGetValueType(function.raw)) };
+        // SAFETY: the marker guarantees a function or inline assembly, which is what `F` says how to read.
+        let function_type: Type<'context> = unsafe { Type::from_raw(F::raw_function_type(function.raw)) };
         let raw_arguments = F::raw_arguments(arguments);
         let raw_arguments = raw_arguments.as_ref();
         // SAFETY: `Value` has the layout of `LLVMValueRef`, and each of these came from a live `Value`.
