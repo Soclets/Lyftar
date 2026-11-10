@@ -93,7 +93,7 @@ fn main() -> Result<(), String> {
     }
 
     compile_shim(&llvm_config, has_lld)?;
-    embed_system_files()?;
+    embed_system_files(has_lld)?;
 
     let target = std::env::var("CARGO_CFG_TARGET_OS").map_err(|error| format!("no target from Cargo: {error}"))?;
     if target != "macos" {
@@ -244,8 +244,9 @@ fn download(name: &str, hash: &str) -> Result<PathBuf, String> {
 // trace: D51, D52
 /// The system files each target needs to link: the published ones, built into Lyftar so a compiler carries them, or none if
 /// they aren't published yet, in which case `link` says so.
-fn embed_system_files() -> Result<(), String> {
-    if PUBLISHED_SYSTEM_FILES.is_empty() {
+fn embed_system_files(has_lld: bool) -> Result<(), String> {
+    // They are only for linking, which needs lld.
+    if PUBLISHED_SYSTEM_FILES.is_empty() || !has_lld {
         return Ok(());
     }
     let folder = download(&format!("lyftar-system-{PUBLISHED_VERSION}"), PUBLISHED_SYSTEM_FILES)?;
@@ -281,7 +282,9 @@ const SYSTEM_FILES: &[(&str, &[&str])] = &[
 /// Where downloads are kept between builds and projects: the user's cache directory.
 fn cache_directory() -> Result<PathBuf, String> {
     let home = std::env::var_os("HOME").map(PathBuf::from);
-    let base = if cfg!(target_os = "macos") {
+    let base = if cfg!(target_os = "windows") {
+        std::env::var_os("LOCALAPPDATA").map(PathBuf::from)
+    } else if cfg!(target_os = "macos") {
         home.map(|home| home.join("Library/Caches"))
     } else {
         std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from).or_else(|| home.map(|home| home.join(".cache")))

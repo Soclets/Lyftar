@@ -677,7 +677,9 @@ fn machine_for(optimization: Optimization) -> TargetMachine {
 /// RuntimeDyld can't reach between objects more than 128 MiB apart on AArch64, which a call in the small code model needs, so
 /// what goes through it uses the large one, as `ExecutionEngine` does by default.
 fn runtime_dyld_machine(optimization: Optimization) -> TargetMachine {
-    machine_with(optimization, CodeModel::Large)
+    // Only AArch64 needs it, and on x86-64 the large model refers to the personality function through a symbol RuntimeDyld
+    // doesn't make.
+    machine_with(optimization, if cfg!(target_arch = "aarch64") { CodeModel::Large } else { CodeModel::Default })
 }
 
 fn machine_with(optimization: Optimization, code_model: CodeModel) -> TargetMachine {

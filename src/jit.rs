@@ -922,8 +922,8 @@ impl Jit {
     /// The prefix this target's linker puts on symbol names.
     #[must_use]
     pub fn global_prefix(&self) -> u8 {
-        // SAFETY: the JIT is live.
-        unsafe { raw::LLVMOrcLLJITGetGlobalPrefix(self.raw) }.cast_unsigned()
+        // SAFETY: the JIT is live. A C `char` is signed on some platforms and not on others, so its byte is taken as it is.
+        u8::from_ne_bytes(unsafe { raw::LLVMOrcLLJITGetGlobalPrefix(self.raw) }.to_ne_bytes())
     }
 
     // trace: D10
@@ -1224,7 +1224,7 @@ impl<'jit> JitDylib<'jit> {
         Error::from_raw_result(unsafe {
             raw::LLVMOrcCreateDynamicLibrarySearchGeneratorForProcess(
                 &raw mut generator,
-                global_prefix.cast_signed(),
+                std::ffi::c_char::from_ne_bytes([global_prefix]),
                 None,
                 std::ptr::null_mut(),
             )
@@ -1246,7 +1246,7 @@ impl<'jit> JitDylib<'jit> {
             raw::LLVMOrcCreateDynamicLibrarySearchGeneratorForPath(
                 &raw mut generator,
                 path.as_ptr(),
-                global_prefix.cast_signed(),
+                std::ffi::c_char::from_ne_bytes([global_prefix]),
                 None,
                 std::ptr::null_mut(),
             )

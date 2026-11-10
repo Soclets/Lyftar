@@ -33,7 +33,12 @@ fn decision_23_a_tag_naming_no_decision_fails_the_check() {
     std::fs::write(directory.join("DECISIONS.md"), "**D1. One.** Text.\n**D2. Two.** Text.\n").expect("a file");
     std::fs::write(directory.join("good.rs"), concat!("// trace", ": D1\n")).expect("a file");
     let passing = run_check(&directory);
-    assert!(passing.status.success());
+    assert!(
+        passing.status.success(),
+        "{}{}",
+        String::from_utf8_lossy(&passing.stdout),
+        String::from_utf8_lossy(&passing.stderr)
+    );
     assert!(String::from_utf8_lossy(&passing.stdout).contains("nothing traces yet: D2\n"));
 
     // Spelled apart, so that this file doesn't fail the check on this repository.
