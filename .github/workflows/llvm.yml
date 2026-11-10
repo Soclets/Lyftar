@@ -1,7 +1,9 @@
-# trace: D49, D50
-# Builds static LLVM and lld for each host, with the optional parts that need other shared libraries turned off, and publishes
-# them on this repository's releases with their hashes. `build.rs` downloads the one for its host and checks it against the hash
-# committed in it. Run it by hand for each LLVM release (Actions, "static LLVM", Run workflow); the owner gave a standing yes.
+# trace: D49, D50, D51
+# Builds static LLVM and lld for each host, with the optional parts that need other shared libraries turned off, and the system files
+# each target needs to link, and publishes them on this repository's releases with their hashes. `build.rs` downloads the ones for its
+# host and checks them against the hashes committed in it. Run it by hand for each LLVM release (Actions, "static LLVM", Run
+# workflow); the owner gave a standing yes. Publishing adds what a release lacks and never replaces a file, since `build.rs` holds
+# the hashes of the ones there.
 name: static LLVM
 
 on:
@@ -10,12 +12,17 @@ on:
       version:
         description: LLVM version, such as 23.1.2
         required: true
+      system_only:
+        description: Only the system files, for a release that has its LLVM already
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 jobs:
   build:
+    if: ${{ !inputs.system_only }}
     strategy:
       fail-fast: false
       matrix:
@@ -95,8 +102,83 @@ jobs:
             ${{ env.NAME }}.tar.xz
             ${{ env.NAME }}.tar.xz.sha256
 
+  # trace: D51
+  # What each target needs to link, with no SDK or libc installed: static musl and compiler-rt's builtins for Linux, and the builtins
+  # alone for bare metal. Built with the Clang of the same LLVM version.
+  system:
+    runs-on: ubuntu-24.04
+    env:
+      VERSION: ${{ inputs.version }}
+      MUSL: 1.2.5
+      MUSL_SHA256: a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4
+      NAME: lyftar-system-${{ inputs.version }}
+    steps:
+      - name: Tools
+        run: |
+          curl -fsSL https://apt.llvm.org/llvm.sh -o llvm.sh
+          sudo bash llvm.sh "${VERSION%%.*}"
+          sudo apt-get install -y ninja-build
+          major="${VERSION%%.*}"
+          echo "CLANG=clang-$major" >> "$GITHUB_ENV"
+          echo "AR=llvm-ar-$major" >> "$GITHUB_ENV"
+          echo "RANLIB=llvm-ranlib-$major" >> "$GITHUB_ENV"
+      - name: Source
+        run: |
+          curl -fsSL -o source.tar.xz "https://github.com/llvm/llvm-project/releases/download/llvmorg-${VERSION}/llvm-project-${VERSION}.src.tar.xz"
+          tar -xf source.tar.xz
+          mv "llvm-project-${VERSION}.src" source
+          curl -fsSL -o musl.tar.gz "https://musl.libc.org/releases/musl-${MUSL}.tar.gz"
+          echo "${MUSL_SHA256}  musl.tar.gz" | sha256sum --check
+          tar -xzf musl.tar.gz
+      - name: musl
+        run: |
+          for architecture in aarch64 x86_64; do
+            rm -rf build-musl && cp -R "musl-${MUSL}" build-musl
+            (cd build-musl && CC="$CLANG --target=${architecture}-linux-musl" AR="$AR" RANLIB="$RANLIB" \
+              ./configure --target="${architecture}-linux-musl" --prefix="$PWD/../musl-${architecture}" --disable-shared \
+              && make -j4 && make install)
+            mkdir -p "$NAME/linux-${architecture}"
+            cp "musl-${architecture}"/lib/{crt1.o,rcrt1.o,Scrt1.o,crti.o,crtn.o,libc.a} "$NAME/linux-${architecture}/"
+          done
+      - name: Builtins
+        run: |
+          builtins() {
+            directory="$1"; triple="$2"; system="$3"; flags="$4"; sysroot="$5"
+            cmake -G Ninja -S source/compiler-rt/lib/builtins -B "builtins-$directory" -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER="$CLANG" -DCMAKE_ASM_COMPILER="$CLANG" -DCMAKE_AR="$(command -v "$AR")" \
+              -DCMAKE_RANLIB="$(command -v "$RANLIB")" -DCMAKE_SYSTEM_NAME="$system" \
+              -DCMAKE_C_COMPILER_TARGET="$triple" -DCMAKE_ASM_COMPILER_TARGET="$triple" \
+              -DCMAKE_C_FLAGS="$flags $sysroot" -DCMAKE_ASM_FLAGS="$flags" -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
+              -DCOMPILER_RT_DEFAULT_TARGET_ONLY=ON -DCOMPILER_RT_BAREMETAL_BUILD=ON -DCOMPILER_RT_OS_DIR=lyftar \
+              -DLLVM_CONFIG_PATH="$(command -v "llvm-config-${VERSION%%.*}")"
+            ninja -C "builtins-$directory"
+            mkdir -p "$NAME/$directory"
+            cp "$(find "builtins-$directory" -name 'libclang_rt.builtins*.a' | head -1)" "$NAME/$directory/libclang_rt.builtins.a"
+          }
+          builtins linux-aarch64 aarch64-linux-musl Linux "" "--sysroot=$PWD/musl-aarch64"
+          builtins linux-x86_64 x86_64-linux-musl Linux "" "--sysroot=$PWD/musl-x86_64"
+          builtins cortex-m4 thumbv7em-none-eabihf Generic "-mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16 -ffreestanding" ""
+      - name: Licences
+        run: |
+          cp "musl-${MUSL}/COPYRIGHT" "$NAME/LICENSE-musl.txt"
+          cp source/compiler-rt/LICENSE.TXT "$NAME/LICENSE-compiler-rt.txt"
+      - name: Package
+        run: |
+          tar -cJf "$NAME.tar.xz" "$NAME"
+          sha256sum "$NAME.tar.xz" > "$NAME.tar.xz.sha256"
+          cat "$NAME.tar.xz.sha256"
+          ls -la "$NAME.tar.xz"
+          find "$NAME" -type f | sort
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.NAME }}
+          path: |
+            ${{ env.NAME }}.tar.xz
+            ${{ env.NAME }}.tar.xz.sha256
+
   publish:
-    needs: build
+    needs: [build, system]
+    if: ${{ !cancelled() && !failure() }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/download-artifact@v4
@@ -108,7 +190,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
-          cat files/*.sha256 > files/SHA256SUMS
-          gh release create "llvm-${VERSION}" files/*.tar.xz files/SHA256SUMS --repo "$GITHUB_REPOSITORY" \
-            --title "Static LLVM and lld ${VERSION}" \
-            --notes "Static LLVM and lld ${VERSION} for each host, for build.rs to download (D50). Built by .github/workflows/llvm.yml."
+          tag="llvm-${VERSION}"
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" --title "Static LLVM and lld ${VERSION}" \
+              --notes "Static LLVM and lld ${VERSION} for each host, and the system files each target needs, for build.rs to download (D50, D51). Built by .github/workflows/llvm.yml."
+          fi
+          there="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name')"
+          for file in files/*; do
+            if printf '%s\n' "$there" | grep -qxF "$(basename "$file")"; then
+              echo "already published, left as it is: $(basename "$file")"
+            else
+              gh release upload "$tag" "$file" --repo "$GITHUB_REPOSITORY"
+            fi
+          done
