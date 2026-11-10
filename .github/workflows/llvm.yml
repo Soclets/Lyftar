@@ -76,6 +76,8 @@ jobs:
           c++ $flags -c source/llvm/tools/remarks-shlib/libremarks.cpp -o objects/libremarks.o
           "$NAME/bin/llvm-ar" rcs "$NAME/lib/libLTO.a" objects/lto.o objects/LTODisassembler.o
           "$NAME/bin/llvm-ar" rcs "$NAME/lib/libRemarks.a" objects/libremarks.o
+          # The shared ones `llvm-libraries` installed would be found first, so a compiler would need them beside it.
+          rm -f "$NAME"/lib/libLTO.*dylib "$NAME"/lib/libRemarks.*dylib "$NAME"/lib/libLTO.so* "$NAME"/lib/libRemarks.so*
       - name: Licences
         run: |
           cp source/llvm/LICENSE.TXT "$NAME/LICENSE-LLVM.txt"
