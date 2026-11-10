@@ -288,3 +288,8 @@ notice, and a compiler with LLVM inside ships LLVM's licence text. Lyftar impl p
 and adds the system files from D51 itself. Beside it, `lyftar::lld` takes an lld flavour and lld's own arguments, for anything `link`
 doesn't cover. Links in one process run one at a time, because two at once crash lld. Exact names and argument types follow the naming
 rules. Lyftar impl proposed it; Claude agreed; the owner chose it: "yea". (Owner, 2026-11-10)
+
+**D53. No plugins with the downloaded LLVM.** With the static LLVM from D50, `pass_plugin!` is a compile error that says to point
+`LYFTAR_LLVM_CONFIG` at a shared LLVM, such as Homebrew's, because a plugin would carry its own copy of LLVM into a program that has
+one. This is D44's rule, applied to the downloaded LLVM. Passes linked into a compiler are unaffected. Lyftar impl proposed it; Claude
+agreed; the owner chose it: "yea". (Owner, 2026-11-10)
