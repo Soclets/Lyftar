@@ -1365,8 +1365,8 @@ impl Module<'_> {
 /// names it and says what it registers, as `lyftar::pass_plugin!("name", "version", register)` where `register` takes a
 /// `&mut PassBuilder<'static>`.
 ///
-/// Not on Windows, where it is a compile error (D44).
-#[cfg(not(target_os = "windows"))]
+/// Not on Windows, where it is a compile error (D44), nor with Lyftar's static LLVM, where it is one too (D53).
+#[cfg(not(any(target_os = "windows", lyftar_static_llvm)))]
 #[macro_export]
 macro_rules! pass_plugin {
     ($name:literal, $version:literal, $register:path) => {
@@ -1398,6 +1398,19 @@ macro_rules! pass_plugin {
         compile_error!(
             "Lyftar's plugins don't work on Windows yet, because the official LLVM there is built with plugins off. \
              Passes linked into a compiler work, through `Module::run_passes_with`."
+        );
+    };
+}
+
+// trace: D53
+/// A plugin built with a static LLVM, such as the one `build.rs` downloads, would carry its own copy of LLVM into a program that has one.
+#[cfg(all(lyftar_static_llvm, not(target_os = "windows")))]
+#[macro_export]
+macro_rules! pass_plugin {
+    ($($anything:tt)*) => {
+        compile_error!(
+            "Lyftar's plugins need a shared LLVM: point LYFTAR_LLVM_CONFIG at one, such as Homebrew's. With the static LLVM a plugin \
+             would carry its own copy into a program that has one. Passes linked into a compiler work, through `Module::run_passes_with`."
         );
     };
 }

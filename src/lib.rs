@@ -39,6 +39,7 @@ pub mod intrinsics;
 pub mod ir_reader;
 pub mod jit;
 pub mod linker;
+pub mod linking;
 pub mod lto;
 pub mod memory_buffer;
 pub mod metadata;
@@ -58,6 +59,7 @@ pub mod values;
 pub use basic_block::BasicBlock;
 pub use builder::Builder;
 pub use context::{Context, with_context};
+pub use linking::lld;
 pub use module::{Module, OwnedModule};
 pub use types::{
     AddressSpace, Array, Bits, BrainFloat, Byte, Dynamic, Elements, Float, Ieee754Binary, Integer, MinimumElements,

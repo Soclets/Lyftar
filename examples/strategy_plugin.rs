@@ -1,8 +1,8 @@
 //! A garbage collection strategy written in Rust, as a plugin for `opt`:
 //! `opt -load-pass-plugin=libstrategy_plugin.dylib -passes=rewrite-statepoints-for-gc`.
 
-// `pass_plugin!` is a compile error on Windows (D44).
-#![cfg(not(target_os = "windows"))]
+// `pass_plugin!` is a compile error on Windows (D44) and with the static LLVM (D53).
+#![cfg(not(any(target_os = "windows", lyftar_static_llvm)))]
 
 use lyftar::Type;
 use lyftar::garbage_collection::{GarbageCollectionStrategy, register_strategy};

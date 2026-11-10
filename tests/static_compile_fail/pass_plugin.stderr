@@ -1,0 +1,7 @@
+error: Lyftar's plugins need a shared LLVM: point LYFTAR_LLVM_CONFIG at one, such as Homebrew's. With the static LLVM a plugin would carry its own copy into a program that has one. Passes linked into a compiler work, through `Module::run_passes_with`.
+ --> tests/static_compile_fail/pass_plugin.rs:5:1
+  |
+5 | lyftar::pass_plugin!("plugin", "0.1.0", register);
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `lyftar::pass_plugin` (in Nightly builds, run with -Z macro-backtrace for more info)

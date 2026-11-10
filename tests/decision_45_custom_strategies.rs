@@ -134,8 +134,8 @@ fn decision_3_a_strategy_name_with_a_nul_panics() {
     register_strategy(NameWithNul);
 }
 
-// Plugins are a compile error on Windows (D44).
-#[cfg(not(target_os = "windows"))]
+// Plugins are a compile error on Windows (D44) and with the static LLVM (D53).
+#[cfg(not(any(target_os = "windows", lyftar_static_llvm)))]
 #[test]
 fn decision_45_a_strategy_in_rust_works_as_a_plugin_where_plugins_work() {
     use std::process::Command;

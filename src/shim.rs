@@ -14,6 +14,17 @@ pub struct WeakHandle {
     _private: [u8; 0],
 }
 
+// trace: D52
+#[cfg(lyftar_has_lld)]
+unsafe extern "C" {
+    pub fn lyftar_lld(
+        arguments: *const *const c_char,
+        count: usize,
+        output: *mut *mut c_char,
+        can_run_again: *mut bool,
+    ) -> c_int;
+}
+
 unsafe extern "C" {
     pub fn lyftar_initialize_native_target() -> c_int;
     pub fn lyftar_initialize_all_targets();

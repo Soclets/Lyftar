@@ -41,7 +41,29 @@ fn main() -> Result<(), String> {
     println!("cargo:rustc-link-search=native={library_directory}");
     // Windows' official download has no shared LLVM, only static libraries, and those need the system's libraries too.
     // With MSVC `--libs` gives full paths, quoted when they have a space, and the directory is already searched.
-    let libraries = if run(&llvm_config, &["--shared-mode"])? == "static" {
+    let is_static = run(&llvm_config, &["--shared-mode"])? == "static";
+    // trace: D53
+    // A plugin built with a static LLVM would carry its own copy into a program that has one.
+    if is_static {
+        println!("cargo:rustc-cfg=lyftar_static_llvm");
+    }
+    // trace: D52
+    // lld comes with Lyftar's static LLVM. An LLVM without its libraries, such as Homebrew's, builds a Lyftar whose `lld` and
+    // `link` say so instead. They go before the LLVM libraries they use.
+    let lld_libraries = ["lldELF", "lldMachO", "lldCommon"];
+    let has_lld = lld_libraries.iter().all(|name| {
+        ["a", "so", "dylib", "lib"].iter().any(|extension| {
+            let file = if *extension == "lib" { format!("{name}.lib") } else { format!("lib{name}.{extension}") };
+            Path::new(&library_directory).join(file).exists()
+        })
+    });
+    if has_lld {
+        println!("cargo:rustc-cfg=lyftar_has_lld");
+        for name in lld_libraries {
+            println!("cargo:rustc-link-lib=dylib={name}");
+        }
+    }
+    let libraries = if is_static {
         run(&llvm_config, &["--link-static", if is_msvc { "--libnames" } else { "--libs" }, "--system-libs"])?
     } else {
         run(&llvm_config, &["--link-shared", "--libs"])?
@@ -70,7 +92,7 @@ fn main() -> Result<(), String> {
         println!("cargo:rustc-link-lib=dylib=Remarks");
     }
 
-    compile_shim(&llvm_config)?;
+    compile_shim(&llvm_config, has_lld)?;
 
     let target = std::env::var("CARGO_CFG_TARGET_OS").map_err(|error| format!("no target from Cargo: {error}"))?;
     if target != "macos" {
@@ -80,13 +102,14 @@ fn main() -> Result<(), String> {
 }
 
 // trace: D25
-fn compile_shim(llvm_config: &Path) -> Result<(), String> {
+fn compile_shim(llvm_config: &Path, has_lld: bool) -> Result<(), String> {
     let is_msvc = std::env::var("CARGO_CFG_TARGET_ENV").is_ok_and(|environment| environment == "msvc");
     let mut shim = cc::Build::new();
     shim.cpp(true)
         .file("shim/shim.cpp")
         .file("shim/passes.cpp")
         .file("shim/garbage_collection.cpp")
+        .files(has_lld.then_some("shim/link.cpp"))
         .warnings(true)
         .extra_warnings(true)
         .warnings_into_errors(!is_msvc);
