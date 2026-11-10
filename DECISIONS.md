@@ -262,3 +262,11 @@ proposed the exception and agreed with the names; the owner chose: "okay". (Owne
 **D48. `call` takes inline assembly.** `builder.call` accepts inline assembly as it accepts a function, so calling it needs no
 `call_indirect` and `to_dynamic`. Claude found the gap while compiling a test for Cyborg's targets; the owner chose: "yea". (Owner,
 2026-11-10)
+
+**D49. Self-contained, as Zig is.** A compiler built on Lyftar can build and link for every supported target with nothing else
+installed: no LLVM, no outside linker, and no system SDK. Lyftar embeds lld as a library and links LLVM and lld statically into the
+compiler, and Lyftar supplies the system files each target needs to link, as Zig does. A front end's own startup code and linker
+scripts stay its job. How Lyftar gets its static LLVM and lld, and which system files it ships, are not settled here; the build
+session proposes them first. `design/prompts/self-contained.md` holds the scope. Cyborg asked for in-process lld; Claude suggested
+embedding lld first and leaving self-contained for later; the owner chose to go straight to it: "Why not straight away? Since Cyborg
+could wait", then "yea". (Owner, 2026-11-10)
