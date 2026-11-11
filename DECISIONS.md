@@ -299,3 +299,10 @@ frame pointer or the stack pointer without saying which. On Linux ARM a root can
 and the table can't be read reliably there. Its moving-collector test runs only where it can be, and the limit is written down for
 anyone choosing `ocaml` on Linux ARM. Statepoints and `shadow-stack` are unaffected. Lyftar impl found it and proposed this; Claude
 agreed; the owner chose: "(a)". (Owner, 2026-11-10)
+
+**D55. Lyftar embeds clang to compile C.** Lyftar embeds clang, statically as it does lld (D49), so a compiler built on it can compile
+C files to objects for its targets with nothing installed. The scope is compiling C to objects: no C++, no linking, which `lyftar::link`
+does, and no clang driver beyond what that needs. Lyftar ships clang's own headers, and clang goes into the published files (D50). The
+build session tries it and measures the size first, then brings the API to the owner. Cyborg asked, so that its compiler can build
+CORE-MATH, which needs clang 14 or later, for each target (Cyborg's D308); Claude proposed this scope; the owner chose it: "yes".
+(Owner, 2026-11-11)
