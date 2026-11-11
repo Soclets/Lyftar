@@ -50,7 +50,8 @@ jobs:
           tar -xf source.tar.xz
           mv "llvm-project-${VERSION}.src" source
       # What Lyftar needs, and the tools its tests read objects with. Everything that would need another shared library is off.
-      # clang's libraries and headers are for compiling C (D55), and the parts of clang that do more than that are off.
+      # clang's libraries and headers are for compiling C (D55), and the parts of clang that do more than that are off. Its libraries
+      # are named one by one, since `clang-libraries` also builds the shared `libclang` and `clang-cpp`.
       - name: Configure
         run: |
           cmake -G Ninja -S source/llvm -B build \
@@ -80,7 +81,7 @@ jobs:
             -DLLVM_INCLUDE_EXAMPLES=OFF \
             -DLLVM_INCLUDE_DOCS=OFF \
             -DLLVM_INSTALL_UTILS=OFF \
-            -DLLVM_DISTRIBUTION_COMPONENTS="llvm-libraries;llvm-headers;llvm-config;cmake-exports;lld-headers;lldCommon;lldELF;lldMachO;lldCOFF;lldWasm;lldMinGW;lld;opt;llc;llvm-readobj;llvm-objdump;llvm-ar;clang-libraries;clang-headers;clang-resource-headers;clang-cmake-exports"
+            -DLLVM_DISTRIBUTION_COMPONENTS="llvm-libraries;llvm-headers;llvm-config;cmake-exports;lld-headers;lldCommon;lldELF;lldMachO;lldCOFF;lldWasm;lldMinGW;lld;opt;llc;llvm-readobj;llvm-objdump;llvm-ar;clangDriver;clangScalableStaticAnalysisSourceTransformation;clangToolingCore;clangRewrite;clangScalableStaticAnalysisFrontend;clangScalableStaticAnalysisAnalyses;clangScalableStaticAnalysisCore;clangUnifiedSymbolResolution;clangDependencyScanning;clangCodeGen;clangFrontend;clangSerialization;clangParse;clangSema;clangSupport;clangAnalysisLifetimeSafety;clangEdit;clangOptions;clangAPINotes;clangAnalysis;clangASTMatchers;clangAST;clangLex;clangBasic;clang-headers;clang-resource-headers;clang-cmake-exports"
       - name: Build
         run: ninja -C build install-distribution
       # LLVM only builds the C APIs of `lto.h` and `Remarks.h` as shared libraries, so these are compiled as static ones here.
