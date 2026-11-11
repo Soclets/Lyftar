@@ -177,6 +177,10 @@ If one turns out false, the safety promise named beside it falls with it.
   this too. Seen with 16 compiles at once in scratch and 3 in the test.
 - **clang's CMake exports list each library's clang libraries,** with no cycles, so `build.rs` orders them for Linux's linker from
   `ClangTargets.cmake`. `clang-libraries` also builds the shared `libclang` and `clang-cpp`, so `llvm.yml` names the static ones.
+- **LLVM's allocators mark their memory for AddressSanitizer only when the code doing it was built with it.** The sanitizer run's
+  shim is, and its copies of the allocators' code are the ones the program uses, while LLVM's and clang's libraries aren't, so
+  clang's preprocessor wrote to memory the shim's copy had marked, and AddressSanitizer reported it. With those marks off
+  (`allow_user_poisoning=0`) every test passes under both sanitizers, with clang inside.
 - **What `compile_c` makes is what Homebrew's `clang` 23.1.2 makes** with the same arguments: the disassembly of CORE-MATH's `sin`
   was the same for all four targets, in scratch.
 
