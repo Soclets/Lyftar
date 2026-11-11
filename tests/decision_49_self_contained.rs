@@ -1,8 +1,9 @@
-//! D49's test: a compiler built on Lyftar links a hello world for macOS and for Linux on ARM and x86-64, and a Cortex-M4 image from
-//! a linker script, in one process, while it can't read any LLVM, lld, SDK or developer tools. On macOS `sandbox-exec` keeps it
-//! from them. The programs then run: macOS's here, and Linux's where a Linux to run them is (D49, D50, D51, D52).
+//! D49's test: a compiler built on Lyftar compiles C for macOS, for Linux on ARM and x86-64 and for a Cortex-M4, and links a hello
+//! world for each of the first three and a Cortex-M4 image from a linker script, in one process, while it can't read any LLVM,
+//! lld, clang, SDK or developer tools. On macOS `sandbox-exec` keeps it from them. The programs then run: macOS's here, and
+//! Linux's where a Linux to run them is (D49, D50, D51, D52, D55).
 
-#![cfg(all(lyftar_has_lld, lyftar_has_system_files, not(target_os = "windows")))]
+#![cfg(all(lyftar_has_lld, lyftar_has_system_files, lyftar_has_clang, not(target_os = "windows")))]
 
 use std::path::{Path, PathBuf};
 use std::process::Command;

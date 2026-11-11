@@ -221,8 +221,40 @@ link(SystemTarget::CortexM4, &[Path::new("firmware.o")], Path::new("firmware.elf
 - With an LLVM of your own through `LYFTAR_LLVM_CONFIG`, `link` and `lld` work only if its library folder has lld's libraries.
   Homebrew's LLVM doesn't.
 
-`tests/decision_49_self_contained.rs` builds `examples/self_contained.rs` and runs it where it can't read any LLVM, lld, SDK or
-developer tools.
+### Compiling C
+
+The same compiler can compile C for those four targets, with clang inside Lyftar (D55), such as a maths library like CORE-MATH.
+`lyftar::compile_c` compiles one C file to an object, which `link` then links:
+
+```rust,no_run
+use std::path::Path;
+use lyftar::compile_c;
+use lyftar::compiling::CCompileOptions;
+use lyftar::linking::SystemTarget;
+
+# fn run() -> Result<(), lyftar::error::Error> {
+let headers = Path::new("my-libc/include");
+let options = CCompileOptions { include_folders: &[headers], defines: &[("NDEBUG", None)], ..CCompileOptions::default() };
+let warnings = compile_c(SystemTarget::CortexM4, Path::new("sin.c"), Path::new("sin.o"), &options)?;
+print!("{warnings}");
+# Ok(())
+# }
+```
+
+- Only C, and only to an object. There's no C++ and no linking: `link` does that.
+- `-O2` unless the options say otherwise (D57), and macros as `-D` gives them (D58).
+- clang's own headers, the ones C on ARM and x86 can reach (`stdint.h`, `stddef.h`, `arm_neon.h`, `immintrin.h` and the rest), are
+  built in, as they are, about 11 MB (D60). No system folder is searched, so libc's headers (`math.h`, `fenv.h`, `errno.h`) are
+  yours, through `include_folders`, which are searched first.
+- The Cortex-M4 is compiled for with its hard-float unit, as `link` links it. clang 23 has C23's `_BitInt(128)`, which works on its
+  32-bit processor where `__int128` doesn't.
+- What clang printed comes back: its warnings when the object was written, and its errors as the error when it wasn't. Compiles
+  can run at once on several threads.
+- clang adds about 34 MB to a compiler that calls `compile_c`, and its licence is in the downloaded files as `LICENSE-clang.txt`.
+  With an LLVM of your own, `compile_c` works only if it is static and its library folder has clang's libraries.
+
+`tests/decision_49_self_contained.rs` builds `examples/self_contained.rs`, which compiles C and links, and runs it where it can't
+read any LLVM, lld, clang, SDK or developer tools.
 
 ## Commands
 

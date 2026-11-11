@@ -165,6 +165,21 @@ If one turns out false, the safety promise named beside it falls with it.
 - **Homebrew's LLVM can't be made static:** its static libraries want a shared `libz3` with no static copy, and its lld is shared only.
 - **compiler-rt's builtins have C++ in them on AArch64,** which CMake builds with the runner's own compiler unless told otherwise.
 
+## Compiling C
+
+- **`createInvocation` turns driver arguments into one compile job, and always adds `-fsyntax-only`.** So `compile_c` gives the
+  driver no `-c` or `-o`, sets the job's output file itself, and runs `EmitObjAction`.
+- **The driver asks for `-disable-free`,** which suits a process that is about to end, and in a library would leak each compile, so
+  `compile_c` turns it off on the job.
+- **With `-nostdlibinc`, clang searches only its resource folder's `include` and the `-I` folders,** on all four targets. Seen in the
+  jobs' arguments, and in `tests/decision_55_compile_c.rs`, where `stdio.h` isn't found on a Mac that has an SDK.
+- **Compiles on several threads at once, each with its own `CompilerInstance`, give the same bytes as one at a time.** clangd does
+  this too. Seen with 16 compiles at once in scratch and 3 in the test.
+- **clang's CMake exports list each library's clang libraries,** with no cycles, so `build.rs` orders them for Linux's linker from
+  `ClangTargets.cmake`. `clang-libraries` also builds the shared `libclang` and `clang-cpp`, so `llvm.yml` names the static ones.
+- **What `compile_c` makes is what Homebrew's `clang` 23.1.2 makes** with the same arguments: the disassembly of CORE-MATH's `sin`
+  was the same for all four targets, in scratch.
+
 ## Pass runs
 
 - **`StructuralHash` plus counts of a module's contents catch a pass that lied about `PreservedAnalyses::All`.** A collision

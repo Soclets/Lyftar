@@ -13,8 +13,8 @@ exclude = ["tools/bindings/target"]
 [lints.rust]
 # Verus sets this cfg when it reads the proven checks (D22); plain rustc never does.
 # `build.rs` sets `lyftar_static_llvm` when the LLVM it links is static (D53), `lyftar_has_lld` when lld comes with it, and
-# `lyftar_has_system_files` when the system files are built in (D52).
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_keep_ghost)', 'cfg(lyftar_static_llvm)', 'cfg(lyftar_has_lld)', 'cfg(lyftar_has_system_files)'] }
+# `lyftar_has_system_files` when the system files are built in (D52), and `lyftar_has_clang` when clang comes with it (D55).
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(verus_keep_ghost)', 'cfg(lyftar_static_llvm)', 'cfg(lyftar_has_lld)', 'cfg(lyftar_has_system_files)', 'cfg(lyftar_has_clang)'] }
 
 [build-dependencies]
 cc = "1"

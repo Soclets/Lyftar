@@ -63,6 +63,17 @@ fn main() -> Result<(), String> {
             println!("cargo:rustc-link-lib=dylib={name}");
         }
     }
+    // trace: D55
+    // clang's libraries come with Lyftar's static LLVM from its `r2` files (D59), for compiling C. They go before the LLVM
+    // libraries they use, in the order clang's own CMake exports give, since Linux's linker reads each library once.
+    let clang_libraries = if is_static && !is_msvc { clang_libraries(Path::new(&library_directory))? } else { None };
+    let has_clang = clang_libraries.is_some();
+    if let Some(names) = &clang_libraries {
+        println!("cargo:rustc-cfg=lyftar_has_clang");
+        for name in names {
+            println!("cargo:rustc-link-lib=static={name}");
+        }
+    }
     let libraries = if is_static {
         run(&llvm_config, &["--link-static", if is_msvc { "--libnames" } else { "--libs" }, "--system-libs"])?
     } else {
@@ -92,8 +103,11 @@ fn main() -> Result<(), String> {
         println!("cargo:rustc-link-lib=dylib=Remarks");
     }
 
-    compile_shim(&llvm_config, has_lld)?;
+    compile_shim(&llvm_config, has_lld, has_clang)?;
     embed_system_files(has_lld)?;
+    if has_clang {
+        embed_clang_headers(Path::new(&library_directory))?;
+    }
 
     let target = std::env::var("CARGO_CFG_TARGET_OS").map_err(|error| format!("no target from Cargo: {error}"))?;
     if target != "macos" {
@@ -103,7 +117,7 @@ fn main() -> Result<(), String> {
 }
 
 // trace: D25
-fn compile_shim(llvm_config: &Path, has_lld: bool) -> Result<(), String> {
+fn compile_shim(llvm_config: &Path, has_lld: bool, has_clang: bool) -> Result<(), String> {
     let is_msvc = std::env::var("CARGO_CFG_TARGET_ENV").is_ok_and(|environment| environment == "msvc");
     let mut shim = cc::Build::new();
     shim.cpp(true)
@@ -111,6 +125,7 @@ fn compile_shim(llvm_config: &Path, has_lld: bool) -> Result<(), String> {
         .file("shim/passes.cpp")
         .file("shim/garbage_collection.cpp")
         .files(has_lld.then_some("shim/link.cpp"))
+        .files(has_clang.then_some("shim/compile.cpp"))
         .warnings(true)
         .extra_warnings(true)
         .warnings_into_errors(!is_msvc);
@@ -240,6 +255,110 @@ fn download(name: &str, hash: &str) -> Result<PathBuf, String> {
     let _ = std::fs::remove_dir_all(&work);
     Ok(unpacked)
 }
+
+// trace: D55
+/// The clang libraries `compile_c` needs, dependencies after what uses them, read from clang's CMake exports beside the libraries;
+/// or nothing, if this LLVM has no clang.
+fn clang_libraries(library_directory: &Path) -> Result<Option<Vec<String>>, String> {
+    let exports = library_directory.join("cmake/clang/ClangTargets.cmake");
+    let Ok(text) = std::fs::read_to_string(&exports) else {
+        return Ok(None);
+    };
+    // Each library's line: `INTERFACE_LINK_LIBRARIES "clangAST;clangBasic;LLVMCore;..."`, after the line naming it.
+    let mut dependencies: std::collections::BTreeMap<String, Vec<String>> = std::collections::BTreeMap::new();
+    let mut current = None;
+    for line in text.lines() {
+        if let Some(rest) = line.strip_prefix("set_target_properties(") {
+            current = rest.split_whitespace().next().map(str::to_string);
+        } else if let (Some(name), Some(list)) = (&current, line.trim().strip_prefix("INTERFACE_LINK_LIBRARIES \"")) {
+            let list = list.trim_end_matches('"');
+            dependencies
+                .entry(name.clone())
+                .or_default()
+                .extend(list.split(';').filter(|library| library.starts_with("clang")).map(str::to_string));
+        }
+    }
+    // Depth first from what the shim calls, so each library comes before everything it needs.
+    fn visit(
+        name: &str,
+        dependencies: &std::collections::BTreeMap<String, Vec<String>>,
+        done: &mut std::collections::BTreeSet<String>,
+        order: &mut Vec<String>,
+    ) {
+        if !done.insert(name.to_string()) {
+            return;
+        }
+        for dependency in dependencies.get(name).into_iter().flatten() {
+            visit(dependency, dependencies, done, order);
+        }
+        order.push(name.to_string());
+    }
+    let mut done = std::collections::BTreeSet::new();
+    let mut order = Vec::new();
+    for root in ["clangCodeGen", "clangFrontend", "clangDriver"] {
+        visit(root, &dependencies, &mut done, &mut order);
+    }
+    order.reverse();
+    for name in &order {
+        if !library_directory.join(format!("lib{name}.a")).exists() {
+            return Ok(None);
+        }
+    }
+    Ok(Some(order))
+}
+
+// trace: D55, D60
+/// clang's own headers, the ones C on ARM and x86 can reach, built into Lyftar as they are, so `compile_c` needs nothing
+/// installed. GPU, OpenCL and other processors' headers are left out.
+fn embed_clang_headers(library_directory: &Path) -> Result<(), String> {
+    let folder = library_directory.join(format!("clang/{LLVM_MAJOR}/include"));
+    let entries =
+        std::fs::read_dir(&folder).map_err(|error| format!("clang's headers, {}: {error}", folder.display()))?;
+    let mut names: Vec<String> = entries
+        .filter_map(Result::ok)
+        .filter(|entry| entry.file_type().is_ok_and(|kind| kind.is_file()))
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|name| name.ends_with(".h") && !LEFT_OUT_HEADERS.iter().any(|prefix| name.starts_with(prefix)))
+        .collect();
+    names.sort();
+    let mut entries = String::from("pub(crate) static FILES: &[(&str, &[u8])] = &[\n");
+    for name in &names {
+        entries.push_str(&format!("    ({name:?}, include_bytes!({:?})),\n", folder.join(name).display().to_string()));
+    }
+    entries.push_str("];\n");
+    let out_directory =
+        PathBuf::from(std::env::var("OUT_DIR").map_err(|error| format!("no OUT_DIR from Cargo: {error}"))?);
+    std::fs::write(out_directory.join("clang_headers.rs"), entries)
+        .map_err(|error| format!("writing clang_headers.rs: {error}"))
+}
+
+/// clang's headers for what Lyftar doesn't compile C for: GPUs, OpenCL, and other processors.
+const LEFT_OUT_HEADERS: &[&str] = &[
+    "__clang_cuda",
+    "__clang_hip",
+    "__clang_spirv",
+    "altivec",
+    "amdgpuintrin",
+    "andes_",
+    "gpuintrin",
+    "hexagon",
+    "htmintrin",
+    "htmxlintrin",
+    "hvx_",
+    "larchintrin",
+    "lasxintrin",
+    "lsxintrin",
+    "msa.h",
+    "nvptxintrin",
+    "opencl-",
+    "riscv_",
+    "s390intrin",
+    "sifive_",
+    "spirvintrin",
+    "vecintrin",
+    "velintrin",
+    "wasm_",
+];
 
 // trace: D51, D52
 /// The system files each target needs to link: the published ones, built into Lyftar so a compiler carries them, or none if

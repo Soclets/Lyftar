@@ -106,7 +106,7 @@ impl SystemTarget {
 }
 
 /// The oldest macOS a program linked for [`SystemTarget::MacOsAarch64`] runs on: the first on Apple Silicon.
-const OLDEST_MAC_OS: &str = "11.0";
+pub(crate) const OLDEST_MAC_OS: &str = "11.0";
 
 // trace: D49, D51, D52
 /// Links object files, and archives of them, into a program for `target`, adding the system files it needs, with lld inside

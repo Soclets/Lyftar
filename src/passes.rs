@@ -589,7 +589,7 @@ impl<'context, 'module> Loop<'context, 'module> {
     }
 }
 
-/// How hard a default pipeline optimizes, as an extension point is told.
+/// How hard a default pipeline optimizes, as an extension point is told, and how hard [`compile_c`](crate::compile_c) does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OptimizationLevel {
     /// `O0`.

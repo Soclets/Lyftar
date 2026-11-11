@@ -26,6 +26,7 @@ pub mod bitcode;
 pub mod blake3;
 pub mod builder;
 mod checks;
+pub mod compiling;
 pub mod constants;
 pub mod context;
 pub mod debug_info;
@@ -58,6 +59,7 @@ pub mod values;
 
 pub use basic_block::BasicBlock;
 pub use builder::Builder;
+pub use compiling::compile_c;
 pub use context::{Context, with_context};
 pub use linking::{link, lld};
 pub use module::{Module, OwnedModule};

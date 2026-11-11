@@ -27,8 +27,14 @@ fn llvm_flags() -> Vec<String> {
     flags
 }
 
-const SHIM: [&str; 5] =
-    ["shim/shim.cpp", "shim/passes.cpp", "shim/garbage_collection.cpp", "shim/link.cpp", "shim/shim.h"];
+const SHIM: [&str; 6] = [
+    "shim/shim.cpp",
+    "shim/passes.cpp",
+    "shim/garbage_collection.cpp",
+    "shim/link.cpp",
+    "shim/compile.cpp",
+    "shim/shim.h",
+];
 
 #[test]
 fn decision_27_the_shim_is_formatted_in_llvms_style() {
@@ -46,8 +52,9 @@ fn decision_27_clang_tidy_passes_on_the_shim_with_warnings_as_errors() {
     let output = Command::new(llvm_tool("clang-tidy"))
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .args(["shim/shim.cpp", "shim/passes.cpp", "shim/garbage_collection.cpp"])
-        // lld's headers only come with an LLVM that has lld, as Lyftar's own does (D52).
+        // lld's and clang's headers only come with an LLVM that has them, as Lyftar's own does (D52, D55).
         .args(if cfg!(lyftar_has_lld) { &["shim/link.cpp"][..] } else { &[] })
+        .args(if cfg!(lyftar_has_clang) { &["shim/compile.cpp"][..] } else { &[] })
         .arg("--")
         .args(llvm_flags())
         .output()
