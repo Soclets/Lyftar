@@ -314,3 +314,7 @@ proposed the name; the owner chose it: "yea". (Owner, 2026-11-11)
 **D57. `compile_c`'s optimization level is the caller's.** The options for `lyftar::compile_c` (D55) carry an optimization level, with
 `-O2` as the default, so a debug build can compile C at `-O0`. Lyftar impl asked; Claude proposed it; the owner chose it: "yea".
 (Owner, 2026-11-11)
+
+**D58. `compile_c` takes defines.** The options for `lyftar::compile_c` carry defines, as `-DNAME` or `-DNAME=VALUE`, so a caller can
+switch parts of the C code on or off without editing it, such as CORE-MATH's `printf` debugging. Lyftar impl asked; Claude proposed
+it; the owner chose it: "yea". (Owner, 2026-11-11)
