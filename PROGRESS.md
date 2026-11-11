@@ -91,6 +91,24 @@ Then RuntimeDyld couldn't find `DW.ref.__gcc_personality_v0` on Linux on ARM: Ly
 symbols code generation adds (3c0e2c7). CI passes on all six jobs at 3c0e2c7, and the self-contained test runs and passes on
 GitHub's macOS, Linux on ARM and Linux on x86-64. D49 is done.
 
+## Compiling C with clang inside (D55): what the prototype found
+
+A scratch program linked clang's libraries statically with the same static LLVM as D50 (no RTTI; AArch64, ARM and X86), built in
+`/Users/ts/llvm-self-contained/build-distribution` with `clang` added to the projects (about 5 minutes on 3 cores). It turns driver
+arguments into a compile job with clang's `createInvocation`, which always adds `-fsyntax-only`, so `-c` and `-o` are taken out and
+the output file is set on the job, then runs `EmitObjAction` in-process.
+
+- CORE-MATH at 018fa97: `sin`, `cos`, `exp`, `log`, `pow`, `atan2` and `hypot` compile for the Cortex-M4 (`thumbv7em-none-eabihf`,
+  `cortex-m4`, hard float, `fpv4-sp-d16`), macOS on ARM, and Linux on ARM and x86-64 (musl), at -O2. The disassembly is identical to
+  Homebrew's `clang` 23.1.2 given the same arguments. The Cortex-M4 `sin` needs only compiler-rt's `__aeabi_d*` and `fma` and `round`.
+- With `-nostdlibinc`, the job searches clang's own headers and the caller's `-I` folders, nothing else, on every target. Libc
+  headers are the caller's: the test used small stubs of `fenv.h`, `errno.h`, `math.h`, `inttypes.h`, `stdlib.h` and `stdio.h`.
+- Sixteen compiles on sixteen threads in one process, each with its own `CompilerInstance`, gave the same bytes as one at a time.
+  Unlike lld, it needs no lock. (That run briefly used more than rule 11's 3 cores.)
+- Size: clang adds 34 MB to a stripped compiler (`clangSema` 9.1, `clangAST` 7.4, `clangCodeGen` 5.1, `clangBasic` 3.8 MB). Its
+  21 libraries and C++ headers add 16 MB to each host's `.tar.xz`. clang's resource headers are 16 MB; the ones C on ARM and x86 can
+  reach are 200 files, 11 MB, or 0.5 MB compressed.
+
 ## Waiting on design claude
 
 Nothing. D30 to D46 are built.
