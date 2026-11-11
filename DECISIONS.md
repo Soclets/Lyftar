@@ -318,3 +318,8 @@ proposed the name; the owner chose it: "yea". (Owner, 2026-11-11)
 **D58. `compile_c` takes defines.** The options for `lyftar::compile_c` carry defines, as `-DNAME` or `-DNAME=VALUE`, so a caller can
 switch parts of the C code on or off without editing it, such as CORE-MATH's `printf` debugging. Lyftar impl asked; Claude proposed
 it; the owner chose it: "yea". (Owner, 2026-11-11)
+
+**D59. Rebuilt files get new names.** A published file is never replaced. When what's inside changes within one LLVM version, as
+adding clang does, the new files get a revision in their name, such as `lyftar-llvm-23.1.2-r2-aarch64-apple-darwin.tar.xz`, in the
+same release, with new hashes in `build.rs`. The owner said yes to publishing these `r2` files. Lyftar impl asked; Claude proposed it;
+the owner chose it: "yea". (Owner, 2026-11-11)
