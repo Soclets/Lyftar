@@ -1,9 +1,9 @@
-# trace: D49, D50, D51
-# Builds static LLVM and lld for each host, with the optional parts that need other shared libraries turned off, and the system files
+# trace: D49, D50, D51, D55, D59
+# Builds static LLVM, lld and clang for each host, with the optional parts that need other shared libraries turned off, and the system files
 # each target needs to link, and publishes them on this repository's releases with their hashes. `build.rs` downloads the ones for its
 # host and checks them against the hashes committed in it. Run it by hand for each LLVM release (Actions, "static LLVM", Run
 # workflow); the owner gave a standing yes. Publishing adds what a release lacks and never replaces a file, since `build.rs` holds
-# the hashes of the ones there.
+# the hashes of the ones there. A rebuild within one LLVM version gets a revision in its name instead, such as `r2` (D59).
 name: static LLVM
 
 on:
@@ -16,6 +16,9 @@ on:
         description: Only the system files, for a release that has its LLVM already
         type: boolean
         default: false
+      revision:
+        description: A revision for rebuilt LLVM files, such as r2, which leaves the system files alone
+        default: ""
 
 permissions:
   contents: write
@@ -36,7 +39,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       VERSION: ${{ inputs.version }}
-      NAME: lyftar-llvm-${{ inputs.version }}-${{ matrix.host }}
+      NAME: ${{ inputs.revision && format('lyftar-llvm-{0}-{1}-{2}', inputs.version, inputs.revision, matrix.host) || format('lyftar-llvm-{0}-{1}', inputs.version, matrix.host) }}
     steps:
       - name: Tools
         run: |
@@ -47,12 +50,19 @@ jobs:
           tar -xf source.tar.xz
           mv "llvm-project-${VERSION}.src" source
       # What Lyftar needs, and the tools its tests read objects with. Everything that would need another shared library is off.
+      # clang's libraries and headers are for compiling C (D55), and the parts of clang that do more than that are off.
       - name: Configure
         run: |
           cmake -G Ninja -S source/llvm -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="$PWD/$NAME" \
-            -DLLVM_ENABLE_PROJECTS=lld \
+            -DLLVM_ENABLE_PROJECTS="lld;clang" \
+            -DCLANG_ENABLE_STATIC_ANALYZER=OFF \
+            -DCLANG_ENABLE_OBJC_REWRITER=OFF \
+            -DCLANG_PLUGIN_SUPPORT=OFF \
+            -DCLANG_INCLUDE_TESTS=OFF \
+            -DCLANG_INCLUDE_DOCS=OFF \
+            -DCLANG_BUILD_EXAMPLES=OFF \
             -DLLVM_TARGETS_TO_BUILD="AArch64;ARM;X86" \
             -DBUILD_SHARED_LIBS=OFF \
             -DLLVM_BUILD_LLVM_DYLIB=OFF \
@@ -70,7 +80,7 @@ jobs:
             -DLLVM_INCLUDE_EXAMPLES=OFF \
             -DLLVM_INCLUDE_DOCS=OFF \
             -DLLVM_INSTALL_UTILS=OFF \
-            -DLLVM_DISTRIBUTION_COMPONENTS="llvm-libraries;llvm-headers;llvm-config;cmake-exports;lld-headers;lldCommon;lldELF;lldMachO;lldCOFF;lldWasm;lldMinGW;lld;opt;llc;llvm-readobj;llvm-objdump;llvm-ar"
+            -DLLVM_DISTRIBUTION_COMPONENTS="llvm-libraries;llvm-headers;llvm-config;cmake-exports;lld-headers;lldCommon;lldELF;lldMachO;lldCOFF;lldWasm;lldMinGW;lld;opt;llc;llvm-readobj;llvm-objdump;llvm-ar;clang-libraries;clang-headers;clang-resource-headers;clang-cmake-exports"
       - name: Build
         run: ninja -C build install-distribution
       # LLVM only builds the C APIs of `lto.h` and `Remarks.h` as shared libraries, so these are compiled as static ones here.
@@ -89,6 +99,7 @@ jobs:
         run: |
           cp source/llvm/LICENSE.TXT "$NAME/LICENSE-LLVM.txt"
           cp source/lld/LICENSE.TXT "$NAME/LICENSE-lld.txt"
+          cp source/clang/LICENSE.TXT "$NAME/LICENSE-clang.txt"
       - name: Package
         run: |
           tar -cJf "$NAME.tar.xz" "$NAME"
@@ -106,6 +117,7 @@ jobs:
   # What each target needs to link, with no SDK or libc installed: static musl and compiler-rt's builtins for Linux, and the builtins
   # alone for bare metal. Built with the Clang of the same LLVM version.
   system:
+    if: ${{ !inputs.revision }}
     runs-on: ubuntu-24.04
     env:
       VERSION: ${{ inputs.version }}
