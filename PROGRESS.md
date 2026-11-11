@@ -109,6 +109,15 @@ the output file is set on the job, then runs `EmitObjAction` in-process.
   21 libraries and C++ headers add 16 MB to each host's `.tar.xz`. clang's resource headers are 16 MB; the ones C on ARM and x86 can
   reach are 200 files, 11 MB, or 0.5 MB compressed.
 
+Built (D55 to D60): `lyftar::compile_c` with `CCompileOptions` (optimization level, include folders, defines), `shim/compile.cpp`,
+clang's 24 static libraries linked in the order `ClangTargets.cmake` gives, and the ARM and x86 C headers built in. `llvm.yml`
+published `lyftar-llvm-23.1.2-r2-<host>` with clang (macOS 102 MB, Linux ARM 138 MB, Linux x86 150 MB, up 17 to 22 MB), and
+`build.rs` downloads them. The sandboxed D49 test compiles C for all four targets and links it in.
+
+Measured, release and stripped: a link-only compiler is 66.0 MB without clang in Lyftar and 74.6 MB with it, never calling
+`compile_c`, because the object holding `link`'s code also holds `compile_c`'s, and clang's static initializers keep 8.6 MB alive;
+the D49 example, which calls `compile_c`, is 115.0 MB. Whether to put `compile_c` behind a Cargo feature is with Tankun.
+
 ## Waiting on design claude
 
 Nothing. D30 to D46 are built.

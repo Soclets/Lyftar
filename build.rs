@@ -177,12 +177,15 @@ fn generate(_include_directory: &Path) -> Result<(), String> {
 }
 
 // trace: D50
-/// The LLVM version Lyftar's published static LLVM and lld are, and each host's file's SHA-256, from the release `llvm.yml` made.
+/// The LLVM version Lyftar's published static LLVM, lld and clang are, the revision of its files, and each host's file's SHA-256,
+/// from the release `llvm.yml` made. `r2` added clang (D55, D59).
 const PUBLISHED_VERSION: &str = "23.1.2";
+// trace: D59
+const PUBLISHED_REVISION: &str = "r2";
 const PUBLISHED: &[(&str, &str)] = &[
-    ("aarch64-apple-darwin", "fdd0b1238955ec34dcb5a19f9c4bca5e9783e4c3ec5fe7ea36e4d923ffc7793e"),
-    ("aarch64-unknown-linux-gnu", "6c5f331f3d60f5272f3024d5e7e254d9519ec2a0520e6807e8812d35a31026a0"),
-    ("x86_64-unknown-linux-gnu", "0d1aaf0ff83fe655df6f693e0d04c68d030b58660532237aa6c0eb530da850fe"),
+    ("aarch64-apple-darwin", "3b427b08f3ab4c566686098bb0b1475b8b95f90d60b1cb1d78f9c9a3672d2040"),
+    ("aarch64-unknown-linux-gnu", "b477353bf9c4ac60765e315db45d2b88c7bcd8c6db3866e527b0af5d35dc9ea6"),
+    ("x86_64-unknown-linux-gnu", "f221bd87b6026b60b6c0491ba3980a6bfd61110151dd614a0bf40bb7a58e1eb1"),
 ];
 /// The SHA-256 of the system files' file, the same for every host.
 const PUBLISHED_SYSTEM_FILES: &str = "8ba052aa9672ce031c9c211b2ad0a2d7e83056efc51e81968f8e097322d08f87";
@@ -199,7 +202,7 @@ fn find_llvm_config() -> Result<PathBuf, String> {
             "Lyftar has no static LLVM {PUBLISHED_VERSION} published for {target}; set LYFTAR_LLVM_CONFIG to an llvm-config for LLVM {LLVM_MAJOR}"
         ));
     };
-    let unpacked = download(&format!("lyftar-llvm-{PUBLISHED_VERSION}-{target}"), hash)?;
+    let unpacked = download(&format!("lyftar-llvm-{PUBLISHED_VERSION}-{PUBLISHED_REVISION}-{target}"), hash)?;
     Ok(unpacked.join("bin/llvm-config"))
 }
 
