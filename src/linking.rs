@@ -78,8 +78,10 @@ fn run_lld(_arguments: &[*const c_char], _cannot_run_again: &mut bool) -> Result
 }
 
 /// What [`link`] links for: the system and processor a program runs on, which says which system files it needs (D51).
+// trace: D55, D56
+// Named for the system rather than the link, since compiling C for one shares it (D55).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum LinkTarget {
+pub enum SystemTarget {
     /// macOS on Apple Silicon. Lyftar writes the `libSystem` stub itself, from the symbols the objects need.
     MacOsAarch64,
     /// Linux on ARM, linked statically with musl and compiler-rt's builtins into one standalone file.
@@ -91,19 +93,19 @@ pub enum LinkTarget {
     CortexM4,
 }
 
-impl LinkTarget {
+impl SystemTarget {
     /// The folder of the system files it needs.
     fn system_folder(self) -> &'static str {
         match self {
-            LinkTarget::MacOsAarch64 => "macos-aarch64",
-            LinkTarget::LinuxAarch64 => "linux-aarch64",
-            LinkTarget::LinuxX86_64 => "linux-x86_64",
-            LinkTarget::CortexM4 => "cortex-m4",
+            SystemTarget::MacOsAarch64 => "macos-aarch64",
+            SystemTarget::LinuxAarch64 => "linux-aarch64",
+            SystemTarget::LinuxX86_64 => "linux-x86_64",
+            SystemTarget::CortexM4 => "cortex-m4",
         }
     }
 }
 
-/// The oldest macOS a program linked for [`LinkTarget::MacOsAarch64`] runs on: the first on Apple Silicon.
+/// The oldest macOS a program linked for [`SystemTarget::MacOsAarch64`] runs on: the first on Apple Silicon.
 const OLDEST_MAC_OS: &str = "11.0";
 
 // trace: D49, D51, D52
@@ -119,12 +121,12 @@ const OLDEST_MAC_OS: &str = "11.0";
 /// If a path isn't valid UTF-8 or has a NUL byte inside it, or a linker script is given for a target that isn't bare metal (D3).
 #[track_caller]
 pub fn link(
-    target: LinkTarget,
+    target: SystemTarget,
     objects: &[&Path],
     output: &Path,
     linker_script: Option<&Path>,
 ) -> Result<String, Error> {
-    if linker_script.is_some() && target != LinkTarget::CortexM4 {
+    if linker_script.is_some() && target != SystemTarget::CortexM4 {
         bad_call(format_args!("link: a linker script is for bare metal, and {target:?} isn't"));
     }
     let text = |path: &Path| -> String {
@@ -142,7 +144,7 @@ pub fn link(
     let in_system = |file: &str| text(&system.join(file));
     let mut arguments: Vec<String> = Vec::new();
     let flavor = match target {
-        LinkTarget::MacOsAarch64 => {
+        SystemTarget::MacOsAarch64 => {
             // A folder for each link, since two links can write their stubs while one of them runs.
             static LINKS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
             let stub_folder = system.join(format!("link-{}", LINKS.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));
@@ -157,7 +159,7 @@ pub fn link(
             arguments.extend(objects);
             LldFlavor::Darwin
         }
-        LinkTarget::LinuxAarch64 | LinkTarget::LinuxX86_64 => {
+        SystemTarget::LinuxAarch64 | SystemTarget::LinuxX86_64 => {
             // Not position-independent, since a stack map holds addresses in a read-only section (D45).
             arguments.push("-static".to_string());
             arguments.extend([in_system("crt1.o"), in_system("crti.o")]);
@@ -165,7 +167,7 @@ pub fn link(
             arguments.extend([in_system("libc.a"), in_system("libclang_rt.builtins.a"), in_system("crtn.o")]);
             LldFlavor::Gnu
         }
-        LinkTarget::CortexM4 => {
+        SystemTarget::CortexM4 => {
             if let Some(script) = script {
                 arguments.extend(["-T".to_string(), script]);
             }

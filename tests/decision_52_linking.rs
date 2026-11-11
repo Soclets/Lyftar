@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use lyftar::linking::{LinkTarget, LldFlavor};
+use lyftar::linking::{LldFlavor, SystemTarget};
 use lyftar::{link, lld};
 
 #[cfg(lyftar_has_lld)]
@@ -32,7 +32,7 @@ fn decision_3_an_lld_argument_with_a_nul_panics() {
 #[test]
 #[should_panic(expected = "link: a linker script is for bare metal, and LinuxAarch64 isn't")]
 fn decision_3_a_linker_script_for_a_target_that_is_not_bare_metal_panics() {
-    let _ = link(LinkTarget::LinuxAarch64, &[], Path::new("never"), Some(Path::new("script.ld")));
+    let _ = link(SystemTarget::LinuxAarch64, &[], Path::new("never"), Some(Path::new("script.ld")));
 }
 
 #[cfg(unix)]
@@ -41,5 +41,5 @@ fn decision_3_a_linker_script_for_a_target_that_is_not_bare_metal_panics() {
 fn decision_3_a_path_that_is_not_text_panics() {
     use std::os::unix::ffi::OsStrExt;
     let object = Path::new(std::ffi::OsStr::from_bytes(b"object\xff.o"));
-    let _ = link(LinkTarget::LinuxAarch64, &[object], Path::new("never"), None);
+    let _ = link(SystemTarget::LinuxAarch64, &[object], Path::new("never"), None);
 }

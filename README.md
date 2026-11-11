@@ -199,11 +199,11 @@ are built into Lyftar, so the compiler is one file of about 60 to 90 MB that nee
 ```rust,no_run
 use std::path::Path;
 use lyftar::link;
-use lyftar::linking::LinkTarget;
+use lyftar::linking::SystemTarget;
 
 # fn run() -> Result<(), lyftar::error::Error> {
-link(LinkTarget::LinuxAarch64, &[Path::new("program.o")], Path::new("program"), None)?;
-link(LinkTarget::CortexM4, &[Path::new("firmware.o")], Path::new("firmware.elf"), Some(Path::new("memory.ld")))?;
+link(SystemTarget::LinuxAarch64, &[Path::new("program.o")], Path::new("program"), None)?;
+link(SystemTarget::CortexM4, &[Path::new("firmware.o")], Path::new("firmware.elf"), Some(Path::new("memory.ld")))?;
 # Ok(())
 # }
 ```

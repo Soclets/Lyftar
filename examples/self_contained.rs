@@ -4,17 +4,17 @@
 
 use std::path::{Path, PathBuf};
 
-use lyftar::linking::LinkTarget;
+use lyftar::linking::SystemTarget;
 use lyftar::target::{CodeGenerationFileType, CodeGenerationOptimizationLevel, CodeModel, RelocationMode, Target};
 use lyftar::{Bits, Builder, Integer, link, with_context};
 
 type I32 = Integer<Bits<32>>;
 
 /// The objects and links, for each target: its triple, CPU, where the program goes, and the target to link for.
-const HELLOS: [(&str, &str, &str, LinkTarget); 3] = [
-    ("arm64-apple-macosx11.0.0", "apple-m1", "hello-macos", LinkTarget::MacOsAarch64),
-    ("aarch64-unknown-linux-musl", "generic", "hello-linux-aarch64", LinkTarget::LinuxAarch64),
-    ("x86_64-unknown-linux-musl", "x86-64", "hello-linux-x86_64", LinkTarget::LinuxX86_64),
+const HELLOS: [(&str, &str, &str, SystemTarget); 3] = [
+    ("arm64-apple-macosx11.0.0", "apple-m1", "hello-macos", SystemTarget::MacOsAarch64),
+    ("aarch64-unknown-linux-musl", "generic", "hello-linux-aarch64", SystemTarget::LinuxAarch64),
+    ("x86_64-unknown-linux-musl", "x86-64", "hello-linux-x86_64", SystemTarget::LinuxX86_64),
 ];
 
 /// `main` calls `printf` with a greeting that says where it runs.
@@ -109,11 +109,11 @@ fn main() {
     write(&object, &cortex_m4_object());
     let script = folder.join("cortex-m4.ld");
     write(&script, LINKER_SCRIPT.as_bytes());
-    link(LinkTarget::CortexM4, &[&object], &folder.join("cortex-m4.elf"), Some(&script))
+    link(SystemTarget::CortexM4, &[&object], &folder.join("cortex-m4.elf"), Some(&script))
         .unwrap_or_else(|error| panic!("cortex-m4: {}", error.message()));
     println!("linked cortex-m4.elf");
     // Twice in one process, as a compiler that builds several programs does (D52).
-    link(LinkTarget::CortexM4, &[&object], &folder.join("cortex-m4-again.elf"), Some(&script))
+    link(SystemTarget::CortexM4, &[&object], &folder.join("cortex-m4-again.elf"), Some(&script))
         .unwrap_or_else(|error| panic!("cortex-m4 again: {}", error.message()));
     println!("linked cortex-m4-again.elf");
 }
