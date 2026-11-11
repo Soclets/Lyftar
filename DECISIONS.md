@@ -306,3 +306,7 @@ does, and no clang driver beyond what that needs. Lyftar ships clang's own heade
 build session tries it and measures the size first, then brings the API to the owner. Cyborg asked, so that its compiler can build
 CORE-MATH, which needs clang 14 or later, for each target (Cyborg's D308); Claude proposed this scope; the owner chose it: "yes".
 (Owner, 2026-11-11)
+
+**D56. `SystemTarget`.** D52's `LinkTarget` is renamed `SystemTarget`, since `lyftar::link` and `lyftar::compile_c` (D55) share it,
+and plain `Target` is already LLVM's target. This changes D52's public API while only Cyborg uses it. Lyftar impl asked; Claude
+proposed the name; the owner chose it: "yea". (Owner, 2026-11-11)
