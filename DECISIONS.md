@@ -323,3 +323,6 @@ it; the owner chose it: "yea". (Owner, 2026-11-11)
 adding clang does, the new files get a revision in their name, such as `lyftar-llvm-23.1.2-r2-aarch64-apple-darwin.tar.xz`, in the
 same release, with new hashes in `build.rs`. The owner said yes to publishing these `r2` files. Lyftar impl asked; Claude proposed it;
 the owner chose it: "yea". (Owner, 2026-11-11)
+
+**D60. clang's headers stay uncompressed.** The C headers `compile_c` needs are embedded as they are, about 11 MB, with no decompression
+library. Lyftar impl asked; Claude proposed it; the owner chose: "not". (Owner, 2026-11-11)
