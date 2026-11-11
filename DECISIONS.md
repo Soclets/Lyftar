@@ -310,3 +310,7 @@ CORE-MATH, which needs clang 14 or later, for each target (Cyborg's D308); Claud
 **D56. `SystemTarget`.** D52's `LinkTarget` is renamed `SystemTarget`, since `lyftar::link` and `lyftar::compile_c` (D55) share it,
 and plain `Target` is already LLVM's target. This changes D52's public API while only Cyborg uses it. Lyftar impl asked; Claude
 proposed the name; the owner chose it: "yea". (Owner, 2026-11-11)
+
+**D57. `compile_c`'s optimization level is the caller's.** The options for `lyftar::compile_c` (D55) carry an optimization level, with
+`-O2` as the default, so a debug build can compile C at `-O0`. Lyftar impl asked; Claude proposed it; the owner chose it: "yea".
+(Owner, 2026-11-11)
