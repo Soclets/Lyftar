@@ -326,3 +326,8 @@ the owner chose it: "yea". (Owner, 2026-11-11)
 
 **D60. clang's headers stay uncompressed.** The C headers `compile_c` needs are embedded as they are, about 11 MB, with no decompression
 library. Lyftar impl asked; Claude proposed it; the owner chose: "not". (Owner, 2026-11-11)
+
+**D61. clang's 8.6 MB is accepted.** A compiler built on Lyftar that never calls `compile_c` still carries about 8.6 MB of clang,
+because Rust bundles `compile_c`'s code with code every compiler uses. There's no Cargo feature and no separate crate for it, keeping D2
+and D16's single crate with nothing to configure. Lyftar impl measured it and suggested a feature, off by default; Claude suggested a
+separate crate; the owner chose: "(b)". (Owner, 2026-11-12)
