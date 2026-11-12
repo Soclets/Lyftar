@@ -4,6 +4,11 @@
 //! Only C, only to an object: [`link`](crate::link) links it. clang's own headers, the ones C on ARM and x86 can reach, are built
 //! in (D60). Libc's headers are the caller's, through [`CCompileOptions::include_folders`]: no system folder is searched. Compiles
 //! can run at once, each with a compiler of its own.
+//!
+//! A compiler that never calls [`compile_c`] still carries about 8.6 MB of clang, which the README measures.
+
+// trace: D61
+// No Cargo feature leaves clang out: Lyftar stays one crate with nothing to configure.
 
 use std::ffi::CString;
 use std::path::{Path, PathBuf};

@@ -193,8 +193,8 @@ and `shadow-stack` name their registers, so they work there (D54).
 
 A compiler built on Lyftar can build and link for macOS on Apple Silicon, Linux on ARM and x86-64, and a Cortex-M4 with nothing
 else installed: no LLVM, no linker and no SDK (D49). With the default, downloaded LLVM, lld and the system files each target needs
-are built into Lyftar, so the compiler is one file of about 60 to 90 MB that needs only the system's own libraries. Link with
-`lyftar::link`:
+are built into Lyftar, so the compiler is one file that needs only the system's own libraries, of about 75 MB, or 115 MB if it
+compiles C (see below). Link with `lyftar::link`:
 
 ```rust,no_run
 use std::path::Path;
@@ -250,8 +250,21 @@ print!("{warnings}");
   32-bit processor where `__int128` doesn't.
 - What clang printed comes back: its warnings when the object was written, and its errors as the error when it wasn't. Compiles
   can run at once on several threads.
-- clang adds about 34 MB to a compiler that calls `compile_c`, and its licence is in the downloaded files as `LICENSE-clang.txt`.
-  With an LLVM of your own, `compile_c` works only if it is static and its library folder has clang's libraries.
+- clang's licence is in the downloaded files as `LICENSE-clang.txt`. With an LLVM of your own, `compile_c` works only if it is static
+  and its library folder has clang's libraries.
+
+What clang costs, measured on macOS on Apple Silicon with release builds, stripped (D61):
+
+| | Size |
+|---|---|
+| A compiler that links, built on a Lyftar without clang | 66.0 MB |
+| The same compiler on this Lyftar, never calling `compile_c` | 74.6 MB |
+| A compiler that also calls `compile_c` (`examples/self_contained.rs`) | 115.0 MB |
+| The downloaded LLVM, per host, with clang | 102 to 150 MB, 17 to 22 MB more than without |
+
+A compiler that never compiles C still carries 8.6 MB of clang: Rust puts `compile_c`'s code in the same object file as code every
+compiler uses, and once that file is linked, clang's start-up code keeps part of clang. Calling `compile_c` adds the rest, about
+34 MB of clang and 11 MB of its headers.
 
 `tests/decision_49_self_contained.rs` builds `examples/self_contained.rs`, which compiles C and links, and runs it where it can't
 read any LLVM, lld, clang, SDK or developer tools.

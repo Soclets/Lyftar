@@ -116,7 +116,7 @@ published `lyftar-llvm-23.1.2-r2-<host>` with clang (macOS 102 MB, Linux ARM 138
 
 Measured, release and stripped: a link-only compiler is 66.0 MB without clang in Lyftar and 74.6 MB with it, never calling
 `compile_c`, because the object holding `link`'s code also holds `compile_c`'s, and clang's static initializers keep 8.6 MB alive;
-the D49 example, which calls `compile_c`, is 115.0 MB. Whether to put `compile_c` behind a Cargo feature is with Tankun.
+the D49 example, which calls `compile_c`, is 115.0 MB. Tankun accepted the 8.6 MB (D61), and the README has the figures.
 
 ## Waiting on design claude
 
